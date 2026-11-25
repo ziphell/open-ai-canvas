@@ -31,6 +31,7 @@ import {
     Info,
     LayoutGrid,
     Store,
+    Download,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -57,6 +58,7 @@ import {
     setSkillLibraryCategory,
     syncSkill,
     unlikeSkill,
+    updateSkillFromMarket,
     type Skill,
     type SkillCategory,
     type SkillLibraryCategory,
@@ -114,7 +116,6 @@ export default function SkillsPage() {
     const [libraryCategoryError, setLibraryCategoryError] = useState("");
     const [categoryEditorOpen, setCategoryEditorOpen] = useState(false);
     const [categoryName, setCategoryName] = useState("");
-    const [categoryScope, setCategoryScope] = useState<"personal" | "platform">("personal");
     const [categorySaving, setCategorySaving] = useState(false);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
@@ -288,7 +289,7 @@ export default function SkillsPage() {
     };
 
     const openWorkbench = (skill: Skill) => {
-        if (!skill.isOwner) return;
+        if (!skill.isAdded) return;
         setActiveSkill(null);
         navigate(`/skills/${encodeURIComponent(skill.skillId)}/edit`);
     };
@@ -343,10 +344,24 @@ export default function SkillsPage() {
         }
     };
 
+    const updateFromMarket = async (skill: Skill) => {
+        setMutatingID(skill.skillId);
+        try {
+            const result = await updateSkillFromMarket(skill.skillId);
+            patchSkill(result.skill);
+            message.success("已更新到广场最新内容");
+            reload();
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : "技能更新失败");
+        } finally {
+            setMutatingID("");
+        }
+    };
+
     const confirmDelete = (skill: Skill) => {
         modal.confirm({
             title: `删除“${skill.skillName}”？`,
-            content: "删除后，其他用户将无法继续使用该技能，已有加入和收藏关系也会一并移除。",
+            content: "删除后，该技能及其内容会从你的技能库移除，且不可恢复。",
             okText: "删除技能",
             okButtonProps: { danger: true },
             cancelText: "取消",
@@ -372,7 +387,7 @@ export default function SkillsPage() {
         }
         setCategorySaving(true);
         try {
-            await createSkillLibraryCategory({ name, scope: isAdmin ? categoryScope : "personal" });
+            await createSkillLibraryCategory({ name, scope: "personal" });
             message.success("技能库分类已创建");
             setCategoryEditorOpen(false);
             setCategoryName("");
@@ -423,7 +438,6 @@ export default function SkillsPage() {
 
     const openCategoryEditor = () => {
         setCategoryName("");
-        setCategoryScope("personal");
         setCategoryEditorOpen(true);
     };
 
@@ -446,6 +460,7 @@ export default function SkillsPage() {
                 onOpenWorkbench={() => openWorkbench(skill)}
                 onDelete={() => confirmDelete(skill)}
                 onSetLibraryCategory={(categoryId) => void assignLibraryCategory(skill, categoryId)}
+                onUpdate={() => void updateFromMarket(skill)}
             />
         );
     };
@@ -465,7 +480,7 @@ export default function SkillsPage() {
                 className="min-h-[188px]"
                 icon="skills"
                 title={filtersActive ? (search.trim() ? `没有找到与“${search.trim()}”相关的技能` : "没有符合筛选条件的技能") : scope === "created" ? "还没有创建技能" : scope === "public" ? "技能广场还是空的" : "这里还没有技能"}
-                description={filtersActive ? "换一个关键词或分类，或清除筛选后查看全部。" : scope === "favorites" ? "收藏的公开技能会显示在这里。" : scope === "mine" ? "从技能广场加入后会显示在这里。" : "创建并公开第一个技能，其他用户就能直接加入使用。"}
+                description={filtersActive ? "换一个关键词或分类，或清除筛选后查看全部。" : scope === "favorites" ? "收藏的公开技能会显示在这里。" : scope === "mine" ? "从技能广场加入，或上传自己的技能后，会显示在这里。" : "管理员发布技能后，会显示在这里。"}
                 action={
                     filtersActive ? (
                         <Button onClick={resetFilters}>清除筛选</Button>
@@ -610,9 +625,11 @@ export default function SkillsPage() {
                                 onReset={resetFilters}
                                 trailing={
                                     <>
-                                        <Button icon={<Sparkles className="size-4" />} onClick={() => setRecommendationsOpen(true)}>
-                                            按行业推荐
-                                        </Button>
+                                        {isAdmin ? (
+                                            <Button icon={<Sparkles className="size-4" />} onClick={() => setRecommendationsOpen(true)}>
+                                                按行业推荐
+                                            </Button>
+                                        ) : null}
                                         <Button type="primary" icon={<Plus className="size-4" />} onClick={() => setInstallOpen(true)}>
                                             安装技能
                                         </Button>
@@ -698,40 +715,9 @@ export default function SkillsPage() {
                         />
                         <span className="skills-library-category-field-hint">最多 64 个字符；名称不能与当前可用分类重名。</span>
                     </div>
-                    {isAdmin ? (
-                        <div className="skills-library-category-scope">
-                            <span className="skills-library-category-field-label">分类范围</span>
-                            <div className="skills-library-category-scope-options" role="group" aria-label="分类范围">
-                                <button type="button" className={`skills-library-category-scope-option${categoryScope === "personal" ? " is-active" : ""}`} aria-pressed={categoryScope === "personal"} onClick={() => setCategoryScope("personal")}>
-                                    <span className="skills-library-category-scope-icon">
-                                        <UserRound className="size-4" aria-hidden="true" />
-                                    </span>
-                                    <span className="skills-library-category-scope-copy">
-                                        <strong>个人分类</strong>
-                                        <small>仅你自己可见和使用</small>
-                                    </span>
-                                    {categoryScope === "personal" ? <Check className="skills-library-category-scope-check size-4" aria-hidden="true" /> : null}
-                                </button>
-                                <button type="button" className={`skills-library-category-scope-option${categoryScope === "platform" ? " is-active" : ""}`} aria-pressed={categoryScope === "platform"} onClick={() => setCategoryScope("platform")}>
-                                    <span className="skills-library-category-scope-icon">
-                                        <Globe2 className="size-4" aria-hidden="true" />
-                                    </span>
-                                    <span className="skills-library-category-scope-copy">
-                                        <strong>平台分类</strong>
-                                        <small>所有用户可见、可分配</small>
-                                    </span>
-                                    {categoryScope === "platform" ? <Check className="skills-library-category-scope-check size-4" aria-hidden="true" /> : null}
-                                </button>
-                            </div>
-                        </div>
-                    ) : null}
-                    <div className={`skills-library-category-note${categoryScope === "platform" && isAdmin ? " is-platform" : ""}`}>
+                    <div className="skills-library-category-note">
                         <Info className="size-4" aria-hidden="true" />
-                        <p>
-                            {categoryScope === "platform" && isAdmin
-                                ? "平台分类对所有用户可见、可分配，并可用于各自的技能库和画布 Agent；不会替换技能广场分类。"
-                                : "个人分类只影响你的技能库和画布 Agent。短剧影视、电商营销是技能广场的共享分类，可在左侧“技能广场”下的分类中筛选。"}
-                        </p>
+                        <p>个人分类只影响你的技能库和画布 Agent。短剧影视、电商营销是技能广场的共享分类，可在左侧“技能广场”下的分类中筛选。</p>
                     </div>
                 </div>
             </AppModal>
@@ -746,6 +732,7 @@ export default function SkillsPage() {
                 onEdit={(skill) => void openEditor(skill)}
                 onOpenWorkbench={openWorkbench}
                 onSync={(skill) => void synchronizeSkill(skill)}
+                onUpdate={(skill) => void updateFromMarket(skill)}
             />
             <SkillInstallModal
                 open={installOpen}
@@ -804,6 +791,7 @@ function SkillCard({
     onOpenWorkbench,
     onDelete,
     onSetLibraryCategory,
+    onUpdate,
 }: {
     skill: Skill;
     accentKey: string;
@@ -818,6 +806,7 @@ function SkillCard({
     onOpenWorkbench: () => void;
     onDelete: () => void;
     onSetLibraryCategory: (categoryId: string) => void;
+    onUpdate: () => void;
 }) {
     const currentLibraryCategory = libraryCategories.find((category) => category.id === skill.libraryCategoryId);
     const libraryCategoryLabel = currentLibraryCategory?.name || (skill.libraryCategoryId ? "已归类" : "未分类");
@@ -828,7 +817,9 @@ function SkillCard({
         { key: "detail", label: "查看详情" },
         ...(skill.isOwner
             ? [{ key: "workbench", label: workbenchLabel }, { key: "edit", label: "编辑技能信息" }, { type: "divider" as const }, { key: "delete", label: "删除技能", danger: true }]
-            : [{ key: "toggle-added", label: skill.isAdded ? "从我的技能移除" : "加入我的技能", disabled: loading }]),
+            : skill.isAdded
+              ? [{ key: "update", label: "更新到广场最新内容", disabled: loading || !skill.hasUpdate }, { key: "workbench", label: "编辑副本" }, { key: "edit", label: "编辑技能信息" }, { type: "divider" as const }, { key: "toggle-added", label: "从我的技能移除", disabled: loading }]
+              : [{ key: "toggle-added", label: "加入我的技能", disabled: loading }]),
     ];
     return (
         <article className={cn("product-collection-card skill-tile", skill.isAdded && "is-added")} data-accent={skillAccent(accentKey)}>
@@ -891,9 +882,16 @@ function SkillCard({
                 </span>
                 {/* 次要操作：hover / focus-within 显示，触屏常显；菜单展开时保持可见。 */}
                 <div className="skill-tile-actions">
-                    {skill.isOwner ? (
-                        <Tooltip title={workbenchLabel}>
-                            <button type="button" className="product-icon-button skill-tile-edit" aria-label={`${workbenchLabel}：${skill.skillName}`} onClick={onOpenWorkbench}>
+                    {skill.hasUpdate ? (
+                        <Tooltip title="来源广场技能已更新">
+                            <button type="button" className="product-icon-button skill-tile-update" aria-label={`更新 ${skill.skillName} 到最新`} onClick={onUpdate} disabled={loading}>
+                                <Download />
+                            </button>
+                        </Tooltip>
+                    ) : null}
+                    {skill.isAdded ? (
+                        <Tooltip title={skill.isOwner ? workbenchLabel : "编辑副本"}>
+                            <button type="button" className="product-icon-button skill-tile-edit" aria-label={`${skill.isAdded && !skill.isOwner ? "编辑副本" : workbenchLabel}：${skill.skillName}`} onClick={onOpenWorkbench}>
                                 <Pencil />
                             </button>
                         </Tooltip>
@@ -903,7 +901,7 @@ function SkillCard({
                         placement="bottomRight"
                         menu={{
                             items: menuItems,
-                            onClick: ({ key }) => (key === "detail" ? onOpen() : key === "workbench" ? onOpenWorkbench() : key === "edit" ? onEdit() : key === "delete" ? onDelete() : onAdd()),
+                            onClick: ({ key }) => (key === "detail" ? onOpen() : key === "workbench" ? onOpenWorkbench() : key === "edit" ? onEdit() : key === "delete" ? onDelete() : key === "update" ? onUpdate() : onAdd()),
                         }}
                     >
                         <button type="button" className="product-icon-button skill-tile-more" aria-label={`${skill.skillName} 更多操作`} title="更多操作">
@@ -917,8 +915,8 @@ function SkillCard({
                 作者本人的技能不需要「加入」，但也不能什么都不显示——那会让用户把「没有按钮」误判成缺少操作。 */}
             {skill.isOwner ? (
                 <div className="skill-tile-corner">
-                    <span className="skill-tile-own" title="你创建或导入的技能，其他用户可在广场加入">
-                        我的
+                    <span className="skill-tile-own" title="你创建或上传的个人技能，仅自己可见">
+                        个人
                     </span>
                 </div>
             ) : (

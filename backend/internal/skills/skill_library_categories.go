@@ -1,14 +1,12 @@
 package skills
 
 import (
-	"errors"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"yingce/backend/internal/kernel"
 	"yingce/backend/internal/model"
-
-	"gorm.io/gorm"
 )
 
 const (
@@ -39,15 +37,14 @@ type SkillLibraryCategoryAssignmentRequest struct {
 }
 
 func (s *Service) SkillLibraryCategories(userID string, scope string) (*SkillLibraryCategoryList, error) {
-	if err := s.RequireAdministrator(userID); err != nil {
-		return nil, err
+	if strings.TrimSpace(userID) == "" {
+		return nil, kernel.Unauthorized("请先登录")
 	}
-	scope = normalizeSkillLibraryCategoryListScope(scope)
-	categories, err := s.repo.SkillLibraryCategories(userID)
+	categories, err := s.repo.UserSkillLibraryCategories(userID)
 	if err != nil {
 		return nil, err
 	}
-	counts, err := s.repo.SkillLibraryCategoryCounts(userID, scope)
+	counts, err := s.repo.UserSkillLibraryCategoryCounts(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +56,7 @@ func (s *Service) SkillLibraryCategories(userID string, scope string) (*SkillLib
 	for _, category := range categories {
 		count := counts[category.ID]
 		result.Categories = append(result.Categories, SkillLibraryCategory{
-			ID: category.ID, Name: category.Name, Scope: category.Scope, Count: count,
+			ID: category.ID, Name: category.Name, Scope: skillLibraryCategoryPersonal, Count: count,
 		})
 		result.TotalCount += count
 	}
@@ -67,93 +64,78 @@ func (s *Service) SkillLibraryCategories(userID string, scope string) (*SkillLib
 }
 
 func (s *Service) CreateSkillLibraryCategory(actor *model.User, req SkillLibraryCategoryMutationRequest) (*SkillLibraryCategory, error) {
-	if err := s.requireSkillAdmin(actor); err != nil {
-		return nil, err
+	if actor == nil || strings.TrimSpace(actor.ID) == "" {
+		return nil, kernel.Unauthorized("请先登录")
+	}
+	if strings.EqualFold(strings.TrimSpace(req.Scope), skillLibraryCategoryPlatform) {
+		return nil, kernel.BadAuthRequest("平台分类仅在管理后台维护")
 	}
 	name, normalizedName := normalizeSkillLibraryCategoryName(req.Name)
 	if name == "" || utf8.RuneCountInString(name) > 64 {
 		return nil, kernel.BadAuthRequest("分类名称必须为 1-64 个字符")
 	}
-	scope := strings.ToLower(strings.TrimSpace(req.Scope))
-	if scope == "" {
-		scope = skillLibraryCategoryPersonal
+	now := time.Now()
+	category := &model.UserSkillLibraryCategory{
+		ID: kernel.NewID(), UserID: actor.ID, Name: name, NormalizedName: normalizedName,
+		CreatedAt: now, UpdatedAt: now,
 	}
-	if scope != skillLibraryCategoryPersonal && scope != skillLibraryCategoryPlatform {
-		return nil, kernel.BadAuthRequest("分类范围必须是 personal 或 platform")
-	}
-	category := &model.SkillLibraryCategory{
-		ID: kernel.NewID(), Name: name, NormalizedName: normalizedName, Scope: scope,
-	}
-	if scope == skillLibraryCategoryPersonal {
-		category.OwnerID = actor.ID
-	}
-	created, err := s.repo.CreateSkillLibraryCategoryIfAvailable(actor.ID, category)
+	created, err := s.repo.CreateUserSkillLibraryCategory(category)
 	if err != nil {
 		return nil, err
 	}
 	if !created {
 		return nil, kernel.BadAuthRequest("当前技能库中已存在同名分类")
 	}
-	return &SkillLibraryCategory{ID: category.ID, Name: category.Name, Scope: category.Scope}, nil
+	return &SkillLibraryCategory{ID: category.ID, Name: category.Name, Scope: skillLibraryCategoryPersonal}, nil
 }
 
 func (s *Service) DeleteSkillLibraryCategory(actor *model.User, id string) error {
-	if err := s.requireSkillAdmin(actor); err != nil {
-		return err
+	if actor == nil || strings.TrimSpace(actor.ID) == "" {
+		return kernel.Unauthorized("请先登录")
 	}
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return kernel.BadAuthRequest("分类 ID 不能为空")
 	}
-	category, err := s.repo.SkillLibraryCategory(id)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return kernel.NotFound("技能库分类不存在")
-	}
+	category, err := s.repo.UserSkillLibraryCategory(id)
 	if err != nil {
 		return err
 	}
-	if category.Scope != skillLibraryCategoryPlatform && (category.Scope != skillLibraryCategoryPersonal || category.OwnerID != actor.ID) {
-		return kernel.Forbidden("无权删除该技能库分类")
+	if category == nil || category.UserID != actor.ID {
+		return kernel.NotFound("技能库分类不存在")
 	}
-	return s.repo.DeleteSkillLibraryCategory(id)
+	return s.repo.DeleteUserSkillLibraryCategory(actor.ID, id)
 }
 
 func (s *Service) SetSkillLibraryCategory(userID string, skillID string, categoryID string) (*SkillItem, error) {
-	skill, err := s.visibleSkill(userID, skillID)
+	if strings.TrimSpace(userID) == "" {
+		return nil, kernel.Unauthorized("请先登录")
+	}
+	instance, err := s.repo.UserInstalledSkill(userID, skillID)
 	if err != nil {
 		return nil, err
 	}
-	if skill.OwnerID != userID {
-		state, err := s.repo.UserSkillState(userID, skill.ID)
-		if err != nil {
-			return nil, err
-		}
-		if state == nil || !state.Added {
-			return nil, kernel.Forbidden("只能为已加入或自己创建的技能设置分类")
-		}
+	if instance == nil {
+		return nil, kernel.NotFound("技能不存在")
 	}
 	categoryID = strings.TrimSpace(categoryID)
 	if categoryID != "" {
-		category, err := s.repo.SkillLibraryCategory(categoryID)
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, kernel.NotFound("技能库分类不存在")
-		}
+		category, err := s.repo.UserSkillLibraryCategory(categoryID)
 		if err != nil {
 			return nil, err
 		}
-		if !isSkillLibraryCategoryVisibleTo(category, userID) {
+		if category == nil || category.UserID != userID {
 			return nil, kernel.Forbidden("无权使用该技能库分类")
 		}
 	}
-	state, err := s.skillState(userID, skill.ID)
+	if err := s.repo.UpdateUserInstalledSkill(instance.ID, map[string]any{"library_category_id": categoryID, "updated_at": time.Now()}); err != nil {
+		return nil, err
+	}
+	updated, err := s.repo.UserInstalledSkill(userID, instance.ID)
 	if err != nil {
 		return nil, err
 	}
-	state.LibraryCategoryID = categoryID
-	if err := s.repo.SetUserSkillLibraryCategory(state); err != nil {
-		return nil, err
-	}
-	return s.SkillDetail(userID, skill.ID)
+	return s.userSkillItem(userID, updated, false)
 }
 
 func normalizeSkillLibraryCategoryName(value string) (string, string) {
@@ -168,12 +150,4 @@ func normalizeSkillLibraryCategoryListScope(value string) string {
 	default:
 		return "mine"
 	}
-}
-
-func isSkillLibraryCategoryVisibleTo(category *model.SkillLibraryCategory, userID string) bool {
-	if category == nil {
-		return false
-	}
-	return category.Scope == skillLibraryCategoryPlatform ||
-		(category.Scope == skillLibraryCategoryPersonal && category.OwnerID == userID)
 }

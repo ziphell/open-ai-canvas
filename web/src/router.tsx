@@ -4,7 +4,6 @@ import { lazyAdminPage } from "@/pages/admin/admin-page-loader";
 
 import { AuthDialogHost } from "@/components/auth/auth-dialog-host";
 import { RequireAuth } from "@/components/auth/require-auth";
-import { RequireSkillAdmin } from "@/components/auth/require-skill-admin";
 // 功能开关守卫包在页面 Suspense 之外，懒加载会让整个工作区退回全屏加载页；体积很小，直接静态引入。
 import { RequireFeature } from "@/components/auth/require-feature";
 import { FullScreenLoader, WorkspaceRouteLoader } from "@/components/ui/aceternity/full-screen-loader";
@@ -180,8 +179,8 @@ const routes: RouteObject[] = [
                 ),
             },
             { path: "/assets", element: <RequireAuth>{deferred(<AssetsPage />)}</RequireAuth> },
-            { path: "/skills", element: <RequireSkillAdmin>{deferred(<SkillsPage />)}</RequireSkillAdmin> },
-            { path: "/skills/:skillId/edit", element: <RequireSkillAdmin>{deferred(<SkillWorkbenchPage />)}</RequireSkillAdmin> },
+            { path: "/skills", element: <RequireAuth>{deferred(<SkillsPage />)}</RequireAuth> },
+            { path: "/skills/:skillId/edit", element: <RequireAuth>{deferred(<SkillWorkbenchPage />)}</RequireAuth> },
             {
                 path: "/plugins",
                 element: (

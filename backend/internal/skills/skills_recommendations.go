@@ -163,42 +163,44 @@ func (s *Service) SkillRecommendations(userID string) (*SkillRecommendationList,
 			ids = append(ids, skill.SkillID)
 		}
 	}
-	rows, err := s.repo.AgentSkillCatalogRowsByIDs(userID, ids)
+	type recommendationRow struct {
+		ID          string
+		Name        string
+		Description string
+		Tag         string
+		IsAdded     bool
+	}
+	rows := make([]recommendationRow, 0, len(ids))
+	for _, id := range ids {
+		row, err := s.repo.MarketSkill(userID, id)
+		if err != nil {
+			return nil, err
+		}
+		if row == nil {
+			// 未发布到广场的内置技能不进入推荐。
+			continue
+		}
+		rows = append(rows, recommendationRow{ID: row.SkillID, Name: row.Name, Description: row.Description, Tag: row.Tag, IsAdded: row.InstanceID != ""})
+	}
+	instances, err := s.repo.UserInstalledSkillsAll(userID)
 	if err != nil {
 		return nil, err
 	}
-	byID := make(map[string]int, len(rows))
-	for index, row := range rows {
-		byID[row.ID] = index
-	}
-	states, err := s.repo.UserSkillStatesBySkillIDs(userID, ids)
-	if err != nil {
-		return nil, err
-	}
-	added := make(map[string]bool, len(states))
-	for _, state := range states {
-		added[state.SkillID] = state.Added
-	}
-	installed, err := s.repo.AgentSkillCatalogRows(userID)
-	if err != nil {
-		return nil, err
-	}
-	list := &SkillRecommendationList{Industries: make([]SkillRecommendationIndustry, 0, len(file.Industries)), InstalledTotal: len(installed)}
+	list := &SkillRecommendationList{Industries: make([]SkillRecommendationIndustry, 0, len(file.Industries)), InstalledTotal: len(instances)}
 	for _, industry := range file.Industries {
 		group := SkillRecommendationIndustry{IndustryID: industry.IndustryID, Name: industry.Name, Description: industry.Description, Icon: industry.Icon, Skills: []SkillRecommendationItem{}}
 		for _, seed := range industry.Skills {
-			index, ok := byID[seed.SkillID]
-			if !ok {
-				continue
+			for _, row := range rows {
+				if row.ID != seed.SkillID {
+					continue
+				}
+				if row.IsAdded {
+					group.InstalledCount++
+				}
+				group.Skills = append(group.Skills, SkillRecommendationItem{
+					SkillID: row.ID, SkillName: row.Name, Description: row.Description, Tag: row.Tag, Reason: seed.Reason, IsAdded: row.IsAdded,
+				})
 			}
-			row := rows[index]
-			isAdded := added[row.ID] || row.OwnerID == userID
-			if isAdded {
-				group.InstalledCount++
-			}
-			group.Skills = append(group.Skills, SkillRecommendationItem{
-				SkillID: row.ID, SkillName: row.Name, Description: row.Description, Tag: row.Tag, Reason: seed.Reason, IsAdded: isAdded,
-			})
 		}
 		if len(group.Skills) > 0 {
 			list.Industries = append(list.Industries, group)

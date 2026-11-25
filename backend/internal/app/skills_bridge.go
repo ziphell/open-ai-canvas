@@ -66,6 +66,16 @@ func (s *Service) SetSkillAgentMode(userID, id, mode string) (*SkillItem, error)
 	return s.skillDomain().SetSkillAgentMode(userID, id, mode)
 }
 
+// EnsureSkillContents 把旧技能包文件导入内容快照表；启动时只补缺失内容。
+func (s *Service) EnsureSkillContents() error {
+	return s.skillDomain().EnsureSkillContents()
+}
+
+// UpdateUserSkillFromMarket 把未编辑的安装实例更新到广场当前内容。
+func (s *Service) UpdateUserSkillFromMarket(userID, instanceID string) (*SkillItem, error) {
+	return s.skillDomain().UpdateUserSkillFromMarket(userID, instanceID)
+}
+
 func (s *Service) skillDomain() *skills.Service {
 	if s == nil {
 		return skills.New(nil, "", nil)
@@ -146,10 +156,6 @@ func (s *Service) EnsureBuiltinSkills() error {
 		return err
 	}
 	return skills.ValidateSkillRecommendations()
-}
-
-func (s *Service) EnsureSkillPackages() error {
-	return s.skillDomain().EnsureSkillPackages()
 }
 
 func (s *Service) InstallSkillUpload(userID string, sourceType string, header *multipart.FileHeader, req SkillInstallRequest) (*SkillItem, error) {

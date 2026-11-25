@@ -45,7 +45,7 @@ type builtinSkillPackage struct {
 // EnsureBuiltinSkills syncs embedded Markdown packages to the catalog and version tables.
 // User relationships remain in their own table and are not changed by catalog updates.
 func (s *Service) EnsureBuiltinSkills() error {
-	packages, err := loadBuiltinSkillPackages(s.repo)
+	packages, err := loadBuiltinSkillPackages()
 	if err != nil {
 		return err
 	}
@@ -84,13 +84,13 @@ func (s *Service) EnsureBuiltinSkills() error {
 		if err != nil {
 			return fmt.Errorf("读取内置技能 %s 同步结果失败: %w", item.skill.ID, err)
 		}
-		if current.ContentHash == item.archive.ContentHash && current.CurrentVersionID != "" {
+		if current.ContentHash == item.archive.ContentHash && current.ContentID != "" {
 			continue
 		}
-		if current.AdminContentEditedAt != nil && current.CurrentVersionID != "" {
+		if current.AdminContentEditedAt != nil && current.ContentID != "" {
 			continue
 		}
-		if err := s.addSkillArchiveVersion(current, item.archive, "builtin", "", "", "", "", false); err != nil {
+		if err := s.addSkillArchiveContent(current, item.archive, "builtin", "", "", "", "", false); err != nil {
 			return fmt.Errorf("同步内置技能 %s 文件包失败: %w", item.skill.ID, err)
 		}
 	}
@@ -109,24 +109,17 @@ func (edits builtinSkillAdminEdits) seedColumns() []string {
 	if !edits.info {
 		columns = append(columns, "name", "description", "tag", "markdown_url", "showcase_media_json", "extra_info")
 	}
-	if !edits.content {
-		columns = append(columns, "instruction")
-	}
 	if !edits.info && !edits.content {
 		columns = append(columns, "updated_at")
 	}
 	return columns
 }
 
-func loadBuiltinSkillPackages(tombstones interface {
-	BuiltinSkillTombstoned(string) (bool, error)
-}) ([]builtinSkillPackage, error) {
-	return loadBuiltinSkillPackagesFromFS(builtinSkillFiles, tombstones)
+func loadBuiltinSkillPackages() ([]builtinSkillPackage, error) {
+	return loadBuiltinSkillPackagesFromFS(builtinSkillFiles)
 }
 
-func loadBuiltinSkillPackagesFromFS(filesystem fs.FS, tombstones interface {
-	BuiltinSkillTombstoned(string) (bool, error)
-}) ([]builtinSkillPackage, error) {
+func loadBuiltinSkillPackagesFromFS(filesystem fs.FS) ([]builtinSkillPackage, error) {
 	entries, err := fs.ReadDir(filesystem, ".")
 	if err != nil {
 		return nil, fmt.Errorf("读取内置技能目录失败: %w", err)
@@ -166,15 +159,6 @@ func loadBuiltinSkillPackagesFromFS(filesystem fs.FS, tombstones interface {
 			}
 			seen[stableID] = struct{}{}
 			skillID = stableID
-		}
-		if tombstones != nil {
-			deleted, err := tombstones.BuiltinSkillTombstoned(skillID)
-			if err != nil {
-				return nil, fmt.Errorf("检查内置技能 %s 删除记录失败: %w", skillID, err)
-			}
-			if deleted {
-				continue
-			}
 		}
 		metadata, err = normalizeBuiltinSkillMetadata(skillID, metadata)
 		if err != nil {
@@ -220,7 +204,7 @@ func loadBuiltinSkillPackagesFromFS(filesystem fs.FS, tombstones interface {
 		packages = append(packages, builtinSkillPackage{
 			skill: model.Skill{
 				ID: skillID, OwnerID: metadata.Owner, AuthorName: metadata.Author, AuthorAvatarURL: metadata.AuthorAvatarURL,
-				Name: metadata.Name, Description: metadata.Description, Instruction: string(body),
+				Name: metadata.Name, Description: metadata.Description,
 				SourceType: "builtin", Status: skillStatusEnabled, Source: metadata.Source, Tag: metadata.Tag, SortWeight: metadata.SortWeight,
 				IsPrivate: false, MarkdownURL: base + "/SKILL.md", ShowcaseMediaJSON: string(mediaJSON), ExtraInfo: metadata.ExtraInfo,
 				InitialLikeCount: metadata.InitialLike, InitialAddedCount: metadata.InitialAdded,
@@ -400,7 +384,7 @@ func parseBuiltinTime(value string) time.Time {
 }
 
 func builtinSeedSkillIDs() ([]string, error) {
-	packages, err := loadBuiltinSkillPackages(nil)
+	packages, err := loadBuiltinSkillPackages()
 	if err != nil {
 		return nil, err
 	}

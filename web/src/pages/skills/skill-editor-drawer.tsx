@@ -1,7 +1,7 @@
 import { App, Button, Form, Input } from "antd";
 import { AppDrawer } from "@/components/ui/product/app-drawer";
 import { Select } from "@/components/ui/base/select";
-import { Switch } from "@/components/ui/base/switch";
+
 import { Minus, Plus, Save, PenLine } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -11,7 +11,7 @@ import { navigateToSettings } from "@/lib/settings-navigation";
 import { useConfigStore, useEffectiveConfig } from "@/stores/use-config-store";
 import { createSkill, updateSkill, type Skill, type SkillMutationInput, type SkillShowcaseMedia } from "@/services/api/skills";
 
-type SkillFormValues = Omit<SkillMutationInput, "isPrivate"> & { is_public: boolean };
+type SkillFormValues = Omit<SkillMutationInput, "isPrivate">;
 
 /** 后台基本信息：不含正文和公开状态。 */
 export type SkillInfoInput = Omit<SkillMutationInput, "instruction" | "isPrivate">;
@@ -57,7 +57,7 @@ export function SkillEditorDrawer({
             description: skill?.description || "",
             instruction: skill?.instruction || "",
             tag: skill?.tag || "creative",
-            is_public: skill ? !skill.isPrivate : false,
+
             markdownUrl: skill?.markdownUrl || skill?.sourceUrl || "",
             showcaseMedia: skill?.showcaseMedia || [],
             extraInfo: skill?.extraInfo || "",
@@ -81,7 +81,7 @@ export function SkillEditorDrawer({
                 description: values.description,
                 instruction: values.instruction || "",
                 tag: values.tag,
-                isPrivate: !values.is_public,
+                isPrivate: true,
                 markdownUrl: values.markdownUrl || "",
                 showcaseMedia: (values.showcaseMedia || []).map((item) => ({ ...item, showcaseUri: item.showcaseUri || "" })),
                 extraInfo: values.extraInfo || "",
@@ -222,11 +222,6 @@ export function SkillEditorDrawer({
                     <Form.Item name="markdownUrl" label={isPackageSkill ? "来源地址" : "Markdown 地址"} rules={markdownUrlRules}>
                         <Input type="url" inputMode="url" spellCheck={false} placeholder="https://example.com/SKILL.md" />
                     </Form.Item>
-                    {!infoOnly ? (
-                        <Form.Item name="is_public" label="公开状态" valuePropName="checked" extra="公开后其他用户可以加入使用。">
-                            <Switch checkedChildren="公开" unCheckedChildren="私有" />
-                        </Form.Item>
-                    ) : null}
                 </div>
 
                 <Form.List name="showcaseMedia">

@@ -45,45 +45,50 @@ type SkillEffectiveUser struct {
 }
 
 type SkillItem struct {
-	SkillID           string               `json:"skillId"`
-	SkillName         string               `json:"skillName"`
-	Description       string               `json:"description"`
-	Instruction       string               `json:"instruction,omitempty"`
-	VersionID         string               `json:"versionId"`
-	Version           string               `json:"version"`
-	ContentHash       string               `json:"contentHash"`
-	FileCount         int                  `json:"fileCount"`
-	TotalBytes        int64                `json:"totalBytes"`
-	SourceType        string               `json:"sourceType"`
-	SourceURL         string               `json:"sourceUrl"`
-	SourceRef         string               `json:"sourceRef"`
-	SourceSubdir      string               `json:"sourceSubdir"`
-	SourceCommit      string               `json:"sourceCommit"`
-	SyncStatus        string               `json:"syncStatus"`
-	SyncError         string               `json:"syncError,omitempty"`
-	AutoUpdate        bool                 `json:"autoUpdate"`
-	LastCheckedAt     *time.Time           `json:"lastCheckedAt,omitempty"`
-	LastSyncedAt      *time.Time           `json:"lastSyncedAt,omitempty"`
-	Status            int                  `json:"status"`
-	MarkdownURL       string               `json:"markdownUrl"`
-	CreatedAt         time.Time            `json:"createdAt"`
-	UpdatedAt         time.Time            `json:"updatedAt"`
-	Source            int                  `json:"source"`
-	Tag               string               `json:"tag"`
-	SortWeight        int                  `json:"sortWeight"`
-	IsPrivate         bool                 `json:"isPrivate"`
-	LikeCount         int64                `json:"likeCount"`
-	IsLike            bool                 `json:"isLike"`
-	OwnerUID          string               `json:"ownerUid"`
-	EffectiveUser     SkillEffectiveUser   `json:"effectiveUser"`
-	OriginalSkillID   *string              `json:"originalSkillId"`
-	ShowcaseMedia     []SkillShowcaseMedia `json:"showcaseMedia"`
-	AddedCount        int64                `json:"addedCount"`
-	IsTest            bool                 `json:"isTest"`
-	ExtraInfo         string               `json:"extraInfo"`
-	IsAdded           bool                 `json:"isAdded"`
-	IsOwner           bool                 `json:"isOwner"`
-	LibraryCategoryID string               `json:"libraryCategoryId,omitempty"`
+	SkillID         string               `json:"skillId"`
+	SkillName       string               `json:"skillName"`
+	Description     string               `json:"description"`
+	Instruction     string               `json:"instruction,omitempty"`
+	VersionID       string               `json:"versionId"`
+	Version         string               `json:"version"`
+	ContentHash     string               `json:"contentHash"`
+	FileCount       int                  `json:"fileCount"`
+	TotalBytes      int64                `json:"totalBytes"`
+	SourceType      string               `json:"sourceType"`
+	SourceURL       string               `json:"sourceUrl"`
+	SourceRef       string               `json:"sourceRef"`
+	SourceSubdir    string               `json:"sourceSubdir"`
+	SourceCommit    string               `json:"sourceCommit"`
+	SyncStatus      string               `json:"syncStatus"`
+	SyncError       string               `json:"syncError,omitempty"`
+	AutoUpdate      bool                 `json:"autoUpdate"`
+	LastCheckedAt   *time.Time           `json:"lastCheckedAt,omitempty"`
+	LastSyncedAt    *time.Time           `json:"lastSyncedAt,omitempty"`
+	Status          int                  `json:"status"`
+	MarkdownURL     string               `json:"markdownUrl"`
+	CreatedAt       time.Time            `json:"createdAt"`
+	UpdatedAt       time.Time            `json:"updatedAt"`
+	Source          int                  `json:"source"`
+	Tag             string               `json:"tag"`
+	SortWeight      int                  `json:"sortWeight"`
+	IsPrivate       bool                 `json:"isPrivate"`
+	LikeCount       int64                `json:"likeCount"`
+	IsLike          bool                 `json:"isLike"`
+	OwnerUID        string               `json:"ownerUid"`
+	EffectiveUser   SkillEffectiveUser   `json:"effectiveUser"`
+	OriginalSkillID *string              `json:"originalSkillId"`
+	ShowcaseMedia   []SkillShowcaseMedia `json:"showcaseMedia"`
+	AddedCount      int64                `json:"addedCount"`
+	IsTest          bool                 `json:"isTest"`
+	ExtraInfo       string               `json:"extraInfo"`
+	IsAdded         bool                 `json:"isAdded"`
+	IsOwner         bool                 `json:"isOwner"`
+	// FollowUpdates 表示从广场安装且尚未编辑，可以拉取广场最新内容。
+	FollowUpdates  bool `json:"followUpdates"`
+	FollowMetadata bool `json:"followMetadata"`
+	// HasUpdate 表示来源广场技能的内容已经变化，存在可拉取的更新。
+	HasUpdate         bool   `json:"hasUpdate"`
+	LibraryCategoryID string `json:"libraryCategoryId,omitempty"`
 	// AgentMode 只对已安装或自建的技能有意义：auto 允许 Agent 自动发现，manual 只在点名或固定时使用。
 	AgentMode string `json:"agentMode,omitempty"`
 }
@@ -146,17 +151,18 @@ type SkillMutationRequest struct {
 }
 
 func (s *Service) Skills(userID string, req SkillListRequest) (*SkillList, error) {
-	if err := s.RequireAdministrator(userID); err != nil {
-		return nil, err
+	if strings.TrimSpace(userID) == "" {
+		return nil, kernel.Unauthorized("请先登录")
 	}
 	req = normalizeSkillListRequest(req)
-	categoryID, uncategorized, err := s.curationFilter(req)
-	if err != nil {
-		return nil, err
-	}
-	rootID, err := s.curationRootFilter(req.PlatformRootID)
-	if err != nil {
-		return nil, err
+	if req.PlatformRootID != "" || req.PlatformCategoryID != "" || req.PlatformUncategorized {
+		state, err := s.repo.SkillCuration(false)
+		if err != nil {
+			return nil, err
+		}
+		if !state.Enabled {
+			req.PlatformRootID, req.PlatformCategoryID, req.PlatformUncategorized = "", "", false
+		}
 	}
 	if req.LibraryCategoryID != "" && req.LibraryUncategorized {
 		return nil, kernel.BadAuthRequest("技能库分类与未分类筛选不能同时使用")
@@ -166,25 +172,44 @@ func (s *Service) Skills(userID string, req SkillListRequest) (*SkillList, error
 			return nil, kernel.BadAuthRequest("用户技能分类仅支持筛选我的技能或我创建的技能")
 		}
 	}
-	rows, total, err := s.repo.Skills(repository.SkillListFilter{
-		PlatformRootID:     rootID,
-		PlatformCategoryID: categoryID, PlatformUncategorized: uncategorized,
-		UserID:               userID,
-		Scope:                req.Scope,
-		Search:               req.Search,
-		Tag:                  req.Tag,
-		LibraryCategoryID:    req.LibraryCategoryID,
-		LibraryUncategorized: req.LibraryUncategorized,
-		Sort:                 req.Sort,
-		Limit:                req.PageSize,
-		Offset:               (req.Page - 1) * req.PageSize,
-	})
-	if err != nil {
-		return nil, err
-	}
-	items, err := s.skillItems(userID, rows, false)
-	if err != nil {
-		return nil, err
+	limit, offset := req.PageSize, (req.Page-1)*req.PageSize
+	items := make([]SkillItem, 0)
+	var total int64
+	switch req.Scope {
+	case "mine", "created":
+		rows, count, err := s.repo.UserInstalledSkills(repository.UserInstalledSkillFilter{
+			UserID: userID, CreatedOnly: req.Scope == "created", Search: req.Search,
+			LibraryCategoryID: req.LibraryCategoryID, LibraryUncategorized: req.LibraryUncategorized,
+			Limit: limit, Offset: offset,
+		})
+		if err != nil {
+			return nil, err
+		}
+		total = count
+		for index := range rows {
+			item, err := s.userSkillItem(userID, &rows[index], false)
+			if err != nil {
+				return nil, err
+			}
+			items = append(items, *item)
+		}
+	default:
+		rows, count, err := s.repo.MarketSkills(repository.MarketSkillFilter{
+			UserID: userID, Search: req.Search, Tag: req.Tag,
+			PlatformRootID: req.PlatformRootID, PlatformCategoryID: req.PlatformCategoryID, PlatformUncategorized: req.PlatformUncategorized,
+			FavoritesOnly: req.Scope == "favorites", Sort: req.Sort, Limit: limit, Offset: offset,
+		})
+		if err != nil {
+			return nil, err
+		}
+		total = count
+		for _, row := range rows {
+			item, err := s.marketSkillItem(userID, row, false)
+			if err != nil {
+				return nil, err
+			}
+			items = append(items, *item)
+		}
 	}
 	nextOffset := req.Page * req.PageSize
 	if int64(nextOffset) >= total {
@@ -202,92 +227,170 @@ func (s *Service) Skills(userID string, req SkillListRequest) (*SkillList, error
 }
 
 func (s *Service) AddedSkills(userID string) ([]AddedSkillReference, error) {
-	if err := s.RequireAdministrator(userID); err != nil {
-		return nil, err
+	if strings.TrimSpace(userID) == "" {
+		return nil, kernel.Unauthorized("请先登录")
 	}
-	rows, _, err := s.repo.Skills(repository.SkillListFilter{UserID: userID, Scope: "mine", Sort: "updated", Limit: -1})
+	rows, err := s.repo.UserInstalledSkillsAll(userID)
 	if err != nil {
 		return nil, err
 	}
-	items, err := s.skillItems(userID, rows, false)
-	if err != nil {
-		return nil, err
-	}
-	references := make([]AddedSkillReference, 0, len(items))
-	for _, item := range items {
+	references := make([]AddedSkillReference, 0, len(rows))
+	for index := range rows {
+		item, err := s.userSkillItem(userID, &rows[index], false)
+		if err != nil {
+			return nil, err
+		}
 		references = append(references, AddedSkillReference{
 			SkillID: item.SkillID, SkillName: item.SkillName, Description: item.Description,
 			VersionID: item.VersionID, Version: item.Version, Tag: item.Tag,
-			IsLike: item.IsLike, IsAdded: item.IsAdded, IsOwner: item.IsOwner, AgentMode: item.AgentMode,
+			IsLike: item.IsLike, IsAdded: true, IsOwner: item.IsOwner, AgentMode: item.AgentMode,
 		})
 	}
 	return references, nil
 }
 
 func (s *Service) SkillDetail(userID string, id string) (*SkillItem, error) {
-	skill, err := s.visibleSkill(userID, id)
-	if err != nil {
-		return nil, err
+	if strings.TrimSpace(userID) == "" {
+		return nil, kernel.Unauthorized("请先登录")
 	}
-	items, err := s.skillItems(userID, []model.Skill{*skill}, true)
-	if err != nil {
+	if instance, err := s.repo.UserInstalledSkill(userID, id); err != nil {
 		return nil, err
+	} else if instance != nil {
+		return s.userSkillItem(userID, instance, true)
 	}
-	return &items[0], nil
+	if row, err := s.repo.MarketSkill(userID, id); err != nil {
+		return nil, err
+	} else if row != nil {
+		return s.marketSkillItem(userID, *row, true)
+	}
+	return nil, kernel.NotFound("技能不存在或未发布")
 }
 
 func (s *Service) CreateSkill(userID string, req SkillMutationRequest) (*SkillItem, error) {
-	if err := s.RequireAdministrator(userID); err != nil {
-		return nil, err
+	if strings.TrimSpace(userID) == "" {
+		return nil, kernel.Unauthorized("请先登录")
 	}
-	normalized, mediaJSON, err := normalizeSkillMutationRequest(req, true)
+	if strings.TrimSpace(req.Instruction) == "" {
+		return nil, kernel.BadAuthRequest("技能正文不能为空")
+	}
+	archive, err := archiveFromMarkdown([]byte(req.Instruction), req.SkillName, req.Description)
 	if err != nil {
 		return nil, err
 	}
-	created, err := s.createSingleMarkdownSkill(userID, normalized)
+	instance, err := s.createPrivateUserSkill(userID, archive, "markdown", req.MarkdownURL, "", "", "", false, req.SkillName, req.Description)
 	if err != nil {
 		return nil, err
 	}
-	skill, err := s.ownedSkill(userID, created.SkillID)
-	if err != nil {
-		return nil, err
-	}
-	skill.ShowcaseMediaJSON = mediaJSON
-	skill.ExtraInfo = normalized.ExtraInfo
-	if err := s.repo.SaveSkill(skill); err != nil {
-		return nil, err
-	}
-	return s.SkillDetail(userID, skill.ID)
+	return s.userSkillItem(userID, instance, true)
 }
 
 func (s *Service) UpdateSkill(userID string, id string, req SkillMutationRequest) (*SkillItem, error) {
-	skill, err := s.ownedSkill(userID, id)
+	if strings.TrimSpace(userID) == "" {
+		return nil, kernel.Unauthorized("请先登录")
+	}
+	instance, err := s.repo.UserInstalledSkill(userID, id)
 	if err != nil {
 		return nil, err
 	}
-	requireInstruction := skill.SourceType == "markdown" || skill.SourceType == "builtin" || skill.SourceType == ""
-	normalized, mediaJSON, err := normalizeSkillMutationRequest(req, requireInstruction)
-	if err != nil {
-		return nil, err
+	if instance == nil {
+		return nil, kernel.NotFound("技能不存在")
 	}
-	skill.Name = normalized.SkillName
-	skill.Description = normalized.Description
-	skill.Tag = normalized.Tag
-	skill.IsPrivate = normalized.IsPrivate
-	skill.MarkdownURL = normalized.MarkdownURL
-	skill.ShowcaseMediaJSON = mediaJSON
-	skill.ExtraInfo = normalized.ExtraInfo
-	if skill.SourceType == "markdown" || skill.SourceType == "builtin" || skill.SourceType == "" {
-		if err := s.updateSingleMarkdownSkill(skill, normalized); err != nil {
+	name := strings.TrimSpace(req.SkillName)
+	if name == "" {
+		name = instance.Name
+	}
+	description := strings.TrimSpace(req.Description)
+	if description == "" {
+		description = instance.Description
+	}
+	if utf8.RuneCountInString(name) > 80 || utf8.RuneCountInString(description) > 500 {
+		return nil, kernel.BadAuthRequest("技能名称或简介超过长度限制")
+	}
+	now := time.Now()
+	fields := map[string]any{"updated_at": now}
+	if instance.SourceSkillID == nil {
+		fields["name"] = name
+		fields["description"] = description
+	} else {
+		fields["name_override"] = name
+		fields["description_override"] = description
+		fields["follow_metadata"] = false
+		fields["follow_updates"] = false
+	}
+	if strings.TrimSpace(req.Instruction) != "" {
+		snapshot, snapshotErr := s.instanceSnapshot(instance)
+		if snapshotErr != nil {
+			return nil, snapshotErr
+		}
+		entries, readErr := readSkillContentEntries(snapshot.content)
+		if readErr != nil {
+			return nil, readErr
+		}
+		currentEntry := string(entries["SKILL.md"])
+		if currentEntry == req.Instruction {
+			// 正文未变化，只更新名称/简介，避免把多文件技能包压成单文件。
+			if err := s.repo.UpdateUserInstalledSkill(instance.ID, fields); err != nil {
+				return nil, err
+			}
+			updated, err := s.repo.UserInstalledSkill(userID, instance.ID)
+			if err != nil {
+				return nil, err
+			}
+			return s.userSkillItem(userID, updated, true)
+		}
+		entries["SKILL.md"] = []byte(req.Instruction)
+		metadata := parseSkillPackageMetadata(entries["SKILL.md"])
+		if metadata.Name == "" {
+			metadata.Name = name
+		}
+		if metadata.Description == "" {
+			metadata.Description = description
+		}
+		archive, archiveErr := finalizeSkillArchive(entries, metadata)
+		if archiveErr != nil {
+			return nil, archiveErr
+		}
+		contentID := kernel.NewID()
+		data, encodeErr := encodeSkillArchive(archive.Files)
+		if encodeErr != nil {
+			return nil, encodeErr
+		}
+		content := &model.SkillContent{ID: contentID, Format: "zip", Size: int64(len(data)), SHA256: archive.ContentHash, Data: data, CreatedAt: now}
+		files := s.contentFileRecords(contentID, archive.Files)
+		fields["content_id"] = contentID
+		fields["content_hash"] = archive.ContentHash
+		fields["version_number"] = gorm.Expr("version_number + 1")
+		fields["version_label"] = editedSkillVersionLabel()
+		fields["follow_updates"] = false
+		fields["follow_metadata"] = false
+		fields["file_count"] = len(archive.Files)
+		fields["total_bytes"] = archive.TotalBytes
+		if len(archive.Files) > 1 {
+			fields["source_type"] = "zip"
+		}
+		if err := s.repo.ReplaceUserSkillContent(instance.ID, instance.ContentID, fields, content, files); err != nil {
 			return nil, err
 		}
-	} else if err := s.repo.SaveSkill(skill); err != nil {
+	} else if err := s.repo.UpdateUserInstalledSkill(instance.ID, fields); err != nil {
 		return nil, err
 	}
-	return s.SkillDetail(userID, skill.ID)
+	updated, err := s.repo.UserInstalledSkill(userID, instance.ID)
+	if err != nil {
+		return nil, err
+	}
+	return s.userSkillItem(userID, updated, true)
 }
 
 func (s *Service) DeleteSkill(userID string, id string) error {
+	if strings.TrimSpace(userID) == "" {
+		return kernel.Unauthorized("请先登录")
+	}
+	if instance, err := s.repo.UserInstalledSkill(userID, id); err != nil {
+		return err
+	} else if instance != nil {
+		return s.repo.DeleteUserInstalledSkill(userID, instance.ID)
+	}
+	// 兼容迁移前的旧技能行。
 	skill, err := s.ownedSkill(userID, id)
 	if err != nil {
 		return err
@@ -298,6 +401,8 @@ func (s *Service) DeleteSkill(userID string, id string) error {
 	return os.RemoveAll(filepath.Join(s.dataDir, "skill-packages", skill.ID))
 }
 
+// DeleteBuiltinSkill 对公共目录技能执行“下架隐藏”，不再硬删除内容和发布记录。
+// 已安装用户的快照保留；只有用户自己的技能实例才会真正删除。
 func (s *Service) DeleteBuiltinSkill(actor *model.User, id string) error {
 	if err := s.requireSkillAdmin(actor); err != nil {
 		return err
@@ -306,138 +411,73 @@ func (s *Service) DeleteBuiltinSkill(actor *model.User, id string) error {
 	if id == "" {
 		return kernel.BadAuthRequest("技能 ID 不能为空")
 	}
-	skill, err := s.repo.Skill(id)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		deleted, tombstoneErr := s.repo.BuiltinSkillTombstoned(id)
-		if tombstoneErr != nil {
-			return tombstoneErr
-		}
-		if deleted {
-			return nil
-		}
+	skill, err := s.repo.SkillAnyStatus(id)
+	if err != nil {
 		return kernel.NotFound("技能不存在")
 	}
-	if err != nil {
+	if err := s.repo.UpdateSkillFields(skill.ID, map[string]any{"status": 0, "updated_at": time.Now()}); err != nil {
 		return err
 	}
-	if skill.SourceType != "builtin" && skill.Source != 3 {
-		return ErrNotBuiltinSkill
-	}
-	if err := s.repo.DeleteBuiltinSkill(id, actor.ID); err != nil {
-		return err
-	}
-	return os.RemoveAll(filepath.Join(s.dataDir, "skill-packages", id))
+	return s.repo.HideMarketSkillListing(skill.ID)
 }
 
 func (s *Service) SetSkillAdded(userID string, id string, added bool) (*SkillItem, error) {
-	skill, err := s.visibleSkill(userID, id)
-	if err != nil {
-		return nil, err
+	if strings.TrimSpace(userID) == "" {
+		return nil, kernel.Unauthorized("请先登录")
 	}
-	if skill.OwnerID == userID {
-		if !added {
-			return nil, kernel.BadAuthRequest("自己创建的技能始终保留在我的技能中")
+	if added {
+		if _, err := s.installMarketSkill(userID, id); err != nil {
+			return nil, err
 		}
 		return s.SkillDetail(userID, id)
 	}
-	state, err := s.skillState(userID, id)
+	instance, err := s.repo.UserInstalledSkill(userID, id)
 	if err != nil {
 		return nil, err
 	}
-	state.Added = added
-	state.InstalledVersionID = skill.CurrentVersionID
-	state.AutoUpdate = skill.AutoUpdate
-	if err := s.repo.SetUserSkillAdded(state); err != nil {
+	if instance == nil {
+		instance, err = s.repo.UserInstalledSkillBySource(userID, id)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if instance == nil {
+		return nil, kernel.NotFound("技能不存在")
+	}
+	if instance.SourceSkillID == nil {
+		return nil, kernel.BadAuthRequest("自己创建的技能始终保留在我的技能中")
+	}
+	sourceID := *instance.SourceSkillID
+	if err := s.repo.DeleteUserInstalledSkill(userID, instance.ID); err != nil {
 		return nil, err
+	}
+	if id != sourceID {
+		return s.SkillDetail(userID, sourceID)
 	}
 	return s.SkillDetail(userID, id)
 }
 
 func (s *Service) SetSkillLiked(userID string, id string, liked bool) (*SkillItem, error) {
-	if _, err := s.visibleSkill(userID, id); err != nil {
-		return nil, err
+	if strings.TrimSpace(userID) == "" {
+		return nil, kernel.Unauthorized("请先登录")
 	}
-	state, err := s.skillState(userID, id)
+	catalogID := id
+	if instance, err := s.repo.UserInstalledSkill(userID, id); err != nil {
+		return nil, err
+	} else if instance != nil && instance.SourceSkillID != nil {
+		catalogID = *instance.SourceSkillID
+	}
+	row, err := s.repo.MarketSkill(userID, catalogID)
 	if err != nil {
 		return nil, err
 	}
-	state.Liked = liked
-	if err := s.repo.SetUserSkillLiked(state); err != nil {
+	if row == nil && liked {
+		return nil, kernel.Forbidden("该技能未上架，暂时不能收藏")
+	}
+	if err := s.repo.SetUserSkillFavorite(userID, catalogID, liked); err != nil {
 		return nil, err
 	}
 	return s.SkillDetail(userID, id)
-}
-
-func (s *Service) skillItems(userID string, skills []model.Skill, includeInstruction bool) ([]SkillItem, error) {
-	ids := make([]string, 0, len(skills))
-	ownerIDs := make([]string, 0, len(skills))
-	for _, skill := range skills {
-		ids = append(ids, skill.ID)
-		ownerIDs = append(ownerIDs, skill.OwnerID)
-	}
-	states, err := s.repo.UserSkillStatesBySkillIDs(userID, ids)
-	if err != nil {
-		return nil, err
-	}
-	metrics, err := s.repo.SkillMetrics(ids)
-	if err != nil {
-		return nil, err
-	}
-	owners, err := s.repo.SkillOwners(ownerIDs)
-	if err != nil {
-		return nil, err
-	}
-	ownerAvatars, err := s.repo.SkillOwnerAvatars(ownerIDs)
-	if err != nil {
-		return nil, err
-	}
-	stateBySkillID := make(map[string]model.UserSkillState, len(states))
-	for _, state := range states {
-		stateBySkillID[state.SkillID] = state
-	}
-	items := make([]SkillItem, 0, len(skills))
-	for _, skill := range skills {
-		showcaseMedia, err := parseShowcaseMedia(skill.ShowcaseMediaJSON)
-		if err != nil {
-			return nil, err
-		}
-		owner := owners[skill.OwnerID]
-		ownerName := strings.TrimSpace(skill.AuthorName)
-		ownerAvatarURL := strings.TrimSpace(skill.AuthorAvatarURL)
-		if strings.TrimSpace(owner.DisplayName) != "" {
-			ownerName = strings.TrimSpace(owner.DisplayName)
-		} else if strings.TrimSpace(owner.Username) != "" {
-			ownerName = strings.TrimSpace(owner.Username)
-		}
-		if ownerAvatars[skill.OwnerID] != "" {
-			ownerAvatarURL = ownerAvatars[skill.OwnerID]
-		}
-		state := stateBySkillID[skill.ID]
-		metric := metrics[skill.ID]
-		metric.LikeCount += skill.InitialLikeCount
-		metric.AddedCount += skill.InitialAddedCount
-		instruction := ""
-		if includeInstruction {
-			instruction = skill.Instruction
-		}
-		agentMode := ""
-		if state.Added || skill.OwnerID == userID {
-			agentMode = NormalizeSkillAgentMode(state.AgentMode)
-		}
-		items = append(items, SkillItem{
-			SkillID: skill.ID, SkillName: skill.Name, Description: skill.Description, Instruction: instruction,
-			VersionID: skill.CurrentVersionID, Version: skill.VersionLabel, ContentHash: skill.ContentHash, FileCount: skill.FileCount, TotalBytes: skill.TotalBytes,
-			SourceType: skill.SourceType, SourceURL: skill.SourceURL, SourceRef: skill.SourceRef, SourceSubdir: skill.SourceSubdir, SourceCommit: skill.SourceCommit,
-			SyncStatus: skill.SyncStatus, SyncError: skill.SyncError, AutoUpdate: skill.AutoUpdate, LastCheckedAt: skill.LastCheckedAt, LastSyncedAt: skill.LastSyncedAt,
-			Status: skill.Status, MarkdownURL: skill.MarkdownURL, CreatedAt: skill.CreatedAt, UpdatedAt: skill.UpdatedAt,
-			Source: skill.Source, Tag: skill.Tag, SortWeight: skill.SortWeight, IsPrivate: skill.IsPrivate,
-			LikeCount: metric.LikeCount, IsLike: state.Liked, OwnerUID: skill.OwnerID,
-			EffectiveUser: SkillEffectiveUser{Name: ownerName, AvatarURL: ownerAvatarURL, UID: skill.OwnerID}, ShowcaseMedia: showcaseMedia,
-			AddedCount: metric.AddedCount, ExtraInfo: skill.ExtraInfo, IsAdded: state.Added || skill.OwnerID == userID, IsOwner: skill.OwnerID == userID,
-			LibraryCategoryID: state.LibraryCategoryID, AgentMode: agentMode,
-		})
-	}
-	return items, nil
 }
 
 // 所有详情和关系写入都先经过同一可见性边界，避免私有技能通过加入、收藏或画布接口泄露正文。
@@ -471,17 +511,6 @@ func (s *Service) ownedSkill(userID string, id string) (*model.Skill, error) {
 		return nil, kernel.Forbidden("只有作者可以修改或删除该技能")
 	}
 	return skill, nil
-}
-
-func (s *Service) skillState(userID string, skillID string) (*model.UserSkillState, error) {
-	state, err := s.repo.UserSkillState(userID, skillID)
-	if err != nil {
-		return nil, err
-	}
-	if state != nil {
-		return state, nil
-	}
-	return &model.UserSkillState{ID: kernel.NewID(), UserID: userID, SkillID: skillID}, nil
 }
 
 func normalizeSkillListRequest(req SkillListRequest) SkillListRequest {

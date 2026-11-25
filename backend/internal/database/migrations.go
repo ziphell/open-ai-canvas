@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const CurrentSchemaVersion int64 = 105
+const CurrentSchemaVersion int64 = 110
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -143,10 +143,10 @@ var schemaMigrations = []migration{
 	{version: 37, name: "cloud_agent_gemini_cache_identity", checksum: cloudAgentGeminiCacheIdentityChecksum, apply: migrateCloudAgentGeminiCacheIdentity},
 	{version: 38, name: "prefixed_id_sequence_reconcile", checksum: prefixedIDSequenceReconcileChecksum, apply: migratePrefixedIDSequenceReconcile},
 	{version: 39, name: "skill_library_categories", checksum: skillLibraryCategoriesChecksum, apply: func(tx *gorm.DB) error {
-		return tx.AutoMigrate(&model.SkillLibraryCategory{}, &model.UserSkillState{})
+		return tx.AutoMigrate(model.LegacySkillRelationshipTables()...)
 	}},
 	{version: 40, name: "builtin_skill_tombstones", checksum: builtinSkillTombstonesChecksum, apply: func(tx *gorm.DB) error {
-		return tx.AutoMigrate(&model.BuiltinSkillTombstone{})
+		return tx.AutoMigrate(model.LegacyBuiltinSkillTombstoneTable())
 	}},
 	{version: 41, name: "resource_thumbnail", checksum: resourceThumbnailChecksum, apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.Resource{})
@@ -370,6 +370,15 @@ var schemaMigrations = []migration{
 	{version: 103, name: "mcp_tenant_boundaries", checksum: "sha256:mcp-tenant-boundaries-v103", apply: migrateMCPTenantBoundaries},
 	{version: 104, name: "agent_storage_limits", checksum: "sha256:agent-storage-limits-v104", apply: migrateAgentStorageLimits},
 	{version: 105, name: "image_usage_billing", checksum: "sha256:image-usage-billing-v105", apply: migrateImageUsageBilling},
+	{version: 106, name: "skill_system_phase1", checksum: "sha256:skill-system-phase1-v106-20261125", apply: migrateSkillSystemPhase1},
+	{version: 107, name: "skill_content_files", checksum: "sha256:skill-content-files-v107-20261125", apply: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&model.SkillContentFile{})
+	}},
+	{version: 108, name: "user_skill_instance_sources", checksum: "sha256:user-skill-instance-sources-v108-20261125", apply: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&model.UserInstalledSkill{})
+	}},
+	{version: 109, name: "skill_legacy_relation_cleanup", checksum: "sha256:skill-legacy-relation-cleanup-v109-20261126", apply: migrateSkillLegacyRelationCleanup},
+	{version: 110, name: "skill_content_pointer", checksum: "sha256:skill-content-pointer-v110-20261126", apply: migrateSkillContentPointer},
 }
 
 func migrateAPILogGenerationContent(tx *gorm.DB) error {
@@ -757,11 +766,14 @@ func migrateAgentMemoryDocumentSkillDiscovery(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&model.AgentMemoryDocument{}, &model.AgentMemoryDocumentRevision{}); err != nil {
 		return err
 	}
+	if !tx.Migrator().HasTable(&model.LegacyUserSkillState{}) {
+		return nil
+	}
 	for _, field := range []string{"AgentMode", "AgentUseCount", "AgentLastUsedAt"} {
-		if tx.Migrator().HasColumn(&model.UserSkillState{}, field) {
+		if tx.Migrator().HasColumn(&model.LegacyUserSkillState{}, field) {
 			continue
 		}
-		if err := tx.Migrator().AddColumn(&model.UserSkillState{}, field); err != nil {
+		if err := tx.Migrator().AddColumn(&model.LegacyUserSkillState{}, field); err != nil {
 			return err
 		}
 	}

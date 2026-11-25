@@ -2,24 +2,17 @@ package skills
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
-	"log"
 	"mime"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
 
-	"gorm.io/gorm"
 	"yingce/backend/internal/kernel"
 	"yingce/backend/internal/model"
 )
@@ -97,14 +90,6 @@ type skillPackageArchive struct {
 	TotalBytes  int64
 }
 
-type skillPackageSnapshot struct {
-	skill    *model.Skill
-	version  *model.SkillVersion
-	files    []model.SkillFile
-	legacy   bool
-	contents map[string][]byte
-}
-
 type githubSkillSpec struct {
 	Owner  string
 	Repo   string
@@ -112,63 +97,9 @@ type githubSkillSpec struct {
 	Subdir string
 }
 
-func (s *Service) EnsureSkillPackages() error {
-	skills, err := s.repo.SkillsForPackageEnsure()
-	if err != nil {
-		return err
-	}
-	for index := range skills {
-		skill := &skills[index]
-		version, files, healthErr := s.skillPackageHealth(skill)
-		if healthErr == nil {
-			if err := s.syncSkillPackageMetadata(skill, version, files); err != nil {
-				return fmt.Errorf("同步技能 %s 文件包元数据失败: %w", skill.ID, err)
-			}
-			// User-installed ZIP/GitHub skills are authoritative in skill_files and
-			// must never be replaced by the legacy instruction column at startup.
-			if skill.Source == skillSourceUser || skill.SourceType == "builtin" {
-				continue
-			}
-			if strings.TrimSpace(skill.Instruction) == "" {
-				continue
-			}
-			archive, archiveErr := archiveFromMarkdown([]byte(skill.Instruction), truncateSkillMetadata(skill.Name, 80), truncateSkillMetadata(skill.Description, 500))
-			if archiveErr != nil {
-				log.Printf("技能 %s 的内置正文无法刷新文件包：%v", skill.ID, archiveErr)
-				continue
-			}
-			if version.ContentHash == archive.ContentHash {
-				continue
-			}
-			if err := s.addSkillArchiveVersion(skill, archive, skillSourceTypeForRepair(skill), skill.SourceURL, skill.SourceRef, skill.SourceSubdir, skill.SourceCommit, skill.AutoUpdate); err != nil {
-				return fmt.Errorf("刷新技能 %s 文件包失败: %w", skill.ID, err)
-			}
-			continue
-		}
-
-		// A legacy row may contain only skills.instruction. Rebuild that single
-		// entry when package metadata, files, or the archive is missing. If no
-		// source body exists, keep the service available and leave a diagnostic
-		// instead of failing every user request during boot.
-		if strings.TrimSpace(skill.Instruction) == "" {
-			log.Printf("技能 %s 文件包不完整且没有 legacy instruction，跳过自动修复：%v", skill.ID, healthErr)
-			continue
-		}
-		archive, archiveErr := archiveFromMarkdown([]byte(skill.Instruction), truncateSkillMetadata(skill.Name, 80), truncateSkillMetadata(skill.Description, 500))
-		if archiveErr != nil {
-			log.Printf("技能 %s 文件包损坏且 legacy instruction 无法重建：%v", skill.ID, archiveErr)
-			continue
-		}
-		if err := s.addSkillArchiveVersion(skill, archive, skillSourceTypeForRepair(skill), skill.SourceURL, skill.SourceRef, skill.SourceSubdir, skill.SourceCommit, skill.AutoUpdate); err != nil {
-			return fmt.Errorf("修复技能 %s 文件包失败: %w", skill.ID, err)
-		}
-	}
-	return nil
-}
-
 func (s *Service) InstallSkillUpload(userID string, sourceType string, header *multipart.FileHeader, req SkillInstallRequest) (*SkillItem, error) {
-	if err := s.RequireAdministrator(userID); err != nil {
-		return nil, err
+	if strings.TrimSpace(userID) == "" {
+		return nil, kernel.Unauthorized("请先登录")
 	}
 	sourceType = strings.ToLower(strings.TrimSpace(sourceType))
 	if sourceType == "" && header != nil {
@@ -206,12 +137,16 @@ func (s *Service) InstallSkillUpload(userID string, sourceType string, header *m
 	if err != nil {
 		return nil, err
 	}
-	return s.createSkillFromArchive(userID, archive, req, sourceType, "", "", "", "", false)
+	instance, err := s.createPrivateUserSkill(userID, archive, sourceType, "", "", "", "", false, req.Name, req.Description)
+	if err != nil {
+		return nil, err
+	}
+	return s.userSkillItem(userID, instance, true)
 }
 
 func (s *Service) InstallGitHubSkill(userID string, req SkillGitHubInstallRequest) (*SkillItem, error) {
-	if err := s.RequireAdministrator(userID); err != nil {
-		return nil, err
+	if strings.TrimSpace(userID) == "" {
+		return nil, kernel.Unauthorized("请先登录")
 	}
 	spec, err := parseGitHubSkillURL(req.URL, req.Ref, req.Subdir)
 	if err != nil {
@@ -225,10 +160,19 @@ func (s *Service) InstallGitHubSkill(userID string, req SkillGitHubInstallReques
 		}
 		return nil, kernel.WrapAppError(http.StatusBadGateway, "GitHub 技能读取失败，请检查仓库地址和网络", err)
 	}
-	return s.createSkillFromArchive(userID, archive, SkillInstallRequest{Tag: req.Tag, IsPrivate: req.IsPrivate}, "github", canonicalURL, resolvedRef, spec.Subdir, commit, req.AutoUpdate)
+	instance, err := s.createPrivateUserSkill(userID, archive, "github", canonicalURL, resolvedRef, spec.Subdir, commit, req.AutoUpdate, "", "")
+	if err != nil {
+		return nil, err
+	}
+	return s.userSkillItem(userID, instance, true)
 }
 
 func (s *Service) SyncGitHubSkill(userID string, skillID string) (*SkillItem, error) {
+	if instance, err := s.repo.UserInstalledSkill(userID, skillID); err != nil {
+		return nil, err
+	} else if instance != nil {
+		return s.syncUserGitHubSkill(userID, instance)
+	}
 	skill, err := s.ownedSkill(userID, skillID)
 	if err != nil {
 		return nil, err
@@ -305,8 +249,7 @@ func (s *Service) syncGitHubSkillWithContext(ctx context.Context, skill *model.S
 		skill.Name = archive.Metadata.Name
 		skill.Description = archive.Metadata.Description
 	}
-	skill.Instruction = string(archive.Files["SKILL.md"])
-	if err := s.addSkillArchiveVersion(skill, archive, "github", canonicalURL, resolvedRef, spec.Subdir, commit, skill.AutoUpdate); err != nil {
+	if err := s.addSkillArchiveContent(skill, archive, "github", canonicalURL, resolvedRef, spec.Subdir, commit, skill.AutoUpdate); err != nil {
 		skill.SyncStatus = "failed"
 		skill.SyncError = err.Error()
 		_ = s.repo.SaveSkill(skill)
@@ -315,111 +258,34 @@ func (s *Service) syncGitHubSkillWithContext(ctx context.Context, skill *model.S
 	return nil
 }
 
-func (s *Service) createSingleMarkdownSkill(userID string, req SkillMutationRequest) (*SkillItem, error) {
-	archive, err := archiveFromMarkdown([]byte(req.Instruction), req.SkillName, req.Description)
-	if err != nil {
-		return nil, err
-	}
-	return s.createSkillFromArchive(userID, archive, SkillInstallRequest{Name: req.SkillName, Description: req.Description, Tag: req.Tag, IsPrivate: req.IsPrivate}, "markdown", req.MarkdownURL, "", "", "", false)
-}
-
-func (s *Service) updateSingleMarkdownSkill(skill *model.Skill, req SkillMutationRequest) error {
-	if strings.TrimSpace(req.Instruction) == "" {
-		return s.repo.SaveSkill(skill)
-	}
-	archive, err := archiveFromMarkdown([]byte(req.Instruction), req.SkillName, req.Description)
-	if err != nil {
-		return err
-	}
-	skill.Instruction = req.Instruction
-	return s.addSkillArchiveVersion(skill, archive, "markdown", req.MarkdownURL, "", "", "", false)
-}
-
-func (s *Service) createSkillFromArchive(userID string, archive skillPackageArchive, req SkillInstallRequest, sourceType string, sourceURL string, sourceRef string, sourceSubdir string, sourceCommit string, autoUpdate bool) (*SkillItem, error) {
-	if err := s.RequireAdministrator(userID); err != nil {
-		return nil, err
-	}
-	name := strings.TrimSpace(req.Name)
-	if name == "" {
-		name = archive.Metadata.Name
-	}
-	description := strings.TrimSpace(req.Description)
-	if description == "" {
-		description = archive.Metadata.Description
-	}
-	if utf8.RuneCountInString(name) == 0 || utf8.RuneCountInString(name) > 80 {
-		return nil, kernel.BadAuthRequest("技能名称必须为 1-80 个字符")
-	}
-	if utf8.RuneCountInString(description) == 0 || utf8.RuneCountInString(description) > 500 {
-		return nil, kernel.BadAuthRequest("技能简介必须为 1-500 个字符")
-	}
-	tag := strings.TrimSpace(req.Tag)
-	if _, ok := skillCategoryLabels[tag]; !ok {
-		tag = "others"
-	}
-	skillID := kernel.NewID()
-	versionID := kernel.NewID()
-	packageKey, version, files, err := s.persistSkillArchive(skillID, versionID, archive, sourceCommit)
-	if err != nil {
-		return nil, err
-	}
-	now := time.Now()
+func (s *Service) addSkillArchiveContent(skill *model.Skill, archive skillPackageArchive, sourceType string, sourceURL string, sourceRef string, sourceSubdir string, sourceCommit string, autoUpdate bool) error {
 	versionLabel := archive.Metadata.Version
 	if versionLabel == "" {
 		versionLabel = "1"
 		if sourceCommit != "" {
 			versionLabel = shortCommit(sourceCommit)
-		}
-	}
-	version.VersionLabel = versionLabel
-	skill := &model.Skill{
-		ID: skillID, OwnerID: userID, Name: name, Description: description, Instruction: string(archive.Files["SKILL.md"]),
-		CurrentVersionID: versionID, VersionLabel: versionLabel, ContentHash: archive.ContentHash, FileCount: len(archive.Files), TotalBytes: archive.TotalBytes,
-		SourceType: sourceType, SourceURL: sourceURL, SourceRef: sourceRef, SourceSubdir: sourceSubdir, SourceCommit: sourceCommit,
-		SyncStatus: "synced", AutoUpdate: autoUpdate, LastCheckedAt: &now, LastSyncedAt: &now,
-		Status: skillStatusEnabled, Source: skillSourceUser, Tag: tag, IsPrivate: req.IsPrivate, MarkdownURL: sourceURL, ShowcaseMediaJSON: "[]",
-	}
-	state := &model.UserSkillState{ID: kernel.NewID(), UserID: userID, SkillID: skillID, Added: true, InstalledVersionID: versionID, AutoUpdate: autoUpdate}
-	if err := s.repo.CreateSkillWithPackage(skill, version, files, state); err != nil {
-		_ = os.Remove(filepath.Join(s.dataDir, "skill-packages", filepath.FromSlash(packageKey)))
-		return nil, err
-	}
-	return s.SkillDetail(userID, skillID)
-}
-
-func (s *Service) addSkillArchiveVersion(skill *model.Skill, archive skillPackageArchive, sourceType string, sourceURL string, sourceRef string, sourceSubdir string, sourceCommit string, autoUpdate bool) error {
-	versionID := kernel.NewID()
-	packageKey, version, files, err := s.persistSkillArchive(skill.ID, versionID, archive, sourceCommit)
-	if err != nil {
-		return err
-	}
-	versionLabel := archive.Metadata.Version
-	if versionLabel == "" {
-		versionLabel = "1"
-		if sourceCommit != "" {
-			versionLabel = shortCommit(sourceCommit)
-		} else if skill.CurrentVersionID != "" {
+		} else if strings.TrimSpace(skill.ContentID) != "" {
 			versionLabel = editedSkillVersionLabel()
 		}
 	}
-	version.VersionLabel = versionLabel
-	applySkillArchiveVersion(skill, version, archive, sourceType, sourceURL, sourceRef, sourceSubdir, sourceCommit, autoUpdate)
-	if err := s.repo.AddSkillVersion(skill, version, files); err != nil {
-		_ = os.Remove(filepath.Join(s.dataDir, "skill-packages", filepath.FromSlash(packageKey)))
+	content, files, err := s.contentRecord(archive)
+	if err != nil {
 		return err
 	}
-	return nil
+	previous := skill.ContentID
+	applySkillArchiveContent(skill, content, versionLabel, archive, sourceType, sourceURL, sourceRef, sourceSubdir, sourceCommit, autoUpdate)
+	return s.repo.AddSkillContent(skill, content, files, previous)
 }
 
 func editedSkillVersionLabel() string {
 	return time.Now().UTC().Format("20060102-150405")
 }
 
-// applySkillArchiveVersion 把新版本的包元数据同步到技能行；调用方负责在同一事务里写入版本和文件清单。
-func applySkillArchiveVersion(skill *model.Skill, version *model.SkillVersion, archive skillPackageArchive, sourceType string, sourceURL string, sourceRef string, sourceSubdir string, sourceCommit string, autoUpdate bool) {
+// applySkillArchiveContent 把内容快照元数据同步到技能行；调用方负责在同一事务里写入内容行和文件索引。
+func applySkillArchiveContent(skill *model.Skill, content *model.SkillContent, versionLabel string, archive skillPackageArchive, sourceType string, sourceURL string, sourceRef string, sourceSubdir string, sourceCommit string, autoUpdate bool) {
 	now := time.Now()
-	skill.CurrentVersionID = version.ID
-	skill.VersionLabel = version.VersionLabel
+	skill.ContentID = content.ID
+	skill.VersionLabel = versionLabel
 	skill.ContentHash = archive.ContentHash
 	skill.FileCount = len(archive.Files)
 	skill.TotalBytes = archive.TotalBytes
@@ -433,47 +299,6 @@ func applySkillArchiveVersion(skill *model.Skill, version *model.SkillVersion, a
 	skill.AutoUpdate = autoUpdate
 	skill.LastCheckedAt = &now
 	skill.LastSyncedAt = &now
-}
-
-func (s *Service) persistSkillArchive(skillID string, versionID string, archive skillPackageArchive, sourceCommit string) (string, *model.SkillVersion, []model.SkillFile, error) {
-	packageKey := path.Join(skillID, versionID+".zip")
-	absolute := filepath.Join(s.dataDir, "skill-packages", filepath.FromSlash(packageKey))
-	if err := os.MkdirAll(filepath.Dir(absolute), 0o750); err != nil {
-		return "", nil, nil, err
-	}
-	data, err := encodeSkillArchive(archive.Files)
-	if err != nil {
-		return "", nil, nil, err
-	}
-	temporary, err := os.CreateTemp(filepath.Dir(absolute), ".skill-*.zip")
-	if err != nil {
-		return "", nil, nil, err
-	}
-	temporaryPath := temporary.Name()
-	defer os.Remove(temporaryPath)
-	if err := temporary.Chmod(0o600); err != nil {
-		temporary.Close()
-		return "", nil, nil, err
-	}
-	if _, err := temporary.Write(data); err != nil {
-		temporary.Close()
-		return "", nil, nil, err
-	}
-	if err := temporary.Close(); err != nil {
-		return "", nil, nil, err
-	}
-	if err := os.Rename(temporaryPath, absolute); err != nil {
-		return "", nil, nil, err
-	}
-	version := &model.SkillVersion{ID: versionID, SkillID: skillID, ContentHash: archive.ContentHash, EntryPath: "SKILL.md", PackageKey: packageKey, FileCount: len(archive.Files), TotalBytes: archive.TotalBytes, SourceCommit: sourceCommit}
-	paths := sortedSkillPaths(archive.Files)
-	files := make([]model.SkillFile, 0, len(paths))
-	for _, filePath := range paths {
-		content := archive.Files[filePath]
-		digest := sha256.Sum256(content)
-		files = append(files, model.SkillFile{ID: kernel.NewID(), SkillVersionID: versionID, Path: filePath, Kind: skillFileKind(filePath), MimeType: skillFileMime(filePath, content), Size: int64(len(content)), SHA256: hex.EncodeToString(digest[:])})
-	}
-	return packageKey, version, files, nil
 }
 
 func normalizeSkillPath(value string) (string, error) {
@@ -525,7 +350,7 @@ func isPreviewText(mimeType string, filePath string) bool {
 	return strings.HasPrefix(mimeType, "text/") || strings.Contains(mimeType, "json") || strings.Contains(mimeType, "yaml") || strings.Contains(mimeType, "toml") || skillFileKind(filePath) == "code"
 }
 
-func skillFileItem(file model.SkillFile) SkillPackageFileItem {
+func skillFileItem(file skillPackageFile) SkillPackageFileItem {
 	return SkillPackageFileItem{Path: file.Path, Kind: file.Kind, MimeType: file.MimeType, Size: file.Size, SHA256: file.SHA256}
 }
 
@@ -543,8 +368,4 @@ func shortCommit(value string) string {
 		return value
 	}
 	return value[:12]
-}
-
-func isSkillPackageNotFound(err error) bool {
-	return errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, os.ErrNotExist)
 }

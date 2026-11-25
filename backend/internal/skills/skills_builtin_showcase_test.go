@@ -46,7 +46,7 @@ metadata:
 
 func assertBuiltinShowcasePreservesSnakeCaseURL(t *testing.T, files fs.FS, path string) {
 	t.Helper()
-	packages, err := loadBuiltinSkillPackagesFromFS(files, nil)
+	packages, err := loadBuiltinSkillPackagesFromFS(files)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestBuiltinShowcaseSkipsInvalidSkillAndLogsReason(t *testing.T) {
 	previous := log.Writer()
 	log.SetOutput(&output)
 	t.Cleanup(func() { log.SetOutput(previous) })
-	packages, err := loadBuiltinSkillPackagesFromFS(files, nil)
+	packages, err := loadBuiltinSkillPackagesFromFS(files)
 	if err != nil || len(packages) != 1 || packages[0].skill.ID != "c-valid" {
 		t.Fatalf("packages = %#v, error = %v", packages, err)
 	}

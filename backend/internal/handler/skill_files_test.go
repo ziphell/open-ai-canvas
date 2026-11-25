@@ -27,7 +27,7 @@ func TestSkillPackageFilesEditHTTP(t *testing.T) {
 	sqlDB, _ := db.DB()
 	sqlDB.SetMaxOpenConns(1)
 	defer sqlDB.Close()
-	if err := db.AutoMigrate(&model.User{}, &model.AuthSession{}, &model.UserIdentity{}, &model.Skill{}, &model.SkillVersion{}, &model.SkillFile{}, &model.UserSkillState{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.AuthSession{}, &model.UserIdentity{}, &model.Skill{}, &model.SkillContent{}, &model.SkillContentFile{}, &model.MarketSkillListing{}, &model.UserInstalledSkill{}, &model.UserSkillFavorite{}, &model.UserSkillLibraryCategory{}); err != nil {
 		t.Fatal(err)
 	}
 	for _, id := range []string{"owner", "other"} {

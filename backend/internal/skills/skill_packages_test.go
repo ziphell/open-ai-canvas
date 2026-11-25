@@ -53,49 +53,50 @@ func TestBuiltinSkillPackageBoundsMetadata(t *testing.T) {
 	}
 }
 
-func TestEnsureSkillPackagesBoundsLegacyFallbackMetadata(t *testing.T) {
-	for _, source := range []int{3, skillSourceUser} {
-		db, err := gorm.Open(sqlite.Open("file:"+kernel.NewID()+"?mode=memory&cache=shared"), &gorm.Config{})
-		if err != nil {
+func TestEnsureSkillContentsImportsLegacyInstruction(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+kernel.NewID()+"?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	if err := db.AutoMigrate(&model.Skill{}, &model.SkillContent{}, &model.SkillContentFile{}, &model.UserInstalledSkill{}); err != nil {
+		t.Fatal(err)
+	}
+	svc := New(repository.New(db), t.TempDir(), nil)
+	skill := model.Skill{ID: kernel.NewID(), Name: strings.Repeat("名", 81), Description: strings.Repeat("文", 503), Instruction: "## 旧技能\n\n保留完整正文。\n", Status: skillStatusEnabled, Source: skillSourceUser}
+	skill.ContentID = skill.ID
+	if err := db.Create(&skill).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.SkillContent{ID: skill.ID, Format: "zip"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := svc.EnsureSkillContents(); err != nil {
 			t.Fatal(err)
-		}
-		sqlDB, err := db.DB()
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = sqlDB.Close() })
-		if err := db.AutoMigrate(&model.Skill{}, &model.SkillVersion{}, &model.SkillFile{}); err != nil {
-			t.Fatal(err)
-		}
-		svc := New(repository.New(db), t.TempDir(), nil)
-		skill := model.Skill{ID: kernel.NewID(), Name: strings.Repeat("名", 81), Description: strings.Repeat("文", 503), Instruction: "## 旧技能\n", Status: skillStatusEnabled, Source: source}
-		if err := db.Create(&skill).Error; err != nil {
-			t.Fatal(err)
-		}
-		for range 2 {
-			if err := svc.EnsureSkillPackages(); err != nil {
-				t.Fatal(err)
-			}
-		}
-		assertSkillVersionCount(t, db, skill.ID, 1)
-		var saved model.Skill
-		if err := db.First(&saved, "id = ?", skill.ID).Error; err != nil {
-			t.Fatal(err)
-		}
-		if saved.Name != skill.Name || saved.Description != skill.Description || saved.Instruction != skill.Instruction {
-			t.Fatal("migration changed original skill fields")
-		}
-		version, err := svc.repo.SkillVersion(saved.CurrentVersionID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		body, err := svc.readSkillArchiveEntry(version, "SKILL.md")
-		if err != nil || string(body) != skill.Instruction {
-			t.Fatalf("original instruction not preserved: %v", err)
 		}
 	}
-	if _, err := archiveFromMarkdown([]byte("## 旧技能\n"), strings.Repeat("名", 81), strings.Repeat("文", 503)); err == nil {
-		t.Fatal("non-migration archive input must still reject oversized fallback metadata")
+	var contents []model.SkillContent
+	if err := db.Find(&contents).Error; err != nil || len(contents) != 1 || len(contents[0].Data) == 0 {
+		t.Fatalf("content import = %+v, %v", contents, err)
+	}
+	var files []model.SkillContentFile
+	if err := db.Where("content_id = ?", skill.ID).Find(&files).Error; err != nil || len(files) != 1 || files[0].Path != "SKILL.md" {
+		t.Fatalf("content files = %+v, %v", files, err)
+	}
+	var saved model.Skill
+	if err := db.First(&saved, "id = ?", skill.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if saved.Name != skill.Name || saved.Description != skill.Description || saved.Instruction != skill.Instruction {
+		t.Fatal("content import changed original skill fields")
+	}
+	if saved.ContentID != skill.ID || saved.ContentHash == "" || saved.FileCount != 1 {
+		t.Fatalf("content metadata not synced: %+v", saved)
 	}
 }
 
@@ -189,76 +190,6 @@ func TestParseGitHubSkillURL(t *testing.T) {
 	}
 	if _, err := parseGitHubSkillURL("https://github.com/ddcat-ai/open-ai-canvas/blob/main/SKILL.md", "", ""); err == nil {
 		t.Fatal("expected blob URL to be rejected")
-	}
-}
-
-func TestEnsureSkillPackagesMigratesAndRefreshesBuiltinSkills(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:"+kernel.NewID()+"?mode=memory&cache=shared"), &gorm.Config{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.AutoMigrate(&model.Skill{}, &model.SkillVersion{}, &model.SkillFile{}); err != nil {
-		t.Fatal(err)
-	}
-	svc := New(repository.New(db), t.TempDir(), nil)
-	builtin := model.Skill{ID: kernel.NewID(), Name: "内置导演", Description: "内置工作流", Instruction: "# 内置导演\n\n第一版", Status: skillStatusEnabled, Source: 3}
-	userSkill := model.Skill{ID: kernel.NewID(), Name: "用户技能", Description: "用户工作流", Instruction: "# 用户技能\n\n第一版", Status: skillStatusEnabled, Source: skillSourceUser}
-	if err := db.Create(&builtin).Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Create(&userSkill).Error; err != nil {
-		t.Fatal(err)
-	}
-
-	if err := svc.EnsureSkillPackages(); err != nil {
-		t.Fatal(err)
-	}
-	assertSkillVersionCount(t, db, builtin.ID, 1)
-	assertSkillVersionCount(t, db, userSkill.ID, 1)
-
-	if err := svc.EnsureSkillPackages(); err != nil {
-		t.Fatal(err)
-	}
-	assertSkillVersionCount(t, db, builtin.ID, 1)
-	assertSkillVersionCount(t, db, userSkill.ID, 1)
-
-	if err := db.Model(&model.Skill{}).Where("id = ?", builtin.ID).Update("instruction", "# 内置导演\n\n第二版").Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Model(&model.Skill{}).Where("id = ?", userSkill.ID).Update("instruction", "# 用户技能\n\n不应在启动时重建").Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := svc.EnsureSkillPackages(); err != nil {
-		t.Fatal(err)
-	}
-	assertSkillVersionCount(t, db, builtin.ID, 1)
-	assertSkillVersionCount(t, db, userSkill.ID, 1)
-
-	var refreshed model.Skill
-	if err := db.First(&refreshed, "id = ?", builtin.ID).Error; err != nil {
-		t.Fatal(err)
-	}
-	version, err := svc.repo.SkillVersion(refreshed.CurrentVersionID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	body, err := svc.readSkillArchiveEntry(version, "SKILL.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(body) != "# 内置导演\n\n第一版" {
-		t.Fatalf("legacy package was unexpectedly rewritten: %q", body)
-	}
-}
-
-func assertSkillVersionCount(t *testing.T, db *gorm.DB, skillID string, want int64) {
-	t.Helper()
-	var got int64
-	if err := db.Model(&model.SkillVersion{}).Where("skill_id = ?", skillID).Count(&got).Error; err != nil {
-		t.Fatal(err)
-	}
-	if got != want {
-		t.Fatalf("skill %s version count = %d, want %d", skillID, got, want)
 	}
 }
 

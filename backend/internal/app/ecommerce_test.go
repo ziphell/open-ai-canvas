@@ -33,26 +33,35 @@ func TestEcommerceSkillPromptUsesInstalledUserSkill(t *testing.T) {
 func TestEcommerceSkillPromptReadsNewlyInstalledPublicSkill(t *testing.T) {
 	svc, db, _, _ := ecommerceCreationTestService(t)
 	skillAdministratorFixture(t, db, "creator", "buyer")
-	skill, err := svc.CreateSkill("creator", SkillMutationRequest{
-		SkillName: "电商详情图", Description: "商品细节呈现", Instruction: "# 电商详情图\n先展示商品整体，再用特写解释已确认的卖点。", Tag: "others", IsPrivate: false,
-	})
-	if err != nil {
+	if err := db.Create(&model.Skill{
+		ID: "public-ecommerce-skill", OwnerID: "creator", Name: "电商详情图", Description: "商品细节呈现",
+		Instruction: "# 电商详情图\n先展示商品整体，再用特写解释已确认的卖点。",
+		Tag:         "others", Status: 1, IsPrivate: false, SourceType: "markdown",
+	}).Error; err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.EcommerceSkillPrompt("buyer", []string{skill.SkillID}); err == nil {
+	if err := db.Create(&model.MarketSkillListing{SkillID: "public-ecommerce-skill", Status: "published", ShowcaseMediaJSON: "[]"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.EcommerceSkillPrompt("buyer", []string{"public-ecommerce-skill"}); err == nil {
 		t.Fatal("public skill was usable before installation")
 	}
-	if _, err := svc.SetSkillAdded("buyer", skill.SkillID, true); err != nil {
+	if _, err := svc.SetSkillAdded("buyer", "public-ecommerce-skill", true); err != nil {
 		t.Fatal(err)
 	}
-	prompt, err := svc.EcommerceSkillPrompt("buyer", []string{skill.SkillID})
+	added, err := svc.AddedSkills("buyer")
+	if err != nil || len(added) != 1 {
+		t.Fatalf("buyer additions = %#v %v", added, err)
+	}
+	instanceID := added[0].SkillID
+	prompt, err := svc.EcommerceSkillPrompt("buyer", []string{instanceID})
 	if err != nil || !strings.Contains(prompt, "先展示商品整体，再用特写解释已确认的卖点") {
 		t.Fatalf("newly installed skill was not read for planning: %q %v", prompt, err)
 	}
-	if _, err := svc.SetSkillAdded("buyer", skill.SkillID, false); err != nil {
+	if _, err := svc.SetSkillAdded("buyer", instanceID, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.EcommerceSkillPrompt("buyer", []string{skill.SkillID}); err == nil {
+	if _, err := svc.EcommerceSkillPrompt("buyer", []string{instanceID}); err == nil {
 		t.Fatal("removed skill remained usable for planning")
 	}
 }

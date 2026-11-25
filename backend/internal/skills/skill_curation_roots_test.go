@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+	"time"
+
 	"yingce/backend/internal/model"
 	"yingce/backend/internal/repository"
 )
@@ -49,6 +51,11 @@ func TestSkillCurationRootsLifecycle(t *testing.T) {
 	for _, skill := range []model.Skill{{ID: "assigned", Name: "Assigned", Tag: "drama", Status: 1}, {ID: "legacy", Name: "Legacy", Tag: "drama", Status: 1}, {ID: "unknown", Name: "Unknown", Tag: "unknown", Status: 1}, {ID: "private", Name: "Private", Tag: "drama", Status: 1, IsPrivate: true, OwnerID: actor.ID}} {
 		if err := db.Create(&skill).Error; err != nil {
 			t.Fatal(err)
+		}
+		if !skill.IsPrivate {
+			if err := db.Create(&model.MarketSkillListing{SkillID: skill.ID, Status: "published", ShowcaseMediaJSON: "[]"}).Error; err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	state = update(SkillCurationUpdate{Assignment: &SkillCurationAssignmentInput{SkillID: "assigned", RootID: &root.ID, CategoryIDs: []string{child.ID}}})
@@ -131,12 +138,22 @@ func TestSkillCurationRootsValidation(t *testing.T) {
 
 func TestSkillCurationRootsDeletionAndPrivateVisibility(t *testing.T) {
 	svc, db, actor := newCurationTest(t)
-	if err := db.AutoMigrate(&model.SkillVersion{}, &model.SkillFile{}, &model.BuiltinSkillTombstone{}); err != nil {
+	if err := db.AutoMigrate(&model.SkillContent{}, &model.SkillContentFile{}, &model.MarketSkillListing{}, &model.UserInstalledSkill{}, &model.UserSkillFavorite{}, &model.UserSkillLibraryCategory{}); err != nil {
 		t.Fatal(err)
 	}
 	for _, id := range []string{"normal", "builtin", "private"} {
 		db.Create(&model.Skill{ID: id, Tag: "drama", Status: 1, IsPrivate: id == "private", OwnerID: actor.ID})
 		db.Create(&model.SkillCurationRootAssignment{SkillID: id, RootID: "social"})
+		if id != "private" {
+			db.Create(&model.MarketSkillListing{SkillID: id, Status: "published", ShowcaseMediaJSON: "[]"})
+		}
+	}
+	if err := db.Create(&model.UserInstalledSkill{
+		ID: "private", UserID: actor.ID, Name: "Private", Description: "d",
+		ContentID: "private-content", ContentHash: "h", VersionNumber: 1,
+		InstalledAt: time.Now(), CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}).Error; err != nil {
+		t.Fatal(err)
 	}
 	db.Model(&model.SkillCurationSetting{}).Where("id = 1").Update("enabled", true)
 	state, err := svc.SkillCuration(actor, false)
@@ -153,12 +170,20 @@ func TestSkillCurationRootsDeletionAndPrivateVisibility(t *testing.T) {
 	if err := svc.repo.DeleteSkill("normal"); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.repo.DeleteBuiltinSkill("builtin", actor.ID); err != nil {
+	// 公共目录技能只做隐藏，策展归类保留以便重新发布。
+	if err := svc.repo.UpdateSkillFields("builtin", map[string]any{"status": 0}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.repo.HideMarketSkillListing("builtin"); err != nil {
 		t.Fatal(err)
 	}
 	var count int64
-	db.Model(&model.SkillCurationRootAssignment{}).Where("skill_id != ?", "private").Count(&count)
+	db.Model(&model.SkillCurationRootAssignment{}).Where("skill_id = ?", "normal").Count(&count)
 	if count != 0 {
 		t.Fatal("deleted root assignment retained")
+	}
+	db.Model(&model.SkillCurationRootAssignment{}).Where("skill_id = ?", "builtin").Count(&count)
+	if count == 0 {
+		t.Fatal("hidden skill lost curation assignment")
 	}
 }

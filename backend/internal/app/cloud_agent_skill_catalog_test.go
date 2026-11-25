@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"yingce/backend/internal/model"
 	"yingce/backend/internal/skills"
 )
 
@@ -130,8 +131,14 @@ func TestSkillMarketSearchFeedsOneRecommendationCard(t *testing.T) {
 	if sqlDB, err := db.DB(); err == nil {
 		t.Cleanup(func() { _ = sqlDB.Close() })
 	}
-	public, err := s.CreateSkill("author", SkillMutationRequest{SkillName: "珠宝详情页文案", Description: "珠宝电商详情页与卖点文案", Instruction: "# 珠宝详情页\n\n步骤", Tag: "ecommerce", IsPrivate: false})
-	if err != nil {
+	publicID := "author-market-skill"
+	if err := db.Create(&model.Skill{
+		ID: publicID, OwnerID: "author", Name: "珠宝详情页文案", Description: "珠宝电商详情页与卖点文案",
+		Tag: "ecommerce", Status: 1, IsPrivate: false, SourceType: "markdown",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.MarketSkillListing{SkillID: publicID, Status: "published", ShowcaseMediaJSON: "[]"}).Error; err != nil {
 		t.Fatal(err)
 	}
 	state := &cloudAgentRuntime{Request: agentTestRequest()}
@@ -142,7 +149,7 @@ func TestSkillMarketSearchFeedsOneRecommendationCard(t *testing.T) {
 		t.Fatal(err)
 	}
 	matches := result.(map[string]any)["matches"].([]map[string]any)
-	if len(matches) != 1 || matches[0]["skillId"] != public.SkillID {
+	if len(matches) != 1 || matches[0]["skillId"] != publicID {
 		t.Fatalf("market search should find the uninstalled public skill: %+v", matches)
 	}
 	if mine, err := cloudAgentHandleSkillMarketSearch(s.repo, "author", &cloudAgentRuntime{}, search, s); err != nil || len(mine.(map[string]any)["matches"].([]map[string]any)) != 0 {
@@ -154,7 +161,7 @@ func TestSkillMarketSearchFeedsOneRecommendationCard(t *testing.T) {
 	if _, err := cloudAgentHandleSkillRecommend(s.repo, "user", state, recommend, s); err == nil {
 		t.Fatal("only skills returned by market search may be recommended")
 	}
-	recommend.Function.Arguments = `{"skillIds":["` + public.SkillID + `"],"reason":"装上后能按珠宝品类写卖点"}`
+	recommend.Function.Arguments = `{"skillIds":["` + publicID + `"],"reason":"装上后能按珠宝品类写卖点"}`
 	if _, err := cloudAgentHandleSkillRecommend(s.repo, "user", state, recommend, s); err != nil {
 		t.Fatal(err)
 	}

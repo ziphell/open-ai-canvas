@@ -10,7 +10,7 @@ let addedSkillsAbort: AbortController | null = null;
 
 export async function withSkillLibraryAccess<T>(request: () => Promise<T>): Promise<T> {
     const access = captureSkillLibraryAccess();
-    if (!access) throw new ApiError("技能库仅供管理员访问", { status: 403, reason: "admin_required", retryable: false });
+    if (!access) throw new ApiError("请先登录后使用技能库", { status: 401, reason: "login_required", retryable: false });
     const result = await request();
     if (!isSkillLibraryAccessCurrent(access)) throw new DOMException("技能访问权限已变更", "AbortError");
     return result;
@@ -69,6 +69,11 @@ export type Skill = {
     extraInfo: string;
     isAdded: boolean;
     isOwner: boolean;
+    /** 从广场安装且尚未编辑，可以拉取广场最新内容。 */
+    followUpdates: boolean;
+    followMetadata: boolean;
+    /** 来源广场技能内容已变化，存在可拉取的更新。 */
+    hasUpdate: boolean;
     libraryCategoryId?: string;
     /** 已安装或自建技能的 Agent 使用方式：auto 可被 Agent 自动发现，manual 只在点名或固定时使用。 */
     agentMode?: SkillAgentMode;
@@ -332,6 +337,9 @@ function normalizeAddedSkillReference(skill: AddedSkillReference): Skill {
         extraInfo: "",
         isAdded: skill.isAdded,
         isOwner: skill.isOwner,
+        followUpdates: false,
+        followMetadata: false,
+        hasUpdate: false,
         libraryCategoryId: skill.libraryCategoryId || "",
         agentMode: skill.agentMode,
     };
@@ -403,8 +411,13 @@ export function syncSkill(id: string) {
     return withSkillLibraryAccess(() => http.post<{ skill: Skill }>(`/skills/${encodeURIComponent(id)}/sync`).finally(invalidateAddedSkillsCache));
 }
 
+/** 把未编辑的广场安装实例更新到广场当前内容。 */
+export function updateSkillFromMarket(id: string) {
+    return withSkillLibraryAccess(() => http.post<{ skill: Skill }>(`/skills/${encodeURIComponent(id)}/update-from-market`).finally(invalidateAddedSkillsCache));
+}
+
 export function skillFileRawURL(id: string, path: string) {
-    if (!hasSkillLibraryAccess()) throw new ApiError("技能库仅供管理员访问", { status: 403, reason: "admin_required", retryable: false });
+    if (!hasSkillLibraryAccess()) throw new ApiError("请先登录后使用技能库", { status: 401, reason: "login_required", retryable: false });
     const base = String(apiBaseURL).replace(/\/$/, "");
     return `${base}/skills/${encodeURIComponent(id)}/file/raw?path=${encodeURIComponent(path)}`;
 }

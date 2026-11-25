@@ -101,7 +101,7 @@ func run(ctx context.Context) error {
 	if err := svc.EnsureBuiltinSkills(); err != nil {
 		return err
 	}
-	if err := svc.EnsureSkillPackages(); err != nil {
+	if err := svc.EnsureSkillContents(); err != nil {
 		return err
 	}
 	if err := svc.EnsureBuiltinTools(); err != nil {

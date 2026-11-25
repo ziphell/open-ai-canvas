@@ -1,12 +1,9 @@
 package handler
 
 import (
-	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -32,7 +29,16 @@ func skillAuthorizationFixture(t *testing.T) (*gin.Engine, *gorm.DB) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	if err := db.AutoMigrate(&model.User{}, &model.UserIdentity{}, &model.AuthSession{}); err != nil {
+	if err := db.AutoMigrate(
+		&model.User{}, &model.UserIdentity{}, &model.AuthSession{},
+		&model.Skill{}, &model.SkillContent{}, &model.SkillContentFile{},
+		&model.MarketSkillListing{}, &model.UserInstalledSkill{}, &model.UserSkillFavorite{},
+		&model.UserSkillLibraryCategory{}, &model.SkillCurationSetting{}, &model.SkillCurationRoot{}, &model.SkillCurationCategory{},
+		&model.SkillCurationAssignment{}, &model.SkillCurationRootAssignment{}, &model.AdminAuditEvent{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.SkillCurationSetting{ID: 1}).Error; err != nil {
 		t.Fatal(err)
 	}
 	for _, actor := range []model.User{
@@ -52,20 +58,11 @@ func skillAuthorizationFixture(t *testing.T) (*gin.Engine, *gorm.DB) {
 	api := router.Group("/api")
 	RegisterSkillRoutes(api, svc)
 	RegisterAdminSkillRoutes(api, svc)
-	RegisterAgentRoutes(api, svc)
-	RegisterEcommerceRoutes(api, svc)
 	return router, db
 }
 
-type skillBodyReadProbe struct{ read bool }
-
-func (b *skillBodyReadProbe) Read(_ []byte) (int, error) {
-	b.read = true
-	return 0, io.EOF
-}
-
-func skillAuthorizationRequest(router *gin.Engine, method, target, actor string, body io.Reader) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(method, target, body)
+func skillAuthorizationRequest(router *gin.Engine, method, target, actor string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, target, nil)
 	req.Header.Set("Content-Type", "application/json")
 	if actor != "" {
 		req.AddCookie(&http.Cookie{Name: service.SessionCookieName, Value: actor + ".skill-access-token"})
@@ -75,105 +72,51 @@ func skillAuthorizationRequest(router *gin.Engine, method, target, actor string,
 	return out
 }
 
-func TestSkillRoutesRejectNonAdminsBeforeReadingInput(t *testing.T) {
+func TestUserSkillRoutesAllowMembersAndAdminRoutesRejectThem(t *testing.T) {
 	router, _ := skillAuthorizationFixture(t)
-	critical := map[string]bool{
-		"POST /api/skills/install":                 false,
-		"POST /api/skills/install/github":          false,
-		"GET /api/skills/:id/file/raw":             false,
-		"GET /api/skills/:id/bundle":               false,
-		"PUT /api/skills/:id/files":                false,
-		"POST /api/skills/:id/sync":                false,
-		"GET /api/admin/skills":                    false,
-		"GET /api/skills/curation":                 false,
-		"GET /api/skills/presets":                  false,
-		"GET /api/agent/skills/usage":              false,
-		"POST /api/ecommerce/skills/prompt":        false,
-		"POST /api/admin/ecommerce/skills/install": false,
+	for _, test := range []struct {
+		method string
+		target string
+		actor  string
+		status int
+	}{
+		{http.MethodGet, "/api/skills?scope=public", "skill-member", http.StatusOK},
+		{http.MethodGet, "/api/skills?scope=mine", "skill-member", http.StatusOK},
+		{http.MethodGet, "/api/skills/library-categories", "skill-member", http.StatusOK},
+		{http.MethodGet, "/api/skills/curation", "skill-member", http.StatusOK},
+		{http.MethodGet, "/api/skills/presets", "skill-member", http.StatusOK},
+		{http.MethodGet, "/api/admin/skills", "skill-member", http.StatusForbidden},
+		{http.MethodGet, "/api/admin/skill-curation", "skill-member", http.StatusForbidden},
+		{http.MethodGet, "/api/admin/skills", "skill-admin", http.StatusOK},
+	} {
+		t.Run(test.method+" "+test.target+"/"+test.actor, func(t *testing.T) {
+			out := skillAuthorizationRequest(router, test.method, test.target, test.actor)
+			if out.Code != test.status {
+				t.Fatalf("status=%d, want %d; body=%s", out.Code, test.status, out.Body.String())
+			}
+		})
 	}
-	for _, route := range router.Routes() {
-		if !strings.HasPrefix(route.Path, "/api/skills") && !strings.HasPrefix(route.Path, "/api/admin/skills") && !strings.HasPrefix(route.Path, "/api/admin/skill-curation") && !strings.HasPrefix(route.Path, "/api/admin/ecommerce/skills") && route.Path != "/api/agent/skills/usage" && route.Path != "/api/ecommerce/skills/prompt" {
-			continue
-		}
-		key := route.Method + " " + route.Path
-		if _, exists := critical[key]; exists {
-			critical[key] = true
-		}
-		target := strings.NewReplacer(":industryId", "drama", ":id", "legacy-owned-skill").Replace(route.Path)
-		for _, actor := range []struct {
-			id     string
-			status int
-		}{{"", http.StatusUnauthorized}, {"skill-member", http.StatusForbidden}} {
-			t.Run(key+"/"+actor.id, func(t *testing.T) {
-				probe := &skillBodyReadProbe{}
-				out := skillAuthorizationRequest(router, route.Method, target, actor.id, probe)
-				if out.Code != actor.status {
-					t.Fatalf("status=%d, want %d; body=%s", out.Code, actor.status, out.Body.String())
-				}
-				if probe.read {
-					t.Fatal("unauthorized skill request consumed its body")
-				}
-				var envelope struct {
-					Code int `json:"code"`
-				}
-				if err := json.Unmarshal(out.Body.Bytes(), &envelope); err != nil || envelope.Code == 0 {
-					t.Fatalf("permission denial must be a failed API envelope: %s", out.Body.String())
-				}
-			})
-		}
-	}
-	for route, covered := range critical {
-		if !covered {
-			t.Errorf("missing required permission case: %s", route)
+}
+
+func TestUnauthenticatedUserSkillRoutesAreRejected(t *testing.T) {
+	router, _ := skillAuthorizationFixture(t)
+	for _, target := range []string{"/api/skills?scope=public", "/api/skills/library-categories", "/api/skills/curation", "/api/skills/added"} {
+		out := skillAuthorizationRequest(router, http.MethodGet, target, "")
+		if out.Code != http.StatusUnauthorized {
+			t.Fatalf("%s status=%d, want 401; body=%s", target, out.Code, out.Body.String())
 		}
 	}
 }
 
-func TestSkillRoutesAllowAdminAndRejectSameSessionAfterDemotion(t *testing.T) {
+func TestDemotedAdminLosesAdminRoutesButKeepsUserRoutes(t *testing.T) {
 	router, db := skillAuthorizationFixture(t)
-	out := skillAuthorizationRequest(router, http.MethodGet, "/api/skills/presets", "skill-admin", nil)
-	if out.Code != http.StatusOK || !strings.Contains(out.Body.String(), `"presets"`) {
-		t.Fatalf("admin could not read presets: %d %s", out.Code, out.Body.String())
-	}
 	if err := db.Model(&model.User{}).Where("id = ?", "skill-admin").Update("role", model.UserRoleUser).Error; err != nil {
 		t.Fatal(err)
 	}
-	for _, target := range []string{"/api/skills/presets", "/api/skills/legacy-owned-skill/file/raw?path=SKILL.md", "/api/admin/skills"} {
-		out := skillAuthorizationRequest(router, http.MethodGet, target, "skill-admin", nil)
-		if out.Code != http.StatusForbidden {
-			t.Fatalf("demoted admin retained skill access: %s %d %s", target, out.Code, out.Body.String())
-		}
+	if out := skillAuthorizationRequest(router, http.MethodGet, "/api/admin/skills", "skill-admin"); out.Code != http.StatusForbidden {
+		t.Fatalf("admin route after demotion = %d %s", out.Code, out.Body.String())
 	}
-}
-
-func TestAgentCapabilitiesDoNotAdvertiseSkillToolsToMembers(t *testing.T) {
-	router, _ := skillAuthorizationFixture(t)
-	for _, actor := range []string{"skill-admin", "skill-member"} {
-		out := skillAuthorizationRequest(router, http.MethodGet, "/api/agent/capabilities", actor, nil)
-		if out.Code != http.StatusOK {
-			t.Fatalf("capabilities: %d %s", out.Code, out.Body.String())
-		}
-		var result struct {
-			Data struct {
-				Skills bool     `json:"skills"`
-				Tools  []string `json:"tools"`
-			} `json:"data"`
-		}
-		if err := json.Unmarshal(out.Body.Bytes(), &result); err != nil {
-			t.Fatal(err)
-		}
-		admin := actor == "skill-admin"
-		if result.Data.Skills != admin || len(result.Data.Tools) == 0 {
-			t.Fatalf("unexpected agent capabilities: %#v", result.Data)
-		}
-		foundSkill := false
-		for _, name := range result.Data.Tools {
-			if strings.HasPrefix(name, "skill_") || name == "skills_load" {
-				foundSkill = true
-			}
-		}
-		if foundSkill != admin {
-			t.Fatalf("skill tools for %s: %v", actor, result.Data.Tools)
-		}
+	if out := skillAuthorizationRequest(router, http.MethodGet, "/api/skills?scope=public", "skill-admin"); out.Code != http.StatusOK {
+		t.Fatalf("user route after demotion = %d %s", out.Code, out.Body.String())
 	}
 }

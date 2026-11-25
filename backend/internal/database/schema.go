@@ -96,11 +96,12 @@ func Models() []any {
 		&model.StorageLocation{},
 		&model.UserDailyUploadUsage{},
 		&model.Skill{},
-		&model.SkillLibraryCategory{},
-		&model.SkillVersion{},
-		&model.SkillFile{},
-		&model.UserSkillState{},
-		&model.BuiltinSkillTombstone{},
+		&model.SkillContent{},
+		&model.SkillContentFile{},
+		&model.MarketSkillListing{},
+		&model.UserInstalledSkill{},
+		&model.UserSkillFavorite{},
+		&model.UserSkillLibraryCategory{},
 		&model.Tool{},
 		&model.ToolFavorite{},
 		&model.Resource{},
@@ -176,8 +177,8 @@ func Models() []any {
 
 func migrateSchemaV1(db *gorm.DB) error {
 	// 旧表只保存 Updream 目录状态，与本地技能主键没有可迁移关系；首次升级时按产品要求清空重建。
-	if db.Migrator().HasColumn(&model.UserSkillState{}, "skill_dir") && !db.Migrator().HasColumn(&model.UserSkillState{}, "skill_id") {
-		if err := db.Migrator().DropTable(&model.UserSkillState{}); err != nil {
+	if db.Migrator().HasColumn(&model.LegacyUserSkillState{}, "skill_dir") && !db.Migrator().HasColumn(&model.LegacyUserSkillState{}, "skill_id") {
+		if err := db.Migrator().DropTable(&model.LegacyUserSkillState{}); err != nil {
 			return err
 		}
 	}

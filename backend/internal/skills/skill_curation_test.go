@@ -82,6 +82,11 @@ func TestSkillCurationLifecycleAndGuards(t *testing.T) {
 		if err := db.Create(&s).Error; err != nil {
 			t.Fatal(err)
 		}
+		if !s.IsPrivate {
+			if err := db.Create(&model.MarketSkillListing{SkillID: s.ID, Status: "published", ShowcaseMediaJSON: "[]"}).Error; err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 	state = update(SkillCurationUpdate{Assignment: &SkillCurationAssignmentInput{SkillID: "public", CategoryIDs: []string{c.ID}}})
 	list, err := svc.Skills(actor.ID, SkillListRequest{PlatformCategoryID: c.ID})
@@ -148,7 +153,7 @@ func TestSkillCurationAuditFailureRollsBack(t *testing.T) {
 
 func TestSkillCurationDeletionCleanup(t *testing.T) {
 	svc, db, _ := newCurationTest(t)
-	if err := db.AutoMigrate(&model.SkillVersion{}, &model.SkillFile{}, &model.BuiltinSkillTombstone{}); err != nil {
+	if err := db.AutoMigrate(&model.SkillContent{}, &model.SkillContentFile{}); err != nil {
 		t.Fatal(err)
 	}
 	for _, id := range []string{"normal", "builtin"} {
@@ -158,12 +163,19 @@ func TestSkillCurationDeletionCleanup(t *testing.T) {
 	if err := svc.repo.DeleteSkill("normal"); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.repo.DeleteBuiltinSkill("builtin", "admin"); err != nil {
+	if err := svc.repo.UpdateSkillFields("builtin", map[string]any{"status": 0}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.repo.HideMarketSkillListing("builtin"); err != nil {
 		t.Fatal(err)
 	}
 	var count int64
-	db.Model(&model.SkillCurationAssignment{}).Count(&count)
+	db.Model(&model.SkillCurationAssignment{}).Where("skill_id = ?", "normal").Count(&count)
 	if count != 0 {
-		t.Fatal("deleted skills retain assignments")
+		t.Fatal("deleted skill retains assignments")
+	}
+	db.Model(&model.SkillCurationAssignment{}).Where("skill_id = ?", "builtin").Count(&count)
+	if count == 0 {
+		t.Fatal("hidden skill lost assignments")
 	}
 }

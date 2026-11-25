@@ -255,11 +255,11 @@ func cloudAgentHandleSkillRecommend(repo *repository.Repository, userID string, 
 			continue
 		}
 		seen[id] = true
-		installed, err := repo.UserSkillState(userID, id)
+		installed, err := repo.UserInstalledSkillBySource(userID, id)
 		if err != nil {
 			return nil, err
 		}
-		if installed != nil && installed.Added {
+		if installed != nil {
 			return nil, BadAuthRequest("技能「" + suggestion.Name + "」用户已经安装，可以直接用 skill_search 找到它")
 		}
 		skills = append(skills, map[string]any{"skillId": suggestion.ID, "name": suggestion.Name, "summary": suggestion.Summary, "tag": suggestion.Tag})

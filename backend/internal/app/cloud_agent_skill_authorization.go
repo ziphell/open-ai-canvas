@@ -7,7 +7,6 @@ import (
 	"yingce/backend/internal/kernel"
 	"yingce/backend/internal/model"
 	"yingce/backend/internal/repository"
-	"yingce/backend/internal/skills"
 )
 
 // RequireSkillAdministrator shares the skill domain's current database-backed authorization.
@@ -21,13 +20,8 @@ func (s *Service) CloudAgentSkillCapabilities(userID string) (bool, []string, er
 	if err != nil {
 		return false, nil, err
 	}
-	names := []string{}
-	for _, name := range CloudAgentSupportedToolNames() {
-		if admin || !cloudAgentIsSkillTool(name) {
-			names = append(names, name)
-		}
-	}
-	return admin, names, nil
+	// 技能读取/检索工具对所有登录用户开放；具体范围由用户技能实例决定。
+	return admin, CloudAgentSupportedToolNames(), nil
 }
 
 func cloudAgentIsSkillTool(name string) bool {
@@ -39,15 +33,11 @@ func cloudAgentRequireSkillToolAdministrator(repo *repository.Repository, userID
 	if !cloudAgentIsSkillTool(name) {
 		return nil
 	}
-	if repo == nil {
-		if service := cloudAgentToolService(services); service != nil {
-			repo = service.repo
-		}
+	if strings.TrimSpace(userID) == "" {
+		return kernel.Unauthorized("请先登录")
 	}
-	if repo == nil {
-		return kernel.Forbidden("无法确认管理员技能权限")
-	}
-	return skills.New(repo, "", nil).RequireAdministrator(userID)
+	// 具体技能范围由 skill_read_file / skill_search 在用户实例内校验。
+	return nil
 }
 
 func cloudAgentToolsWithoutSkills(tools []map[string]any) []map[string]any {
@@ -69,23 +59,10 @@ func cloudAgentSkillHistoryError() error {
 // Only skill-bearing history is blocked after role revocation. Old tool declarations
 // alone are filtered, so ordinary conversations with no skill use remain resumable.
 func (s *Service) cloudAgentCheckSkillExecution(userID string, state *cloudAgentRuntime, canonical *canonicalAgentRequest, sessionJSONL string) error {
-	admin, err := s.skillDomain().IsAdministrator(userID)
-	if err != nil {
-		return err
+	if strings.TrimSpace(userID) == "" {
+		return kernel.Unauthorized("请先登录")
 	}
-	if admin {
-		return nil
-	}
-	if cloudAgentRuntimeHasSkillContext(state) || cloudAgentCanonicalHasSkillContext(canonical) || cloudAgentPiSessionHasSkillContext(sessionJSONL) {
-		return cloudAgentSkillHistoryError()
-	}
-	if state != nil {
-		state.Request.SkillsEnabled = false
-		state.Canonical.Tools = cloudAgentToolsWithoutSkills(state.Canonical.Tools)
-	}
-	if canonical != nil {
-		canonical.Tools = cloudAgentToolsWithoutSkills(canonical.Tools)
-	}
+	// 技能正文读取在工具调用时按当前用户实例校验；历史上下文不再按管理员角色整体拦截。
 	return nil
 }
 

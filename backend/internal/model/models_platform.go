@@ -154,14 +154,15 @@ type UserDailyUploadUsage struct {
 }
 
 type Skill struct {
-	ID                string     `json:"id" gorm:"primaryKey;size:36"`
-	OwnerID           string     `json:"ownerId" gorm:"index;size:36"`
-	AuthorName        string     `json:"authorName" gorm:"size:120;index"`
-	AuthorAvatarURL   string     `json:"authorAvatarUrl" gorm:"size:1000"`
-	Name              string     `json:"name" gorm:"size:80;index"`
-	Description       string     `json:"description" gorm:"size:500"`
+	ID              string `json:"id" gorm:"primaryKey;size:36"`
+	OwnerID         string `json:"ownerId" gorm:"index;size:36"`
+	AuthorName      string `json:"authorName" gorm:"size:120;index"`
+	AuthorAvatarURL string `json:"authorAvatarUrl" gorm:"size:1000"`
+	Name            string `json:"name" gorm:"size:80;index"`
+	Description     string `json:"description" gorm:"size:500"`
+	// Instruction 只作为旧数据导入 skill_contents 的兜底输入，新写入路径不再保存正文。
 	Instruction       string     `json:"instruction" gorm:"type:text"`
-	CurrentVersionID  string     `json:"currentVersionId" gorm:"size:36;index"`
+	ContentID         string     `json:"contentId" gorm:"size:36;index"`
 	VersionLabel      string     `json:"versionLabel" gorm:"size:64"`
 	ContentHash       string     `json:"contentHash" gorm:"size:64;index"`
 	FileCount         int        `json:"fileCount"`
@@ -192,60 +193,6 @@ type Skill struct {
 	AdminContentEditedAt *time.Time `json:"adminContentEditedAt"`
 	CreatedAt            time.Time  `json:"createdAt" gorm:"index"`
 	UpdatedAt            time.Time  `json:"updatedAt" gorm:"index"`
-}
-
-type SkillVersion struct {
-	ID           string    `json:"id" gorm:"primaryKey;size:36"`
-	SkillID      string    `json:"skillId" gorm:"size:36;index"`
-	VersionLabel string    `json:"versionLabel" gorm:"size:64"`
-	ContentHash  string    `json:"contentHash" gorm:"size:64;index"`
-	EntryPath    string    `json:"entryPath" gorm:"size:1000"`
-	PackageKey   string    `json:"packageKey" gorm:"size:1000"`
-	FileCount    int       `json:"fileCount"`
-	TotalBytes   int64     `json:"totalBytes"`
-	SourceCommit string    `json:"sourceCommit" gorm:"size:64"`
-	CreatedAt    time.Time `json:"createdAt" gorm:"index"`
-}
-
-type SkillFile struct {
-	ID             string    `json:"id" gorm:"primaryKey;size:36"`
-	SkillVersionID string    `json:"skillVersionId" gorm:"size:36;index;uniqueIndex:idx_skill_version_file_path,priority:1"`
-	Path           string    `json:"path" gorm:"size:1000;uniqueIndex:idx_skill_version_file_path,priority:2"`
-	Kind           string    `json:"kind" gorm:"size:24;index"`
-	MimeType       string    `json:"mimeType" gorm:"size:255"`
-	Size           int64     `json:"size"`
-	SHA256         string    `json:"sha256" gorm:"size:64"`
-	CreatedAt      time.Time `json:"createdAt"`
-}
-
-// SkillLibraryCategory separates a user's library taxonomy from Skill.Tag,
-// which remains the shared marketplace category.
-type SkillLibraryCategory struct {
-	ID             string    `json:"id" gorm:"primaryKey;size:36"`
-	Name           string    `json:"name" gorm:"size:64;not null"`
-	NormalizedName string    `json:"-" gorm:"size:96;not null;uniqueIndex:idx_skill_library_category_scope_owner_name,priority:3"`
-	Scope          string    `json:"scope" gorm:"size:16;not null;uniqueIndex:idx_skill_library_category_scope_owner_name,priority:1;index"`
-	OwnerID        string    `json:"-" gorm:"size:36;not null;uniqueIndex:idx_skill_library_category_scope_owner_name,priority:2;index"`
-	CreatedAt      time.Time `json:"createdAt"`
-	UpdatedAt      time.Time `json:"updatedAt"`
-}
-
-type UserSkillState struct {
-	ID                 string `json:"id" gorm:"primaryKey;size:36"`
-	UserID             string `json:"userId" gorm:"index;size:36;uniqueIndex:idx_user_skill_state_user_skill,priority:1"`
-	SkillID            string `json:"skillId" gorm:"size:36;index;uniqueIndex:idx_user_skill_state_user_skill,priority:2"`
-	LibraryCategoryID  string `json:"libraryCategoryId" gorm:"size:36;index"`
-	InstalledVersionID string `json:"installedVersionId" gorm:"size:36;index"`
-	AutoUpdate         bool   `json:"autoUpdate"`
-	Added              bool   `json:"added" gorm:"index"`
-	Liked              bool   `json:"liked" gorm:"index"`
-	// AgentMode 为空或 auto 时 Agent 可以自动发现该技能；manual 只在用户点名或固定时使用。
-	AgentMode string `json:"agentMode,omitempty" gorm:"size:16"`
-	// AgentUseCount / AgentLastUsedAt 只记录 Agent 实际读取，用于决定目录里谁优先列出。
-	AgentUseCount   int64      `json:"agentUseCount"`
-	AgentLastUsedAt *time.Time `json:"agentLastUsedAt,omitempty"`
-	CreatedAt       time.Time  `json:"createdAt"`
-	UpdatedAt       time.Time  `json:"updatedAt"`
 }
 
 const (

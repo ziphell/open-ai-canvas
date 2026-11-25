@@ -1,8 +1,12 @@
 import { useUserStore } from "@/stores/use-user-store";
 
-/** Skill library data is only available after the administrator session is loaded. */
+/** Skill library is available to every signed-in user; admin-only controls use useSkillAdminAccess. */
 export function hasSkillLibraryAccess(state = useUserStore.getState()) {
-    return state.hydrated && state.user?.role === "admin";
+    return state.hydrated && Boolean(state.user);
+}
+
+export function useSkillAdminAccess() {
+    return useUserStore((state) => state.hydrated && state.user?.role === "admin");
 }
 
 export function useSkillLibraryAccess() {

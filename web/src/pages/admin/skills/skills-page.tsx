@@ -187,7 +187,7 @@ export default function AdminSkillsPage() {
                                   key: "disable",
                                   label: "下架",
                                   icon: <ArchiveX className="size-3.5" />,
-                                  confirm: { title: `下架「${skill.skillName}」？`, description: "下架后技能从技能广场、用户技能库和 Agent 目录中隐藏，作者也无法使用；数据与用户关系保留，可随时重新上架。", okText: "确认下架" },
+                                  confirm: { title: `下架「${skill.skillName}」？`, description: "下架后技能从技能广场与推荐中隐藏；已安装用户的快照保留，仍可在“我的技能”和 Agent 中使用。数据与发布记录保留，可随时重新上架。", okText: "确认下架" },
                                   onClick: () => toggleEnabled(skill),
                               }
                             : { key: "enable", label: "上架", icon: <ArchiveRestore className="size-3.5" />, onClick: () => toggleEnabled(skill) },
@@ -217,7 +217,7 @@ export default function AdminSkillsPage() {
     return (
         <AdminPageFrame
             title="技能管理"
-            description="全站技能（含私有和已下架）· GitHub 同步的技能只能编辑基本信息"
+            description="公共技能目录（含已下架）；用户上传的私有技能只存在于其个人技能库，不在此列表"
             actions={
                 <Button icon={<RefreshCw className="size-4" />} loading={loading} onClick={() => setReloadKey((value) => value + 1)}>
                     刷新

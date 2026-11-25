@@ -4,7 +4,7 @@ import { Tooltip } from "@/components/ui/base/tooltip";
 
 import { SegmentedControl } from "@/components/ui/base/segmented-control";
 import type { DataNode } from "antd/es/tree";
-import { Check, ChevronRight, Code2, ExternalLink, File, FileArchive, FileCode2, FileImage, FileText, Folder, FolderOpen, Heart, Info, Pencil, Plus, RefreshCw, Users } from "lucide-react";
+import { Check, ChevronRight, Code2, Download, ExternalLink, File, FileArchive, FileCode2, FileImage, FileText, Folder, FolderOpen, Heart, Info, Pencil, Plus, RefreshCw, Users } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -26,6 +26,7 @@ export function SkillDetailModal({
     onEdit,
     onOpenWorkbench,
     onSync,
+    onUpdate,
 }: {
     skill: Skill | null;
     loading: boolean;
@@ -37,6 +38,7 @@ export function SkillDetailModal({
     onEdit: (skill: Skill) => void;
     onOpenWorkbench: (skill: Skill) => void;
     onSync: (skill: Skill) => void;
+    onUpdate: (skill: Skill) => void;
 }) {
     const [files, setFiles] = useState<SkillPackageFile[]>([]);
     const [filesLoading, setFilesLoading] = useState(false);
@@ -135,6 +137,13 @@ export function SkillDetailModal({
                             <p className="mt-1 line-clamp-2 max-w-4xl text-sm leading-5 text-foreground/58">{skill.description}</p>
                         </div>
                         <div className="skill-package-actions">
+                            {skill.hasUpdate ? (
+                                <Tooltip title="来源广场技能已更新，可拉取最新内容；拉取后仍会继续跟随广场">
+                                    <Button type="primary" loading={mutating} icon={<Download className="size-4" />} onClick={() => onUpdate(skill)}>
+                                        更新到最新
+                                    </Button>
+                                </Tooltip>
+                            ) : null}
                             {skill.sourceType === "github" && skill.isOwner ? (
                                 <Tooltip title={skill.syncError || "从 GitHub 检查并同步最新提交"}>
                                     <Button loading={mutating} icon={<RefreshCw className="size-4" />} onClick={() => onSync(skill)}>
@@ -142,16 +151,16 @@ export function SkillDetailModal({
                                     </Button>
                                 </Tooltip>
                             ) : null}
-                            {skill.isOwner ? (
+                            {skill.isAdded ? (
                                 <Tooltip title="编辑名称、简介、分类和展示信息">
                                     <Button icon={<Info className="size-4" />} onClick={() => onEdit(skill)}>
                                         技能信息
                                     </Button>
                                 </Tooltip>
                             ) : null}
-                            {skill.isOwner ? (
+                            {skill.isAdded ? (
                                 <Button icon={<Pencil className="size-4" />} onClick={() => onOpenWorkbench(skill)}>
-                                    {skill.sourceType === "github" ? "作者工作台" : "编辑"}
+                                    {skill.isOwner ? (skill.sourceType === "github" ? "作者工作台" : "编辑") : "编辑副本"}
                                 </Button>
                             ) : null}
                             <Button loading={mutating} icon={<Heart className={`size-4 ${skill.isLike ? "fill-current text-rose-500" : ""}`} />} onClick={() => onLike(skill)}>
@@ -201,7 +210,7 @@ export function SkillDetailModal({
                                     <Users className="size-3.5" />
                                     {formatSkillCount(skill.addedCount)} 人加入
                                 </span>
-                                <span>{skill.isPrivate ? "仅自己可见" : "公开"}</span>
+                                <span>{skill.isOwner ? "个人技能" : skill.followUpdates ? "来自广场 · 跟随更新" : "来自广场 · 已独立"}</span>
                             </div>
                         </aside>
 

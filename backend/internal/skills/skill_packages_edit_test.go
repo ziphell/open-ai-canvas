@@ -25,12 +25,11 @@ func newSkillEditTestService(t *testing.T) (*Service, *gorm.DB) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	if err := db.AutoMigrate(&model.Skill{}, &model.SkillVersion{}, &model.SkillFile{}, &model.UserSkillState{}, &model.User{}, &model.UserIdentity{}); err != nil {
+	if err := db.AutoMigrate(&model.Skill{}, &model.SkillContent{}, &model.SkillContentFile{}, &model.User{}, &model.UserIdentity{}, &model.SkillContent{}, &model.SkillContentFile{}, &model.MarketSkillListing{}, &model.UserInstalledSkill{}, &model.UserSkillFavorite{}, &model.UserSkillLibraryCategory{}); err != nil {
 		t.Fatal(err)
 	}
-	// Both principals are administrators; ownership and private visibility remain distinct.
-	createSkillTestUser(t, db, "owner", model.UserRoleAdmin, model.UserStatusActive)
-	createSkillTestUser(t, db, "intruder", model.UserRoleAdmin, model.UserStatusActive)
+	createSkillTestUser(t, db, "owner", model.UserRoleUser, model.UserStatusActive)
+	createSkillTestUser(t, db, "intruder", model.UserRoleUser, model.UserStatusActive)
 	return New(repository.New(db), t.TempDir(), nil), db
 }
 
@@ -58,8 +57,8 @@ func requireAppError(t *testing.T, err error, status int, reason kernel.ErrorRea
 	}
 }
 
-func TestEditSkillPackageFilesCreatesNewVersion(t *testing.T) {
-	svc, db := newSkillEditTestService(t)
+func TestUserSkillEditCreatesNewContentAndFiles(t *testing.T) {
+	svc, _ := newSkillEditTestService(t)
 	created := createEditableSkill(t, svc, "owner", false)
 	result, err := svc.EditSkillPackageFiles("owner", created.SkillID, SkillPackageEditRequest{
 		BaseVersionID: created.VersionID,
@@ -74,7 +73,7 @@ func TestEditSkillPackageFilesCreatesNewVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !result.Changed || result.Skill.VersionID == created.VersionID {
-		t.Fatalf("expected a new version, got %#v", result.Skill)
+		t.Fatalf("expected new content, got %#v", result.Skill)
 	}
 	paths := make([]string, 0, len(result.Files))
 	for _, file := range result.Files {
@@ -89,33 +88,23 @@ func TestEditSkillPackageFilesCreatesNewVersion(t *testing.T) {
 	if result.Skill.SourceType != "zip" || result.Skill.FileCount != 3 {
 		t.Fatalf("multi-file markdown skill should become a package: %#v", result.Skill)
 	}
-	assertSkillVersionCount(t, db, created.SkillID, 2)
-	version, err := svc.repo.SkillVersion(result.Skill.VersionID)
-	if err != nil {
-		t.Fatal(err)
+	file, err := svc.SkillPackageFile("owner", created.SkillID, "scripts/verify.py")
+	if err != nil || file.Content != "print('ok')\n" {
+		t.Fatalf("renamed file content = %q, %v", file.Content, err)
 	}
-	body, err := svc.readSkillArchiveEntry(version, "scripts/verify.py")
-	if err != nil || string(body) != "print('ok')\n" {
-		t.Fatalf("renamed file content = %q, %v", body, err)
-	}
-	// 重新读取快照会完整校验 ZIP、文件清单与技能行元数据。
 	if _, err := svc.SkillPackageFiles("owner", created.SkillID); err != nil {
-		t.Fatalf("new version snapshot is inconsistent: %v", err)
+		t.Fatalf("new content snapshot is inconsistent: %v", err)
 	}
-
 	deleted, err := svc.EditSkillPackageFiles("owner", created.SkillID, SkillPackageEditRequest{
 		BaseVersionID: result.Skill.VersionID,
 		Operations:    []SkillPackageFileOperation{{Op: SkillFileOperationDelete, Path: "references/camera.md"}},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(deleted.Files) != 2 {
-		t.Fatalf("delete did not remove file: %#v", deleted.Files)
+	if err != nil || len(deleted.Files) != 2 {
+		t.Fatalf("delete did not remove file: %#v %v", deleted, err)
 	}
 }
 
-func TestEditSkillPackageFilesNoopKeepsVersion(t *testing.T) {
+func TestUserSkillEditNoopKeepsContent(t *testing.T) {
 	svc, db := newSkillEditTestService(t)
 	created := createEditableSkill(t, svc, "owner", false)
 	result, err := svc.EditSkillPackageFiles("owner", created.SkillID, SkillPackageEditRequest{
@@ -126,12 +115,15 @@ func TestEditSkillPackageFilesNoopKeepsVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	if result.Changed || result.Skill.VersionID != created.VersionID {
-		t.Fatalf("no-op save must not create a version: %#v", result)
+		t.Fatalf("no-op save must not create content: %#v", result)
 	}
-	assertSkillVersionCount(t, db, created.SkillID, 1)
+	var count int64
+	if err := db.Model(&model.SkillContent{}).Count(&count).Error; err != nil || count != 1 {
+		t.Fatalf("content count = %d %v", count, err)
+	}
 }
 
-func TestEditSkillPackageFilesRequiresOwner(t *testing.T) {
+func TestUserSkillEditRequiresOwner(t *testing.T) {
 	svc, _ := newSkillEditTestService(t)
 	public := createEditableSkill(t, svc, "owner", false)
 	private := createEditableSkill(t, svc, "owner", true)
@@ -144,10 +136,10 @@ func TestEditSkillPackageFilesRequiresOwner(t *testing.T) {
 	requireAppError(t, err, http.StatusForbidden, kernel.ReasonForbidden)
 }
 
-func TestEditSkillPackageFilesRejectsGitHubSkill(t *testing.T) {
+func TestUserSkillEditRejectsGitHubSource(t *testing.T) {
 	svc, db := newSkillEditTestService(t)
 	created := createEditableSkill(t, svc, "owner", false)
-	if err := db.Model(&model.Skill{}).Where("id = ?", created.SkillID).Update("source_type", "github").Error; err != nil {
+	if err := db.Model(&model.UserInstalledSkill{}).Where("id = ?", created.SkillID).Update("source_type", "github").Error; err != nil {
 		t.Fatal(err)
 	}
 	_, err := svc.EditSkillPackageFiles("owner", created.SkillID, SkillPackageEditRequest{
@@ -157,7 +149,7 @@ func TestEditSkillPackageFilesRejectsGitHubSkill(t *testing.T) {
 	requireAppError(t, err, http.StatusConflict, kernel.ReasonFailedPrecondition)
 }
 
-func TestEditSkillPackageFilesRejectsStaleBaseVersion(t *testing.T) {
+func TestUserSkillEditRejectsStaleBaseVersion(t *testing.T) {
 	svc, db := newSkillEditTestService(t)
 	created := createEditableSkill(t, svc, "owner", false)
 	write := func(base string, content string) (*SkillPackageEditResult, error) {
@@ -179,35 +171,17 @@ func TestEditSkillPackageFilesRejectsStaleBaseVersion(t *testing.T) {
 	}
 	_, err = write("", "third")
 	requireAppError(t, err, http.StatusConflict, kernel.ReasonSkillVersionConflict)
-	assertSkillVersionCount(t, db, created.SkillID, 2)
+	var contentCount int64
+	if err := db.Model(&model.SkillContent{}).Count(&contentCount).Error; err != nil {
+		t.Fatal(err)
+	}
+	// 旧内容失去引用后会被清理，只保留当前快照。
+	if contentCount != 1 {
+		t.Fatalf("content count = %d, want 1", contentCount)
+	}
 }
 
-func TestAddSkillVersionIfCurrentIsOptimistic(t *testing.T) {
-	svc, db := newSkillEditTestService(t)
-	created := createEditableSkill(t, svc, "owner", false)
-	skill, err := svc.repo.Skill(created.SkillID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	archive, err := archiveFromMarkdown([]byte("# 分镜助手\n\n并发写入\n"), "", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// 模拟两个请求都通过了前置检查：第二个请求在事务内必须因版本已前进而放弃写入。
-	if err := svc.addSkillArchiveVersionIfCurrent(skill, archive, "markdown", created.VersionID); err != nil {
-		t.Fatal(err)
-	}
-	stale, err := svc.repo.Skill(created.SkillID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	stale.CurrentVersionID = created.VersionID
-	err = svc.addSkillArchiveVersionIfCurrent(stale, archive, "markdown", created.VersionID)
-	requireAppError(t, err, http.StatusConflict, kernel.ReasonSkillVersionConflict)
-	assertSkillVersionCount(t, db, created.SkillID, 2)
-}
-
-func TestEditSkillPackageFilesValidatesPathsAndContent(t *testing.T) {
+func TestUserSkillEditValidatesPathsAndContent(t *testing.T) {
 	svc, _ := newSkillEditTestService(t)
 	created := createEditableSkill(t, svc, "owner", false)
 	seed, err := svc.EditSkillPackageFiles("owner", created.SkillID, SkillPackageEditRequest{

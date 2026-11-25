@@ -1,16 +1,14 @@
 // 技能包在线编辑：作者以批量操作（写入 / 重命名 / 删除）修改文本文件，
-// 服务端在当前版本基础上重建 ZIP 与 skill_files，生成新的技能版本。
+// 服务端在当前内容快照基础上重建技能包并写入 skill_contents。
 //
-// 并发：请求必须携带 baseVersionId；提交时在同一事务里按 current_version_id 做乐观锁，
+// 并发：请求必须携带 baseVersionId；提交时在同一事务里按 content_id 做乐观锁，
 // 任何并发写入（另一个标签页、GitHub 同步、旧编辑抽屉）都会让后到的请求得到 409 冲突。
 
 package skills
 
 import (
 	"net/http"
-	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 	"unicode"
@@ -62,6 +60,9 @@ func skillVersionConflict(currentVersionID string) *kernel.AppError {
 
 // EditSkillPackageFiles 只允许作者修改；GitHub 技能以仓库为准，避免本地修改被下一次同步静默覆盖。
 func (s *Service) EditSkillPackageFiles(userID string, skillID string, req SkillPackageEditRequest) (*SkillPackageEditResult, error) {
+	if result, handled, err := s.editUserSkillPackage(userID, skillID, req); handled {
+		return result, err
+	}
 	skill, err := s.ownedSkill(userID, skillID)
 	if err != nil {
 		return nil, err
@@ -92,19 +93,16 @@ func (s *Service) editSkillPackage(skill *model.Skill, req SkillPackageEditReque
 		return nil, false, kernel.BadAuthRequest("单次最多提交 256 个文件操作")
 	}
 	baseVersionID := strings.TrimSpace(req.BaseVersionID)
-	if baseVersionID != skill.CurrentVersionID {
-		return nil, false, skillVersionConflict(skill.CurrentVersionID)
+	if baseVersionID != skill.ContentID {
+		return nil, false, skillVersionConflict(skill.ContentID)
 	}
 	snapshot, err := s.skillPackageSnapshot(skill)
 	if err != nil {
 		return nil, false, err
 	}
-	current := snapshot.contents
-	if current == nil {
-		current, err = readSkillArchiveEntries(s.dataDir, snapshot.version.PackageKey)
-		if err != nil {
-			return nil, false, err
-		}
+	current, err := readSkillContentEntries(snapshot.content)
+	if err != nil {
+		return nil, false, err
 	}
 	next := make(map[string][]byte, len(current)+len(req.Operations))
 	for filePath, content := range current {
@@ -122,7 +120,7 @@ func (s *Service) editSkillPackage(skill *model.Skill, req SkillPackageEditReque
 	if total > maxSkillPackageBytes {
 		return nil, false, kernel.BadAuthRequest("技能包总大小不能超过 20MB")
 	}
-	if !snapshot.legacy && hash == snapshot.version.ContentHash {
+	if hash == snapshot.version.ContentHash {
 		return skillFileItems(snapshot), false, nil
 	}
 
@@ -145,11 +143,10 @@ func (s *Service) editSkillPackage(skill *model.Skill, req SkillPackageEditReque
 		// 单文件编辑抽屉会用 instruction 重建整个包；多文件后转为技能包，避免附属文件被覆盖。
 		sourceType = "zip"
 	}
-	skill.Instruction = string(next["SKILL.md"])
 	if adminEditedAt != nil {
 		skill.AdminContentEditedAt = adminEditedAt
 	}
-	if err := s.addSkillArchiveVersionIfCurrent(skill, archive, sourceType, baseVersionID); err != nil {
+	if err := s.addSkillArchiveContentIfCurrent(skill, archive, sourceType, baseVersionID); err != nil {
 		return nil, false, err
 	}
 	latest, err := s.repo.SkillAnyStatus(skill.ID)
@@ -163,33 +160,27 @@ func (s *Service) editSkillPackage(skill *model.Skill, req SkillPackageEditReque
 	return skillFileItems(saved), true, nil
 }
 
-func (s *Service) addSkillArchiveVersionIfCurrent(skill *model.Skill, archive skillPackageArchive, sourceType string, baseVersionID string) error {
-	versionID := kernel.NewID()
-	packageKey, version, files, err := s.persistSkillArchive(skill.ID, versionID, archive, "")
-	if err != nil {
-		return err
-	}
-	removePackage := func() {
-		_ = os.Remove(filepath.Join(s.dataDir, "skill-packages", filepath.FromSlash(packageKey)))
-	}
+func (s *Service) addSkillArchiveContentIfCurrent(skill *model.Skill, archive skillPackageArchive, sourceType string, baseVersionID string) error {
 	versionLabel := archive.Metadata.Version
 	if versionLabel == "" {
 		versionLabel = editedSkillVersionLabel()
 	}
-	version.VersionLabel = versionLabel
-	applySkillArchiveVersion(skill, version, archive, sourceType, skill.SourceURL, skill.SourceRef, skill.SourceSubdir, "", false)
-	applied, err := s.repo.AddSkillVersionIfCurrent(skill, version, files, baseVersionID)
+	content, files, err := s.contentRecord(archive)
 	if err != nil {
-		removePackage()
+		return err
+	}
+	previous := skill.ContentID
+	applySkillArchiveContent(skill, content, versionLabel, archive, sourceType, skill.SourceURL, skill.SourceRef, skill.SourceSubdir, "", false)
+	applied, err := s.repo.AddSkillContentIfCurrent(skill, content, files, baseVersionID, previous)
+	if err != nil {
 		return err
 	}
 	if !applied {
-		removePackage()
 		latest, latestErr := s.repo.SkillAnyStatus(skill.ID)
 		if latestErr != nil {
 			return skillVersionConflict("")
 		}
-		return skillVersionConflict(latest.CurrentVersionID)
+		return skillVersionConflict(latest.ContentID)
 	}
 	return nil
 }

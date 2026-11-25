@@ -23,7 +23,7 @@ var pythonScriptCommand = regexp.MustCompile("(?i)^\\s*(?:\\$\\s*)?(?:python(?:3
 var machineSpecificPath = regexp.MustCompile(`(?i)(?:[a-z]:\\|\\\\[^\\]+\\|/(?:Users|home|private/Users)/|~/)`)
 
 func TestYingshiBuiltinBundleCompatibility(t *testing.T) {
-	packages, err := loadBuiltinSkillPackages(nil)
+	packages, err := loadBuiltinSkillPackages()
 	if err != nil {
 		t.Fatal(err)
 	}

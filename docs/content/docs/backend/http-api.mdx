@@ -962,11 +962,17 @@ Agent 已不再注入、召回或写入下列经验条目，记忆设置页只�
 
 ## 技能权限
 
-技能功能仅向当前有效的管理员账号开放。`/api/skills` 及其全部子路径（列表、预设、推荐、安装、上传、GitHub 发现/同步、详情、原始文件、打包、编辑、收藏和分类）均先鉴权，再解析请求或访问技能包；匿名请求返回 401，普通用户返回 403。旧技能的所有者身份不会绕过管理员限制。管理端 `/api/admin/skills`、技能策展及电商技能管理接口遵循同一边界。
+技能库对登录用户开放，权限按“角色 + 资源归属”判断：
 
-服务端从数据库重新核对角色和账号状态，不能用客户端角色、旧会话缓存或伪造的 actor 取得权限。已有普通用户技能及文件保留供管理员处理；后台 GitHub 自动同步跳过不再属于有效管理员的技能来源。
+- `/api/skills`、`/api/skills/presets`、`/api/skills/library-categories`、`/api/skills/curation` 等只要求登录；匿名请求返回 401。
+- 广场：只返回 `market_skill_listings.status = published` 的技能，安装和收藏也按该条件校验。
+- 我的技能：`scope=mine|created` 与文件读写只访问 `user_installed_skills` 中属于当前用户的实例，越权返回 403 或 404。
+- 用户上传、GitHub 导入、空白创建一律生成私有用户实例，不接受 `isPrivate=false`，不会进入广场。
+- 管理员接口 `/api/admin/skills`、技能策展仍要求有效管理员身份，且服务端从数据库重新核对角色与账号状态。
 
-`GET /api/agent/skills/usage` 与 `POST /api/ecommerce/skills/prompt` 也只允许管理员。普通用户的 Agent 能力返回 `skills=false`，工具目录不列出技能工具；新对话使用空技能池，显式指定技能会被拒绝。包含旧技能上下文的运行、技能工具缓存或 Pi 会话回执不得绕过新权限继续执行。普通无技能对话及常规文本/媒体创作不依赖技能接口成功。
+Agent 技能工具对所有登录用户开放：`skill_search` 与 `skill_read_file` 只检索/读取当前用户的技能实例；`skill_market_search` 只返回已发布广场元数据，不含正文。管理员在 Agent 内没有额外读取特权。`GET /api/agent/skills/usage` 仍仅允许管理员。
+
+`POST /api/ecommerce/skills/prompt` 要求登录，只读取当前用户已安装的技能实例。
 
 ## 技能推荐与 Agent 使用方式
 
@@ -1040,25 +1046,26 @@ Agent 已不再注入、召回或写入下列经验条目，记忆设置页只�
 
 | 方法 | 路径 | 行为 |
 | --- | --- | --- |
-| GET | `/api/skills/library-categories?scope=mine\|created` | 返回当前用户可见的个人分类和平台分类，以及所选视图下每类数量、全部技能数和未分类数量。`mine` 包含自己创建及已加入的公开技能；`created` 只统计自己创建的技能。 |
-| POST | `/api/skills/library-categories` | 请求 `{ "name": "分镜", "scope": "personal" }`。`scope` 可省略并默认为 `personal`；管理员可指定 `platform`，该分类对其他管理员账号可见、可分配和筛选。同一用户可见范围内分类名唯一。 |
-| DELETE | `/api/skills/library-categories/:id` | 删除个人分类（仅分类所有者）或平台分类（仅管理员），只解除该分类与技能的关联，不删除技能。 |
-| PATCH | `/api/skills/:id/library-category` | 请求 `{ "categoryId": "分类 ID" }` 设置分类；空字符串清除分类。仅允许对自己创建或已加入的技能操作，并且只能使用当前用户的个人分类或平台分类。 |
+| GET | `/api/skills/library-categories?scope=mine\|created` | 返回当前用户的个人分类，以及所选视图下每类数量、全部技能数和未分类数量。`mine` 包含自己创建及从广场安装的技能实例；`created` 只统计自己上传/创建的实例。平台分类不再出现在个人接口。 |
+| POST | `/api/skills/library-categories` | 请求 `{ "name": "分镜" }`。只创建个人分类；`scope=platform` 返回 400，平台分类只在管理后台维护。同一用户的分类名唯一。 |
+| DELETE | `/api/skills/library-categories/:id` | 删除自己的个人分类，只解除该分类与技能实例的关联，不删除技能。 |
+| PATCH | `/api/skills/:id/library-category` | 请求 `{ "categoryId": "分类 ID" }` 设置分类；空字符串清除分类。只能操作自己的技能实例，并且只能使用自己的个人分类。 |
 
 `GET /api/skills` 可带 `libraryCategoryId` 或 `libraryUncategorized=true`，仅用于 `scope=mine` / `scope=created`，且两者不能同时使用。它们可与共享分类筛选 `tag` 同时提供，结果需同时满足两个筛选条件。分类列表的数量不受搜索词影响，表示对应技能库范围内的完整数量。
 
-技能列表响应中的 `categories` 是技能广场共享分类，包含 `value`、`label` 和 `count`；`count` 统计已启用且公开的技能，不受当前搜索词、分页和视图筛选影响。它与技能库个人/平台分类是两套独立分类。
+技能列表响应中的 `categories` 是技能广场共享分类，包含 `value`、`label` 和 `count`；`count` 统计已发布广场技能，不受当前搜索词、分页和视图筛选影响。它与个人技能库分类是两套独立分类。
 
 ## 技能包文件 API
 
-以下接口均需要有效管理员身份，并继续执行技能归属与私有可见性校验。管理员可通过 `/api/admin/skills/:id/...` 读写任意技能，见“管理员技能管理”。普通用户即便是旧技能的作者也不能读取或修改技能包。
+以下接口要求登录，并按技能实例归属校验：`/api/skills/:id/...` 中的 `:id` 是用户技能实例 ID。管理员可通过 `/api/admin/skills/:id/...` 读写任意公共技能，见“管理员技能管理”。
 
 | 方法 | 路径 | 行为 |
 | --- | --- | --- |
-| GET | `/api/skills/:id/files` | 当前版本的文件清单：`path`、`kind`、`mimeType`、`size`、`sha256` |
+| GET | `/api/skills/:id/files` | 当前内容快照的文件清单：`path`、`kind`、`mimeType`、`size`、`sha256` |
 | GET | `/api/skills/:id/file?path=` | 单个文件；文本返回 `content`，二进制只返回 `binary=true`，文本超过 512KB 返回 400 |
 | GET | `/api/skills/:id/file/raw?path=` | 原始字节，`Content-Security-Policy: sandbox`、`nosniff`、`no-store` |
-| PUT | `/api/skills/:id/files` | 作者批量修改文本文件并生成新版本，见下文 |
+| PUT | `/api/skills/:id/files` | 编辑用户实例的文件并生成新的内容快照，见下文 |
+| POST | `/api/skills/:id/update-from-market` | 未编辑的广场安装实例拉取广场当前内容；`follow_updates=false` 时返回 400 |
 
 `PUT /api/skills/:id/files` 请求：
 
@@ -1073,10 +1080,10 @@ Agent 已不再注入、召回或写入下列经验条目，记忆设置页只�
 }
 ```
 
-- 服务端按顺序把操作应用到当前版本的完整文件集，再整体重建 ZIP、`skill_versions` 和 `skill_files`，并在同一事务里以 `current_version_id = baseVersionId` 为条件更新技能行；并发写入（另一标签页、GitHub 同步、技能信息抽屉）会让后到请求得到 409 `skill_version_conflict`，`details.currentVersionId` 为最新版本。
+- 服务端按顺序把操作应用到当前内容的完整文件集，再整体重建 ZIP 并写入 `skill_contents` / `skill_content_files`，在同一事务里以 `content_id = baseVersionId` 为条件更新技能行；并发写入（另一标签页、GitHub 同步、技能信息抽屉）会让后到请求得到 409 `skill_version_conflict`，`details.currentVersionId` 为最新内容 ID。
 - 路径必须已经规范化：相对路径、不含 `..`、`.`、空层级、反斜杠、控制字符和首尾空格，最多 8 层、单层不超过 255 字节，不能使用 `.git`、`__MACOSX` 或 `.DS_Store`；文件与文件夹不能重名。
 - `write` 只接受 UTF-8 文本，单文件不超过 512KB，且目标类型必须可按文本预览；已有二进制文件不能被覆盖。`SKILL.md` 不能删除或重命名。整包仍受 512 个文件、20MB 限制，单次最多 256 个操作，请求体上限与安装上传一致。
-- `SKILL.md` 变化时同步 `skills.instruction`；frontmatter 的 `metadata.version` 作为版本号，缺省时使用时间戳。单文件 Markdown 技能编辑后包含多个文件时 `sourceType` 变为 `zip`，避免技能信息抽屉以 instruction 重建整包时丢失附属文件。
+- frontmatter 的 `metadata.version` 作为版本号，缺省时使用时间戳；正文只写入内容快照，不再同步 `skills.instruction`。单文件 Markdown 技能编辑后包含多个文件时 `sourceType` 变为 `zip`，避免技能信息抽屉以单文件重建整包时丢失附属文件。
 - GitHub 技能返回 409 `failed_precondition`，请在仓库修改后同步。内容与当前版本完全相同时返回 `changed=false`，不生成新版本。
 - 成功响应 `data={ skill, files, changed }`；单个操作校验失败返回 400，`details.operationIndex` 指向出错的操作。
 
@@ -1089,7 +1096,7 @@ Agent 已不再注入、召回或写入下列经验条目，记忆设置页只�
 | GET | `/api/admin/skills?keyword=&status=&sourceType=&tag=&page=&pageSize=` | 按最近更新排序的分页列表。`status` 为 `enabled` / `disabled`；`sourceType` 为 `builtin` / `markdown`（含旧数据空来源）/ `zip` / `github`；`keyword` 匹配 ID、名称、简介、作者、所有者昵称和用户名、GitHub 地址。`pageSize` 默认 20、最大 100。返回 `{ skills, total, page, pageSize, categories }` |
 | GET | `/api/admin/skills/:id` | `{ skill }` |
 | PUT | `/api/admin/skills/:id` | 修改基本信息 `{ skillName, description, tag, markdownUrl, showcaseMedia, extraInfo }`，校验规则与作者编辑相同；`markdownUrl` 与原值相同时不按外链校验（内置技能保存的是包内相对路径）。不改正文、不重建文件包、不改公开状态。写入 `admin_info_edited_at` |
-| PATCH | `/api/admin/skills/:id/status` | `{ enabled: boolean }` 上架或下架，返回 `{ skill }`；不刷新 `updated_at` |
+| PATCH | `/api/admin/skills/:id/status` | `{ enabled: boolean }` 发布或隐藏广场条目，返回 `{ skill }`；同时写入 `market_skill_listings.status`（`published` / `hidden`），已有用户安装快照与收藏保留 |
 | DELETE | `/api/admin/skills/:id` | 永久删除技能、全部版本、文件索引、策展归类和用户加入 / 收藏关系，并删除文件包目录。内置技能同时写入 tombstone，启动同步不再重建 |
 | GET | `/api/admin/skills/:id/files` | 文件清单，同作者接口 |
 | GET | `/api/admin/skills/:id/file?path=` | 单个文件，同作者接口 |

@@ -15,7 +15,6 @@ import (
 )
 
 func RegisterSkillRoutes(r *gin.RouterGroup, svc *service.Service) {
-	r = r.Group("", requireSkillAdministration(svc))
 	registerSkillCurationRoutes(r, svc)
 	r.POST("/skills/install", func(c *gin.Context) {
 		user, err := currentUser(c, svc)
@@ -332,6 +331,20 @@ func RegisterSkillRoutes(r *gin.RouterGroup, svc *service.Service) {
 			return
 		}
 		ok(c, gin.H{"results": results})
+	})
+
+	r.POST("/skills/:id/update-from-market", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		skill, err := svc.UpdateUserSkillFromMarket(user.ID, c.Param("id"))
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, gin.H{"skill": skill})
 	})
 
 	r.POST("/skills/:id/sync", func(c *gin.Context) {

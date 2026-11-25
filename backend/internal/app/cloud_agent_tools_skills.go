@@ -382,7 +382,7 @@ func (s *Service) cloudAgentSkillPoolForSearch(userID string, state *cloudAgentR
 			versionIDs = append(versionIDs, entry.VersionID)
 		}
 	}
-	paths, err := s.skillDomain().SkillVersionTextPaths(versionIDs)
+	paths, err := s.skillDomain().SkillContentTextPaths(versionIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -400,8 +400,8 @@ func (s *Service) cloudAgentSkillPoolForSearch(userID string, state *cloudAgentR
 // cloudAgentReadSkillFile 读取本轮可读技能的文件。版本以建 run 时冻结的为准：技能在运行中更新后
 // 本轮不再读取，避免把同一技能两个版本的内容混在一起。读取成功会计入技能使用次数，用于目录排序。
 func (s *Service) cloudAgentReadSkillFile(userID string, state *cloudAgentRuntime, args agenttool.SkillReadArgs) (any, error) {
-	if err := s.RequireSkillAdministrator(userID); err != nil {
-		return nil, err
+	if strings.TrimSpace(userID) == "" {
+		return nil, BadAuthRequest("请先登录")
 	}
 	id := strings.TrimSpace(args.SkillID)
 	version := ""
@@ -421,7 +421,7 @@ func (s *Service) cloudAgentReadSkillFile(userID string, state *cloudAgentRuntim
 	if detail.VersionID != version {
 		return nil, creationConflict("技能在本轮开始后更新了；为避免混读两个版本，本轮不再读取它，下一条消息会使用新版本")
 	}
-	paths, err := s.skillDomain().SkillVersionTextPaths([]string{version})
+	paths, err := s.skillDomain().SkillContentTextPaths([]string{version})
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +436,16 @@ func (s *Service) cloudAgentReadSkillFile(userID string, state *cloudAgentRuntim
 			"guidance": "先读取 SKILL.md，再只读取入口明确引用且当前任务需要的参考文件。只能读取 files 中列出的路径；不要重复列目录或猜测路径"}, nil
 	}
 	content := detail.Instruction
-	if args.Path != cloudAgentSkillEntryPath {
+	if args.Path == cloudAgentSkillEntryPath {
+		file, err := s.SkillPackageFile(userID, id, cloudAgentSkillEntryPath)
+		if err != nil {
+			return nil, err
+		}
+		if file.Binary {
+			return nil, BadAuthRequest("不支持读取二进制技能文件")
+		}
+		content = file.Content
+	} else {
 		if !slices.Contains(files, args.Path) {
 			shown := files
 			if len(shown) > 40 {

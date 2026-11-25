@@ -4,8 +4,6 @@ package skills
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -82,13 +80,26 @@ func (s *Service) adminSkillItems(actor *model.User, rows []model.Skill) ([]Admi
 	if err := s.requireSkillAdmin(actor); err != nil {
 		return nil, err
 	}
-	items, err := s.skillItems(actor.ID, rows, false)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]AdminSkillItem, 0, len(items))
-	for index, item := range items {
-		row := rows[index]
+	result := make([]AdminSkillItem, 0, len(rows))
+	for _, row := range rows {
+		showcaseMedia, _ := parseShowcaseMedia(row.ShowcaseMediaJSON)
+		version := row.VersionLabel
+		if version == "" {
+			version = "1"
+		}
+		item := SkillItem{
+			SkillID: row.ID, SkillName: row.Name, Description: row.Description,
+			VersionID: row.ContentID, Version: version, ContentHash: row.ContentHash,
+			FileCount: row.FileCount, TotalBytes: row.TotalBytes,
+			SourceType: row.SourceType, SourceURL: row.SourceURL, SourceRef: row.SourceRef,
+			SourceSubdir: row.SourceSubdir, SourceCommit: row.SourceCommit,
+			SyncStatus: row.SyncStatus, SyncError: row.SyncError, AutoUpdate: row.AutoUpdate,
+			LastCheckedAt: row.LastCheckedAt, LastSyncedAt: row.LastSyncedAt,
+			Status: row.Status, MarkdownURL: row.MarkdownURL, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+			Source: row.Source, Tag: row.Tag, SortWeight: row.SortWeight, IsPrivate: row.IsPrivate,
+			OwnerUID: row.OwnerID, EffectiveUser: s.effectiveUser(row.OwnerID),
+			ShowcaseMedia: showcaseMedia, ExtraInfo: row.ExtraInfo,
+		}
 		result = append(result, AdminSkillItem{
 			SkillItem: item, Enabled: row.Status == skillStatusEnabled, ContentEditable: row.SourceType != "github",
 			AdminInfoEditedAt: row.AdminInfoEditedAt, AdminContentEditedAt: row.AdminContentEditedAt,
@@ -204,25 +215,39 @@ func (s *Service) AdminSetSkillEnabled(actor *model.User, id string, enabled boo
 			return nil, err
 		}
 	}
+	now := time.Now()
+	if enabled && !skill.IsPrivate {
+		showcase := skill.ShowcaseMediaJSON
+		if showcase == "" {
+			showcase = "[]"
+		}
+		publishedAt := now
+		if err := s.repo.UpsertMarketSkillListing(&model.MarketSkillListing{
+			SkillID: skill.ID, Status: "published", SortWeight: skill.SortWeight,
+			ShowcaseMediaJSON: showcase, ExtraInfo: skill.ExtraInfo,
+			PublishedAt: &publishedAt, PublishedBy: actor.ID, UpdatedAt: now,
+		}); err != nil {
+			return nil, err
+		}
+	} else if !enabled {
+		if err := s.repo.HideMarketSkillListing(skill.ID); err != nil {
+			return nil, err
+		}
+	}
 	return s.adminSkillItem(actor, skill.ID)
 }
 
-// AdminDeleteSkill 永久删除技能及其版本、文件索引和用户关系。内置技能写入 tombstone，启动同步不会重建。
-// 返回删除前的技能行，供审计记录名称。
+// AdminDeleteSkill 对公共目录技能执行下架隐藏，不硬删除内容或发布记录。
+// 返回处理前的技能行，供审计记录名称。
 func (s *Service) AdminDeleteSkill(actor *model.User, id string) (*model.Skill, error) {
 	skill, err := s.adminSkill(actor, id)
 	if err != nil {
 		return nil, err
 	}
-	if isBuiltinSkill(skill) {
-		err = s.repo.DeleteBuiltinSkill(skill.ID, actor.ID)
-	} else {
-		err = s.repo.DeleteSkill(skill.ID)
-	}
-	if err != nil {
+	if err := s.repo.UpdateSkillFields(skill.ID, map[string]any{"status": 0, "updated_at": time.Now()}); err != nil {
 		return nil, err
 	}
-	if err := os.RemoveAll(filepath.Join(s.dataDir, "skill-packages", skill.ID)); err != nil {
+	if err := s.repo.HideMarketSkillListing(skill.ID); err != nil {
 		return nil, err
 	}
 	return skill, nil

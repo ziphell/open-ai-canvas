@@ -12,7 +12,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -22,37 +21,32 @@ import (
 	"yingce/backend/internal/model"
 )
 
-func readSkillArchiveEntries(dataDir string, packageKey string) (map[string][]byte, error) {
-	absolute := filepath.Join(dataDir, "skill-packages", filepath.FromSlash(packageKey))
-	reader, err := zip.OpenReader(absolute)
-	if err != nil {
-		return nil, err
+// readSkillContentEntries 解出内容快照的全部文件；编辑流程一次性读取后重建新内容。
+func readSkillContentEntries(content *model.SkillContent) (map[string][]byte, error) {
+	if content == nil || len(content.Data) == 0 {
+		return nil, kernel.BadAuthRequest("技能内容为空")
 	}
-	defer reader.Close()
+	reader, err := zip.NewReader(bytes.NewReader(content.Data), int64(len(content.Data)))
+	if err != nil {
+		return nil, kernel.BadAuthRequest("技能内容无法解析")
+	}
 	if len(reader.File) > maxSkillPackageFiles+64 {
 		return nil, kernel.BadAuthRequest("技能包文件数量异常")
 	}
-	contents := make(map[string][]byte, len(reader.File))
+	files := make(map[string][]byte, len(reader.File))
 	var total int64
 	for _, entry := range reader.File {
 		if entry.FileInfo().IsDir() {
 			continue
 		}
-		filePath, err := normalizeSkillPath(entry.Name)
-		if err != nil {
-			return nil, err
-		}
-		if _, exists := contents[filePath]; exists {
+		if _, exists := files[entry.Name]; exists {
 			return nil, kernel.BadAuthRequest("技能包包含重复文件路径")
-		}
-		if entry.UncompressedSize64 > maxSkillFileBytes {
-			return nil, kernel.BadAuthRequest("技能包中单个文件不能超过 8MB")
 		}
 		file, err := entry.Open()
 		if err != nil {
 			return nil, err
 		}
-		content, readErr := io.ReadAll(io.LimitReader(file, maxSkillFileBytes+1))
+		data, readErr := io.ReadAll(io.LimitReader(file, maxSkillFileBytes+1))
 		closeErr := file.Close()
 		if readErr != nil {
 			return nil, readErr
@@ -60,25 +54,27 @@ func readSkillArchiveEntries(dataDir string, packageKey string) (map[string][]by
 		if closeErr != nil {
 			return nil, closeErr
 		}
-		if len(content) > maxSkillFileBytes {
+		if len(data) > maxSkillFileBytes {
 			return nil, kernel.BadAuthRequest("技能包中单个文件不能超过 8MB")
 		}
-		total += int64(len(content))
+		total += int64(len(data))
 		if total > maxSkillPackageBytes {
 			return nil, kernel.BadAuthRequest("技能包解压后不能超过 20MB")
 		}
-		contents[filePath] = content
+		files[entry.Name] = data
 	}
-	return contents, nil
+	return files, nil
 }
 
-func (s *Service) readSkillArchiveEntry(version *model.SkillVersion, filePath string) ([]byte, error) {
-	absolute := filepath.Join(s.dataDir, "skill-packages", filepath.FromSlash(version.PackageKey))
-	reader, err := zip.OpenReader(absolute)
-	if err != nil {
-		return nil, err
+// readSkillContentEntry 从 skill_contents 的 ZIP BLOB 中读取单个文件。
+func readSkillContentEntry(content *model.SkillContent, filePath string) ([]byte, error) {
+	if content == nil || len(content.Data) == 0 {
+		return nil, kernel.BadAuthRequest("技能内容为空")
 	}
-	defer reader.Close()
+	reader, err := zip.NewReader(bytes.NewReader(content.Data), int64(len(content.Data)))
+	if err != nil {
+		return nil, kernel.BadAuthRequest("技能内容无法解析")
+	}
 	for _, entry := range reader.File {
 		if entry.Name != filePath {
 			continue
@@ -88,7 +84,14 @@ func (s *Service) readSkillArchiveEntry(version *model.SkillVersion, filePath st
 			return nil, err
 		}
 		defer file.Close()
-		return io.ReadAll(io.LimitReader(file, maxSkillFileBytes+1))
+		data, err := io.ReadAll(io.LimitReader(file, maxSkillFileBytes+1))
+		if err != nil {
+			return nil, err
+		}
+		if len(data) > maxSkillFileBytes {
+			return nil, kernel.BadAuthRequest("技能文件超过 8MB")
+		}
+		return data, nil
 	}
 	return nil, kernel.BadAuthRequest("技能文件不存在")
 }
