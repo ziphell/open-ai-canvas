@@ -213,6 +213,21 @@ docker compose -f docker-compose.local.yml up -d --build
 
 热更新开发默认前端端口为 `3000`、后端端口为 `8080`；端口冲突时可通过 `CANVAS_WEB_HOST_PORT` 和 `CANVAS_BACKEND_HOST_PORT` 覆盖。本地构建编排只暴露 web 的 `3000`，后端留在容器网络内。
 
+单容器试运行（前端、后端和内嵌 Agent 同容器，默认 SQLite）：
+
+```bash
+docker build -f Dockerfile.aio -t open-ai-canvas:aio .
+docker run -d -p 8080:8080 -v canvas-data:/data open-ai-canvas:aio
+```
+
+没有 Docker 的 Linux x64 主机可以构建解压即运行的单机包（glibc，随包携带 Node）：
+
+```bash
+bun run dist:linux
+```
+
+构建阶段、包结构、环境变量以及 glibc/Alpine 边界见[单机交付包与 All-in-One 镜像](docs/content/docs/backend/distribution.mdx)。
+
 更多本地开发说明（包括时间线字幕转写）见[本地开发文档](docs/content/docs/backend/local-development.mdx)。
 
 ## 架构概览

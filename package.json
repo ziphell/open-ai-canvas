@@ -1,0 +1,8 @@
+{
+  "name": "open-ai-canvas",
+  "private": true,
+  "scripts": {
+    "dist:linux": "bun run scripts/build-server-dist.ts"
+  },
+  "packageManager": "bun@1.3.9"
+}

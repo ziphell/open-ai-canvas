@@ -19,6 +19,9 @@ backend/cmd/server/server
 web/.next
 web/dist
 web/node_modules
+dist
+backend/agent-runtime/pi/node_modules
+backend/server
 web/out
 *.log
 *.db

@@ -1,0 +1,130 @@
+# syntax=docker/dockerfile:1.7
+
+# 影策 All-in-One 镜像：前端静态文件、业务后端和内嵌 Agent runtime 运行在同一个容器。
+# 基础镜像与现有 backend、yingce-agent 镜像保持一致，使用 Alpine。
+#
+# 前端由后端通过 CANVAS_WEB_DIST_DIR 直接托管，与 /api 同源；Agent 由后端拉起内嵌
+# Node runtime（不设置 YINGCE_AGENT_URL），因此不需要 Nginx 和独立 yingce-agent 容器。
+# 默认使用 SQLite，数据写入 /data。
+#
+#   docker build -f Dockerfile.aio -t open-ai-canvas:aio .
+#   docker run -d --name open-ai-canvas -p 8080:8080 -v canvas-data:/data \
+#     -e CANVAS_PUBLIC_BASE_URL=http://127.0.0.1:8080 open-ai-canvas:aio
+#
+# 对公网提供访问时，把 CANVAS_PUBLIC_BASE_URL 换成真实地址，否则 Agent 读取本地素材
+# 的短时签名链接不可用。
+
+# 构建 Vite 前端产物。vite 只存在于这一构建阶段；运行镜像只拷贝 dist 静态文件，
+# 不含 vite、web/node_modules 或任何前端构建工具，页面由 Go 直接托管。
+FROM --platform=$BUILDPLATFORM oven/bun:1.3.9 AS web-dist
+
+WORKDIR /app/web
+COPY web/package.json web/bun.lock ./
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile --cache-dir=/root/.bun/install/cache
+COPY VERSION /app/VERSION
+COPY CHANGELOG.md /app/CHANGELOG.md
+COPY README.md /app/README.md
+COPY assets /app/assets
+COPY web ./
+COPY backend/internal/ecommerceagent/platform_knowledge.json /app/backend/internal/ecommerceagent/platform_knowledge.json
+COPY backend/internal/app/appearance_theme_packs.json /app/backend/internal/app/appearance_theme_packs.json
+ARG VITE_TLDRAW_LICENSE_KEY
+ARG BUILD_VERSION
+ARG BUILD_COMMIT=unknown
+ARG BUILD_TIME=unknown
+ENV VITE_TLDRAW_LICENSE_KEY=${VITE_TLDRAW_LICENSE_KEY}
+ENV CANVAS_BUILD_VERSION=${BUILD_VERSION}
+ENV CANVAS_BUILD_COMMIT=${BUILD_COMMIT}
+ENV CANVAS_BUILD_TIME=${BUILD_TIME}
+RUN bun --bun ./node_modules/vite/bin/vite.js build
+
+# 支付插件只编译目标平台的可执行文件。CGO 关闭，产物不依赖基础镜像的 libc。
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS payment-package-build
+
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV GOPROXY=$GOPROXY
+
+RUN apk add --no-cache nodejs unzip zip
+
+WORKDIR /src
+COPY backend ./backend
+COPY plugin-packages ./plugin-packages
+ARG TARGETOS
+ARG TARGETARCH
+RUN --mount=type=cache,target=/root/.cache/go-build set -eu; \
+    test -n "$TARGETOS"; \
+    test -n "$TARGETARCH"; \
+    PAYMENT_PLUGIN_GOOS="$TARGETOS" \
+    PAYMENT_PLUGIN_GOARCH="$TARGETARCH" \
+    PAYMENT_PLUGIN_CGO_ENABLED=0 \
+      ./plugin-packages/build-packages.sh --payments-only; \
+    sh ./plugin-packages/verify-payment-packages.sh "$TARGETOS" "$TARGETARCH"
+
+FROM alpine:3.22 AS payment-package-smoke
+
+ARG TARGETOS
+ARG TARGETARCH
+RUN apk add --no-cache unzip
+COPY --from=payment-package-build /src/plugin-packages /app/plugin-packages
+RUN PAYMENT_PLUGIN_SMOKE_TEST=1 \
+    sh /app/plugin-packages/verify-payment-packages.sh "$TARGETOS" "$TARGETARCH"
+
+# 编译 Go 后端；CGO 用于 SQLite 驱动，基础镜像的 libc 与运行镜像一致。
+FROM golang:1.25-alpine AS backend-build
+
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV GOPROXY=$GOPROXY
+
+RUN apk add --no-cache build-base
+
+WORKDIR /src/backend
+COPY backend/go.mod backend/go.sum ./
+# go.mod 含本地 replace（./third_party/go-sms-sender），依赖解析阶段就要读到该目录。
+COPY backend/third_party ./third_party
+RUN go mod download
+COPY backend ./
+COPY VERSION /src/VERSION
+ARG BUILD_VERSION
+ARG BUILD_COMMIT=unknown
+ARG BUILD_TIME=unknown
+RUN --mount=type=cache,target=/root/.cache/go-build set -eu; \
+    version="${BUILD_VERSION:-$(tr -d '\r\n' </src/VERSION)}"; \
+    ldflags="-s -w -X yingce/backend/internal/buildinfo.Version=${version} -X yingce/backend/internal/buildinfo.Commit=${BUILD_COMMIT} -X yingce/backend/internal/buildinfo.BuildTime=${BUILD_TIME}"; \
+    CGO_ENABLED=1 GOOS=linux go build -trimpath -ldflags="$ldflags" -o /out/yingce-backend ./cmd/server
+
+# 内嵌 Agent runtime 的 Node 依赖；与运行镜像同一基础镜像，原生模块直接可用。
+FROM node:22.19-alpine AS pi-runtime-deps
+
+WORKDIR /app/backend/agent-runtime/pi
+COPY backend/agent-runtime/pi/package.json backend/agent-runtime/pi/package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts
+
+FROM node:22.19-alpine
+
+# ffmpeg/ffprobe：短剧抽帧、时间线渲染和视频播放转码；node 同时承载内嵌 Agent runtime。
+RUN apk add --no-cache ca-certificates tzdata wget ffmpeg \
+    && addgroup -S app \
+    && adduser -S app -G app
+
+WORKDIR /app
+ENV GIN_MODE=release \
+    CANVAS_BACKEND_ADDR=:8080 \
+    CANVAS_BACKEND_DATA_DIR=/data \
+    CANVAS_AUTO_MIGRATE=true \
+    CANVAS_WEB_DIST_DIR=/app/web \
+    CANVAS_OFFICIAL_PLUGIN_DIR=/app/plugin-packages \
+    CANVAS_PI_RUNTIME_DIR=/app/backend/agent-runtime/pi
+
+RUN mkdir -p /data && chown -R app:app /data
+COPY --from=backend-build /out/yingce-backend /usr/local/bin/yingce-backend
+COPY --from=payment-package-smoke /app/plugin-packages /app/plugin-packages
+COPY --from=web-dist /app/web/dist /app/web
+COPY --from=pi-runtime-deps /app/backend/agent-runtime/pi/node_modules /app/backend/agent-runtime/pi/node_modules
+COPY backend/agent-runtime/pi/package.json backend/agent-runtime/pi/package-lock.json /app/backend/agent-runtime/pi/
+COPY backend/agent-runtime/pi/agent-runtime.mjs /app/backend/agent-runtime/pi/agent-runtime.mjs
+
+VOLUME ["/data"]
+USER app
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 CMD wget -qO- http://127.0.0.1:8080/api/health/ready >/dev/null || exit 1
+CMD ["yingce-backend"]

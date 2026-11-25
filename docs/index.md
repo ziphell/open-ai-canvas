@@ -8,6 +8,7 @@
 
 - [Docker 部署](content/docs/overview/docker.mdx)：默认服务器方案、Compose 选择与已有部署核对。
 - [在线更新与安全回退](content/docs/backend/system-update.mdx)：受管部署条件、安装、备份、迁移和回退。
+- [单机交付包与 All-in-One 镜像](content/docs/backend/distribution.mdx)：`dist:linux` 解压运行、`Dockerfile.aio` 单容器试运行及 glibc/Alpine 边界。
 - [本地开发](content/docs/backend/local-development.mdx)：宿主机与热更新开发环境。
 
 ## 设计沉淀

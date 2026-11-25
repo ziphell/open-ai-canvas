@@ -4,6 +4,7 @@
   "defaultOpen": true,
   "pages": [
     "local-development",
+    "distribution",
     "canvas-agent-appearance",
     "agent-mcp",
     "http-api",

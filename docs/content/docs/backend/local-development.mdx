@@ -137,3 +137,5 @@ LOCAL_UID=$(id -u) LOCAL_GID=$(id -g) \
 ```
 
 Docker 开发编排也使用 `.local/project-workbench-debug`，并默认暴露前端 `3000` 和后端 `8080`。端口冲突时，可通过 `CANVAS_WEB_HOST_PORT` 和 `CANVAS_BACKEND_HOST_PORT` 调整宿主机端口。
+
+需要把前端、后端和内嵌 Agent 打进一个容器，或在不使用 Docker 的主机上解压运行单机包时，见[单机交付包与 All-in-One 镜像](distribution.mdx)。

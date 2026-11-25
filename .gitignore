@@ -36,6 +36,8 @@ docs/content/docs/backend/*
 !docs/content/docs/backend/image-usage-billing.mdx
 !docs/content/docs/backend/credit-rewards.mdx
 !docs/content/docs/backend/creative-agent-runtime.mdx
+# Keep the single-node distribution guide versioned.
+!docs/content/docs/backend/distribution.mdx
 # Keep the pose library operator guide versioned without unignoring generated docs.
 !docs/content/docs/canvas/
 docs/content/docs/canvas/*

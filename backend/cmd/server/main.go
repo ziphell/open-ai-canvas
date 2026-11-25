@@ -142,7 +142,17 @@ func run(ctx context.Context) error {
 	registerSystemStatusRoutes(api, status)
 	handler.RegisterOAuthCallbackRoutes(r, svc)
 	handler.RegisterCanvasAPI(api, svc)
-	r.NoRoute(handler.SystemProxyNoRouteHandler(svc))
+	noRouteHandlers := make(gin.HandlersChain, 0, 2)
+	// 单机交付包用后端直接托管前端；Docker 部署不设置该目录，继续由 Nginx 托管。
+	if webDist := strings.TrimSpace(os.Getenv("CANVAS_WEB_DIST_DIR")); webDist != "" {
+		staticWeb, err := handler.StaticWebHandler(webDist)
+		if err != nil {
+			return err
+		}
+		noRouteHandlers = append(noRouteHandlers, staticWeb)
+	}
+	noRouteHandlers = append(noRouteHandlers, handler.SystemProxyNoRouteHandler(svc))
+	r.NoRoute(noRouteHandlers...)
 
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {

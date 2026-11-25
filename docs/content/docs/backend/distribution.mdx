@@ -1,0 +1,149 @@
+---
+title: 单机交付包与 All-in-One 镜像
+description: 构建可解压运行的 Linux 单机包，或把前端、后端和内嵌 Agent 打进一个容器
+---
+
+# 单机交付包与 All-in-One 镜像
+
+除官方 Release 镜像和 `docker-compose.deploy.yml` 之外，仓库提供两种轻量交付方式：
+
+| 方式 | 入口 | 适用场景 | libc |
+| --- | --- | --- | --- |
+| 单机包 | `bun run dist:linux` | 没有 Docker 的 Linux 主机，解压后直接运行 | glibc |
+| All-in-One 镜像 | `Dockerfile.aio` | 单容器运行前端、后端和内嵌 Agent | Alpine（musl） |
+
+两者都不使用 Nginx：前端静态文件由后端直接托管，`/api` 与页面同源。生产多人部署仍应使用官方 Release 镜像、`docker-compose.deploy.yml` 和 Host Updater，见[在线更新与安全回退](system-update.mdx)。
+
+## 前端由后端托管
+
+设置 `CANVAS_WEB_DIST_DIR` 后，后端在 NoRoute 阶段托管该目录：
+
+- GET/HEAD 命中文件直接返回；`/assets/*` 使用一年 immutable 缓存。
+- 缺失的 `/assets/*` 返回 404，避免旧页面把 `index.html` 当脚本执行。
+- 其余路径回退 `index.html`，支持 SPA 深层路由。
+- `/api` 继续走原有接口和短链路代理。
+
+未设置该变量时行为不变，Docker 部署仍由 Nginx 托管前端并代理后端。
+
+## 单机交付包（dist:linux）
+
+构建要求：Linux x64 主机，已安装 Bun、Go 1.25、Node（linux x64）、npm 和 tar；首次构建需要网络安装前端与 Agent 依赖。
+
+```bash
+bun run dist:linux
+```
+
+产物：
+
+```text
+dist/open-ai-canvas-server-<version>-linux-x64.tar.gz
+dist/open-ai-canvas-server-<version>-linux-x64.tar.gz.sha256
+```
+
+脚本会构建 Vite 前端和 Go 后端（CGO，用于 SQLite），安装内嵌 Agent runtime 依赖，复制官方 `plugin-packages`，并随包携带构建机的 Node。目标主机不需要预装 Bun、Go 或 Node。
+
+包结构：
+
+```text
+open-ai-canvas-server-<version>/
+  bin/canvas-server          # 启动器：注入数据、前端、插件和 Agent 路径
+  bin/yingce-backend         # Go 后端
+  web/                       # Vite 静态产物
+  plugin-packages/           # 官方插件，仅保留 linux-x64 支付插件
+  backend/agent-runtime/pi/  # 内嵌 Agent runtime 与 Node 依赖
+  vendor/node/bin/node       # 随包 Node
+  start.sh install.sh VERSION LICENSE NOTICE
+```
+
+运行：
+
+```bash
+tar xzf open-ai-canvas-server-<version>-linux-x64.tar.gz
+cd open-ai-canvas-server-<version>
+./install.sh
+./start.sh
+```
+
+`install.sh` 会补齐可执行权限、在缺少时生成 `.env`、创建权限为 `700` 的 `data/`，并提示宿主机是否缺少 `ffmpeg`。默认监听 `:8080`，健康检查是 `GET /api/health/ready`。
+
+`.env` 只补充调用方没有设置的环境变量；命令行、systemd 或容器传入的值优先。常用项：
+
+| 变量 | 说明 |
+| --- | --- |
+| `CANVAS_BACKEND_ADDR` | 监听地址，默认 `:8080` |
+| `CANVAS_PUBLIC_BASE_URL` | 对外站点根地址；Agent 读取本地素材的短时签名链接依赖它，未设置时相关能力不可用 |
+| `CANVAS_AUTO_MIGRATE` | 首次启动自动迁移 SQLite，默认 `true` |
+| `CANVAS_REGISTRATION_ENABLED` | 公开注册，默认 `false` |
+| `CANVAS_ALLOW_PRIVATE_UPSTREAMS` / `CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS` | 精确放行私网模型上游，不要整体放开 |
+
+启动器固定的 `CANVAS_WEB_DIST_DIR`、`CANVAS_OFFICIAL_PLUGIN_DIR`、`CANVAS_PI_RUNTIME_DIR` 和 `CANVAS_BACKEND_DATA_DIR` 一般不需要修改。
+
+限制：
+
+- 产物是 glibc 动态链接（后端 CGO、随包 Node 均为 glibc），不能在 Alpine 等 musl 发行版运行；Alpine 请使用 All-in-One 镜像。
+- 默认 SQLite。需要 PostgreSQL、Redis、独立 `yingce-agent` 容器或在线更新时，使用 `docker-compose.deploy.yml`。
+- 宿主机需自行提供 `ffmpeg`/`ffprobe`（抽帧、时间线渲染和播放副本转码），`install.sh` 只提示不自动安装。
+- 该入口不安装 Host Updater，属于本地或试运行交付，不由后台在线更新管理。
+
+## All-in-One 镜像
+
+`Dockerfile.aio` 把 Vite 前端、Go 后端和内嵌 Agent runtime 打进一个镜像，基础镜像与现有 `backend`、`yingce-agent` 一致，使用 Alpine。
+
+```bash
+docker build -f Dockerfile.aio -t open-ai-canvas:aio .
+docker run -d --name open-ai-canvas \
+  -p 8080:8080 \
+  -v canvas-data:/data \
+  -e CANVAS_PUBLIC_BASE_URL=http://127.0.0.1:8080 \
+  open-ai-canvas:aio
+```
+
+构建阶段：
+
+- `web-dist`：用 Vite 生成静态文件；运行镜像只拷贝 `dist`，不含 Vite 和 `web/node_modules`。
+- `payment-package-build` / `payment-package-smoke`：按目标平台编译并校验支付插件。
+- `backend-build`：编译 Go 后端。
+- `pi-runtime-deps`：安装内嵌 Agent runtime 的 Node 依赖。
+- 运行镜像：`node:22.19-alpine` 加 `ffmpeg`，以非 root 用户 `app` 运行。
+
+镜像内固定：
+
+| 变量 | 值 |
+| --- | --- |
+| `CANVAS_BACKEND_ADDR` | `:8080` |
+| `CANVAS_BACKEND_DATA_DIR` | `/data` |
+| `CANVAS_WEB_DIST_DIR` | `/app/web` |
+| `CANVAS_OFFICIAL_PLUGIN_DIR` | `/app/plugin-packages` |
+| `CANVAS_PI_RUNTIME_DIR` | `/app/backend/agent-runtime/pi` |
+| `CANVAS_AUTO_MIGRATE` | `true` |
+
+未设置 `YINGCE_AGENT_URL`，Agent 由后端拉起内嵌 Node runtime，不需要独立 `yingce-agent` 容器。数据默认 SQLite，写入 `/data` 卷。健康检查是 `GET /api/health/ready`。
+
+可选构建参数：`BUILD_VERSION`、`BUILD_COMMIT`、`BUILD_TIME`、`VITE_TLDRAW_LICENSE_KEY` 和 `GOPROXY`。
+
+```bash
+docker build -f Dockerfile.aio \
+  --build-arg BUILD_VERSION="$(tr -d '\r\n' < VERSION)" \
+  --build-arg BUILD_COMMIT="$(git rev-parse --short HEAD)" \
+  --build-arg GOPROXY=https://goproxy.cn,direct \
+  -t open-ai-canvas:aio .
+```
+
+限制：
+
+- 单容器加 SQLite，适合单机、自托管和试运行；多人生产环境仍使用 `docker-compose.deploy.yml`（PostgreSQL、Redis、独立 Agent、迁移和 Host Updater）。
+- 不含在线更新入口；升级需重新构建镜像并替换容器，`/data` 需自行备份。
+- 镜像不自带 TLS，公网部署应由外层反向代理终止 HTTPS，并设置真实的 `CANVAS_PUBLIC_BASE_URL` 和 `CANVAS_CORS_ORIGINS`。
+
+## 验证
+
+```bash
+# 单机包
+curl -fsS http://127.0.0.1:8080/api/health/ready
+
+# All-in-One
+docker run --rm --entrypoint sh open-ai-canvas:aio -c 'node --version && ffmpeg -version | head -1'
+curl -fsS http://127.0.0.1:8080/api/health/ready
+```
+
+健康检查只证明入口可用；登录、SSE、任务生成和资源访问仍需按实际部署验证。
