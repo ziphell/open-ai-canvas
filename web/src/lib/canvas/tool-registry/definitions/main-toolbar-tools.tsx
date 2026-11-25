@@ -1,4 +1,4 @@
-import { PanelsTopLeft, Eraser, FolderOpen, Hand, MousePointer2, Palette, PersonStanding, Plus, Redo2, Settings2, Trash2, Undo2 } from "lucide-react";
+import { Clapperboard, PanelsTopLeft, Eraser, FolderOpen, Hand, MousePointer2, Palette, PersonStanding, Plus, Redo2, Settings2, Trash2, Undo2 } from "lucide-react";
 
 import { registerToolbarTools, type ToolDefinition } from "@/lib/canvas/tool-registry";
 import type { CanvasToolMode } from "@/types/canvas";
@@ -80,6 +80,17 @@ export const mainToolbarTools: ToolDefinition[] = [
         defaultOrder: 62,
         applicable: (ctx) => Boolean(ctx.handlers.onOpenPoseLibrary),
         run: (ctx) => ctx.handlers.onOpenPoseLibrary?.(),
+    },
+    {
+        id: "tool-timeline",
+        toolbar: "main",
+        category: "resource",
+        label: "时间线",
+        icon: <Clapperboard />,
+        defaultVisible: true,
+        defaultOrder: 66,
+        applicable: (ctx) => Boolean(ctx.handlers.onOpenTimeline),
+        run: (ctx) => ctx.handlers.onOpenTimeline?.(),
     },
     {
         id: "tool-style",

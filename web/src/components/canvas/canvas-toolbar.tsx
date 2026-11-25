@@ -57,6 +57,7 @@ export function CanvasToolbar({
     onOpenMyAssets,
     onOpenProjectCharacters,
     onOpenPoseLibrary,
+    onOpenTimeline,
     compact = false,
 }: {
     selectedCount: number;
@@ -95,6 +96,8 @@ export function CanvasToolbar({
     onOpenMyAssets: () => void;
     onOpenProjectCharacters: () => void;
     onOpenPoseLibrary?: () => void;
+    /** 打开画布级时间线；缺省时主工具栏不渲染该入口。 */
+    onOpenTimeline?: () => void;
     /** 紧凑尺寸：短剧精修画布把视野留给节点。 */
     compact?: boolean;
 }) {
@@ -173,6 +176,7 @@ export function CanvasToolbar({
         onOpenMyAssets,
         onOpenProjectCharacters,
         onOpenPoseLibrary,
+        onOpenTimeline,
         onBackgroundModeChange,
         onShowImageInfoChange,
         onToggleAddPanel: (event: ReactMouseEvent<HTMLElement>) => {

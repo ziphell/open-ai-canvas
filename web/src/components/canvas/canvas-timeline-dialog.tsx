@@ -48,7 +48,8 @@ type TimelineSourceKind = TimelineBuildScope | "saved";
 const SOURCE_LABELS: Record<TimelineSourceKind, string> = { current: "当前视频", selection: "选中视频", canvas: "整个画布", saved: "已保存时间线" };
 
 type CanvasTimelineDialogProps = {
-    node: CanvasNodeData;
+    /** 触发节点：用于「当前视频」来源与播放头定位；从画布工具栏打开时为空。 */
+    node?: CanvasNodeData | null;
     open: boolean;
     nodes: CanvasNodeData[];
     timeline: TimelineProject | null;
@@ -126,7 +127,7 @@ export function CanvasTimelineDialog({
 
     const initializedRef = useRef(false);
 
-    // 打开弹窗：优先复用项目时间线，否则只用触发节点新建（不再默认收集整张画布的视频）；播放头定位到触发节点片段。
+    // 打开弹窗：优先复用项目时间线；否则有触发节点时只用该节点新建，没有触发节点时按整个画布生成。
     // 仅首次打开时构建草稿：素材上传/素材库插入会触发 nodes 变化，不能因此重建草稿丢弃编辑。
     useEffect(() => {
         if (!open) {
@@ -135,9 +136,14 @@ export function CanvasTimelineDialog({
         }
         if (initializedRef.current) return;
         initializedRef.current = true;
-        const next = timeline ? syncTimelineSubtitleClips(normalizeTimelineProject(timeline), nodes) : buildTimelineForScope(nodes, { scope: "current", triggerNodeId: node.id });
+        // 无触发节点（从画布工具栏打开）时没有「当前视频」概念，直接按整个画布生成草稿。
+        const next = timeline
+            ? syncTimelineSubtitleClips(normalizeTimelineProject(timeline), nodes)
+            : node
+              ? buildTimelineForScope(nodes, { scope: "current", triggerNodeId: node.id })
+              : buildTimelineForScope(nodes, { scope: "canvas", triggerNodeId: "", selectedNodeIds });
         draftDirtyRef.current = false;
-        setSource(timeline ? "saved" : "current");
+        setSource(timeline ? "saved" : node ? "current" : "canvas");
         setIncludeReferenceVideos(false);
         setExportPreset(defaultTimelineExportPreset(dramaAspectRatio));
         setDraft(next);
@@ -145,9 +151,9 @@ export function CanvasTimelineDialog({
         setZoomLevel(1);
         setSelectedClipId(null);
         setPreviewPlaying(false);
-        const triggerClip = next.clips.find((clip) => clip.nodeId === node.id);
+        const triggerClip = node ? next.clips.find((clip) => clip.nodeId === node.id) : undefined;
         if (triggerClip) setPlayheadMs(triggerClip.startMs);
-    }, [open, node.id, nodes, timeline, dramaAspectRatio]);
+    }, [open, node?.id, nodes, timeline, dramaAspectRatio, selectedNodeIds]);
 
     const replaceDraft = (next: TimelineProject) => {
         draftDirtyRef.current = false;
@@ -155,7 +161,7 @@ export function CanvasTimelineDialog({
         setZoomLevel(1);
         setSelectedClipId(null);
         setPreviewPlaying(false);
-        setPlayheadMs(next.clips.find((clip) => clip.nodeId === node.id)?.startMs ?? 0);
+        setPlayheadMs(node ? (next.clips.find((clip) => clip.nodeId === node.id)?.startMs ?? 0) : 0);
     };
 
     const rebuildFromScope = async (scope: TimelineBuildScope, includeReferences: boolean) => {
@@ -170,7 +176,7 @@ export function CanvasTimelineDialog({
         }
         setSource(scope);
         setIncludeReferenceVideos(includeReferences);
-        replaceDraft(buildTimelineForScope(nodes, { scope, triggerNodeId: node.id, selectedNodeIds, includeReferenceVideos: includeReferences }));
+        replaceDraft(buildTimelineForScope(nodes, { scope, triggerNodeId: node?.id ?? "", selectedNodeIds, includeReferenceVideos: includeReferences }));
     };
 
     // 已保存时间线不会被自动替换；用户明确选择后才换成只含当前视频的新草稿，保存前原时间线保持不变。
@@ -184,7 +190,7 @@ export function CanvasTimelineDialog({
         if (!confirmed) return;
         setSource("current");
         setIncludeReferenceVideos(false);
-        replaceDraft(buildTimelineForScope(nodes, { scope: "current", triggerNodeId: node.id }));
+        replaceDraft(buildTimelineForScope(nodes, { scope: "current", triggerNodeId: node?.id ?? "" }));
     };
 
     const pxPerMs = (BASE_PX_PER_SECOND / 1_000) * zoomLevel;
@@ -630,7 +636,7 @@ export function CanvasTimelineDialog({
     const handleExport = async () => {
         try {
             const srt = buildSubtitleSrt(getOrderedSubtitleClips(draft));
-            const baseName = node.title || "成片";
+            const baseName = node?.title || "成片";
             const result = await runExport();
             saveAs(result.blob, baseName + ".mp4");
             reportExportResult(result, srt, baseName, "成片导出完成");
@@ -647,7 +653,7 @@ export function CanvasTimelineDialog({
         }
         try {
             const srt = buildSubtitleSrt(getOrderedSubtitleClips(draft));
-            const baseName = node.title || "成片";
+            const baseName = node?.title || "成片";
             const result = await runExport();
             const subtitlesMissing = Boolean(srt) && !result.subtitlesBurned;
             const created = await onCreateAssembledNode(result.blob, baseName + "-新片段" + (subtitlesMissing ? "（无字幕）" : ""));
@@ -736,11 +742,13 @@ export function CanvasTimelineDialog({
         );
     };
 
-    const triggerHasMedia = (node.type === "video" || node.type === "audio") && Boolean(node.metadata?.content || node.metadata?.storageKey);
-    const triggerHasVideo = triggerHasMedia && node.type === "video";
+    const triggerHasMedia = Boolean(node && (node.type === "video" || node.type === "audio") && (node.metadata?.content || node.metadata?.storageKey));
+    const triggerHasVideo = triggerHasMedia && node?.type === "video";
     const selectionVideoCount = countTimelineSelectionVideos(nodes, selectedNodeIds);
     const referenceVideoCount = nodes.filter((item) => isReferenceVideoNode(item) && Boolean(item.metadata?.content || item.metadata?.storageKey)).length;
     const scopeOptions = [
+        // 无触发节点时也展示来源切换；「已保存时间线」只作为当前态占位，切换走其他范围重建草稿。
+        ...(source === "saved" ? [{ value: "saved" as const, label: "已保存时间线", disabled: true }] : []),
         { value: "current" as const, label: "当前视频", disabled: !triggerHasMedia },
         ...(selectionVideoCount > 1 ? [{ value: "selection" as const, label: `选中视频（${selectionVideoCount}）` }] : []),
         { value: "canvas" as const, label: "整个画布", title: referenceVideoCount ? "默认不含预演台白膜/深度参考视频" : undefined },
@@ -756,7 +764,7 @@ export function CanvasTimelineDialog({
                 <div className="truncate text-[var(--fs-heading-lg)] font-semibold leading-6 tracking-[-0.02em]">多轨时间线</div>
                 <div className="truncate text-xs tabular-nums opacity-55">{sourceSummary}</div>
             </div>
-            {source !== "saved" ? (
+            {source !== "saved" || !triggerHasMedia ? (
                 <div className="flex shrink-0 items-center gap-3 text-xs font-normal">
                     {source === "canvas" && referenceVideoCount ? (
                         <Checkbox size="sm" checked={includeReferenceVideos} onChange={(event) => void rebuildFromScope("canvas", event.target.checked)}>
@@ -769,7 +777,8 @@ export function CanvasTimelineDialog({
                         value={source}
                         options={scopeOptions}
                         onChange={(value) => {
-                            if (value !== source) void rebuildFromScope(value, value === "canvas" ? includeReferenceVideos : false);
+                            // options 里没有 saved；它只可能出现在已保存时间线的初始状态。
+                            if (value !== "saved" && value !== source) void rebuildFromScope(value, value === "canvas" ? includeReferenceVideos : false);
                         }}
                     />
                 </div>

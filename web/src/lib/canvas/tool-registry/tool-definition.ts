@@ -46,6 +46,8 @@ export type ToolbarHandlers = {
     onOpenProjectCharacters: () => void;
     /** 站点姿势库；只读分享页等不提供时入口自动隐藏。 */
     onOpenPoseLibrary?: () => void;
+    /** 打开画布级时间线（不依赖节点）；不提供时主工具栏隐藏该入口。 */
+    onOpenTimeline?: () => void;
     // 主工具栏——外观
     onBackgroundModeChange: (mode: CanvasBackgroundMode) => void;
     onShowImageInfoChange: (show: boolean) => void;

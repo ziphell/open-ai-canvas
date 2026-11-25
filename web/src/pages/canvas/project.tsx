@@ -323,7 +323,17 @@ function CanvasViewportPage() {
     const [previsTemplateRequest, setPrevisTemplateRequest] = useState<{ position?: Position } | null>(null);
     const [infoNodeId, setInfoNodeId] = useState<string | null>(null);
     const [subtitleNodeId, setSubtitleNodeId] = useState<string | null>(null);
-    const [timelineNodeId, setTimelineNodeId] = useState<string | null>(null);
+    const [timelineOpen, setTimelineOpen] = useState(false);
+    // 触发节点仅用于「当前视频」来源与播放头定位；从画布工具栏打开时为空。
+    const [timelineAnchorNodeId, setTimelineAnchorNodeId] = useState<string | null>(null);
+    const openTimeline = useCallback((nodeId: string | null = null) => {
+        setTimelineAnchorNodeId(nodeId);
+        setTimelineOpen(true);
+    }, []);
+    const closeTimeline = useCallback(() => {
+        setTimelineOpen(false);
+        setTimelineAnchorNodeId(null);
+    }, []);
     const [comparedImageIds, setComparedImageIds] = useState<string[] | null>(null);
     const [mediaVersionNodeId, setMediaVersionNodeId] = useState<string | null>(null);
     const [superResolveNodeId, setSuperResolveNodeId] = useState<string | null>(null);
@@ -746,7 +756,7 @@ function CanvasViewportPage() {
         setConnections,
         timeline: currentProject?.timeline,
         saveTimeline: saveDramaTimeline,
-        openTimeline: setTimelineNodeId,
+        openTimeline,
         focusNodes: focusDramaNodes,
         openPrevis: openDramaPrevis,
         searchParams,
@@ -1012,7 +1022,7 @@ function CanvasViewportPage() {
             setDrawingNodeId(clearDeletedId);
             setInfoNodeId(clearDeletedId);
             setSubtitleNodeId(clearDeletedId);
-            setTimelineNodeId(clearDeletedId);
+            setTimelineAnchorNodeId(clearDeletedId);
             setFrameDialogNodeId(clearDeletedId);
             setSegmentDialogNodeId(clearDeletedId);
             setVideoProcessingDialog((current) => (current && removedIds.has(current.nodeId) ? null : current));
@@ -1593,7 +1603,7 @@ function CanvasViewportPage() {
     const frameNode = frameDialogNodeId ? nodeById.get(frameDialogNodeId) || null : null;
     const segmentNode = segmentDialogNodeId ? nodeById.get(segmentDialogNodeId) || null : null;
     const subtitleNode = subtitleNodeId ? nodeById.get(subtitleNodeId) || null : null;
-    const timelineNode = timelineNodeId ? nodeById.get(timelineNodeId) || null : null;
+    const timelineNode = timelineAnchorNodeId ? nodeById.get(timelineAnchorNodeId) || null : null;
     const videoProcessingNode = videoProcessingDialog ? nodeById.get(videoProcessingDialog.nodeId) || null : null;
     const videoProcessingModels = useMemo(() => ({ enhance: listVideoProcessingModels(effectiveConfig, "enhance"), depth: listVideoProcessingModels(effectiveConfig, "depth") }), [effectiveConfig]);
     const textEditorNode = textEditorNodeId ? nodeById.get(textEditorNodeId) || null : null;
@@ -3211,6 +3221,7 @@ function CanvasViewportPage() {
                                             }}
                                             onOpenProjectCharacters={() => openCharacterLibrary()}
                                             onOpenPoseLibrary={() => openPoseLibrary()}
+                                            onOpenTimeline={() => openTimeline()}
                                             compact={dramaCanvas}
                                         />
                                     ) : null}
@@ -3370,7 +3381,7 @@ function CanvasViewportPage() {
                                     if (entries?.length) saveAs(new Blob([serializeSrtEntries(entries)], { type: "application/x-subrip;charset=utf-8" }), `${node.title || "字幕"}.srt`);
                                 }}
                                 onSubtitles={(node) => setSubtitleNodeId(node.id)}
-                                onTimeline={(node) => setTimelineNodeId(node.id)}
+                                onTimeline={(node) => openTimeline(node.id)}
                                 onSaveAsset={(node) => void saveNodeAsset(node)}
                                 onAnnotate={(node) => setAnnotationNodeId(node.id)}
                                 onAnnotationEdit={openAnnotationEditNode}
@@ -3549,17 +3560,17 @@ function CanvasViewportPage() {
                                 />
                             ) : null}
 
-                            {timelineNode ? (
+                            {timelineOpen ? (
                                 <CanvasTimelineDialog
                                     node={timelineNode}
-                                    open={Boolean(timelineNode)}
+                                    open
                                     nodes={nodes}
                                     timeline={currentProject?.timeline || null}
                                     selectedNodeIds={selectedNodeIds}
                                     dramaAspectRatio={drama.active ? drama.summary?.production.settings.aspectRatio : undefined}
-                                    onClose={() => setTimelineNodeId(null)}
+                                    onClose={closeTimeline}
                                     onOpenSubtitleDialog={(subNodeId) => {
-                                        setTimelineNodeId(null);
+                                        closeTimeline();
                                         setSubtitleNodeId(subNodeId);
                                     }}
                                     onSave={(next) => updateProject(projectId, { timeline: next })}
@@ -3867,12 +3878,7 @@ function CanvasViewportPage() {
 
                             <BatchGenerationSettingsDialog open={batchGenDialogOpen} config={batchGenDialogConfig} rowCount={batchGenDialogRowCount} concurrency={batchGenDialogConcurrency} onClose={closeBatchGenDialog} onConfirm={confirmBatchGenDialog} />
 
-                            <AssetPickerModal
-                                open={assetPickerOpen}
-                                multiple={assetInsertScope === "canvas"}
-                                onInsert={handleLibraryAssetsInsert}
-                                onClose={closeAssetPicker}
-                            />
+                            <AssetPickerModal open={assetPickerOpen} multiple={assetInsertScope === "canvas"} onInsert={handleLibraryAssetsInsert} onClose={closeAssetPicker} />
                             <CanvasPoseLibraryModal open={Boolean(poseLibraryRequest)} onClose={() => setPoseLibraryRequest(null)} onInsert={(payloads) => handleAssetsInsert(payloads, poseLibraryRequest?.position)} />
                             <CanvasCharacterLibraryModal
                                 open={characterLibraryOpen}
