@@ -1,4 +1,4 @@
-import type { PluginManifest } from "@/lib/plugins/plugin-types";
+import type { PluginManifest, PluginManifestV2 } from "@/lib/plugins/plugin-types";
 
 const permissionLabels: Record<string, string> = {
     "canvas.read": "读取画布",
@@ -16,7 +16,7 @@ export function pluginPermissionLabel(permission: string) {
     return permissionLabels[permission] || permission;
 }
 
-export function getPluginDocumentation(manifest: PluginManifest) {
+export function getPluginDocumentation(manifest: PluginManifest | PluginManifestV2) {
     if (manifest.documentation?.trim()) return manifest.documentation.trim();
 
     const capabilities = manifest.permissions.map(pluginPermissionLabel);

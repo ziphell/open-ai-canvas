@@ -1,6 +1,6 @@
-import type { PluginManifest } from "./plugin-types";
+import type { PluginManifest, PluginManifestV2 } from "./plugin-types";
 
-export function pluginMatchesSearch(manifest: PluginManifest, query: string) {
+export function pluginMatchesSearch(manifest: PluginManifest | PluginManifestV2, query: string) {
     const queryPieces = query.toLowerCase().match(/[a-z0-9._/-]+|\p{Script=Han}+/gu) ?? [];
     const segmenter = new Intl.Segmenter("zh-CN", { granularity: "word" });
     const tokens = queryPieces.flatMap((piece) => {

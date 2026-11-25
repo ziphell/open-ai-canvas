@@ -7,6 +7,7 @@ import { mediaVersionAdoptBlock, recordReplacedMediaVersion } from "@/lib/canvas
 import { resetGenerationTaskMetadata } from "@/lib/canvas/canvas-task-state";
 import {
     buildDramaCastNode,
+    buildDramaEpisodeTimeline,
     buildDramaFinalNode,
     buildDramaSegmentGroup,
     dramaCastAssetCategory,
@@ -42,6 +43,7 @@ import {
 } from "@/services/drama-canvas";
 import type { DramaPrevisRequest } from "@/lib/canvas/drama-previs";
 import { CanvasNodeType, type CanvasConnection, type CanvasDramaRef, type CanvasNodeData, type CanvasNodeMetadata } from "@/types/canvas";
+import type { TimelineProject } from "@/types/timeline";
 
 // 精修画布的短剧模式：画布关联短剧作品时，按需把设定、剧情段、成片投送到画布，
 // 标出短剧侧已更新的节点，并维护“采用到短剧”弹窗。短剧是事实源，这里不做双向自动同步。
@@ -57,6 +59,9 @@ export type UseCanvasDramaInput = {
     nodesRef: { current: CanvasNodeData[] };
     setNodes: StateSetter<CanvasNodeData[]>;
     setConnections: StateSetter<CanvasConnection[]>;
+    timeline: TimelineProject | undefined;
+    saveTimeline: (timeline: TimelineProject) => void;
+    openTimeline: (anchorNodeId: string) => void;
     /** 选中并把视口移到这些节点；在资产视图时切回画布。 */
     focusNodes: (nodeIds: string[]) => void;
     openPrevis: (request: DramaPrevisRequest, editor: "previs" | "timeline") => Promise<void>;
@@ -121,7 +126,7 @@ function withDramaMedia(node: CanvasNodeData, resourceId: string, assetId: strin
 
 export function useCanvasDrama(input: UseCanvasDramaInput) {
     const { canvasId, dramaId, projectLoaded, nodes, nodesRef, setNodes, setConnections, searchParams, setSearchParams } = input;
-    const { message } = App.useApp();
+    const { message, modal } = App.useApp();
     const queryClient = useQueryClient();
 
     const summaryQuery = useQuery({
@@ -366,11 +371,11 @@ export function useCanvasDrama(input: UseCanvasDramaInput) {
         [fetchCast, fetchEpisode, fetchTakes, focus, message, nodesRef, placeSegments, registerMedia, run],
     );
 
-    /** 成片投送只接收已生成的视频。 */
+    /** 成片节点；requireMedia=false 时允许没有成片的占位节点（剪辑时间线需要一个承载节点）。 */
     const buildFinal = useCallback(
-        async (episodeId: string) => {
+        async (episodeId: string, requireMedia = true) => {
             const { episode } = await fetchEpisode(episodeId);
-            if (!episode.finalResourceId) throw new Error("这一集还没有成片");
+            if (requireMedia && !episode.finalResourceId) throw new Error("这一集还没有成片");
             const takes = episode.finalResourceId ? await fetchTakes(episode.id, "final") : [];
             const title = `第 ${episode.number} 集成片 · ${episode.title}`;
             const media = await registerMedia(
@@ -396,6 +401,42 @@ export function useCanvasDrama(input: UseCanvasDramaInput) {
             });
         },
         [buildFinal, focus, nodesRef, run, setNodes],
+    );
+
+    /** 把一集的剧情段视频按成片顺序载入画布时间线，在画布里精剪；时间线只有一条，已有内容需确认后替换。 */
+    const openEpisodeCut = useCallback(
+        (episodeId: string) =>
+            run(`cut:${episodeId}`, "载入剪辑失败", async () => {
+                const detail = await fetchEpisode(episodeId);
+                const usable = detail.segments.filter((segment) => segment.videoResourceId && (segment.videoStatus === "ready" || segment.videoStatus === "stale"));
+                if (!usable.length) throw new Error("这一集还没有可剪辑的剧情段视频");
+                const media = await registerMedia(
+                    usable.map((segment) => ({ resourceId: segment.videoResourceId!, title: `${segmentLabel(detail.episode, segment)} · 视频`, category: "material" })),
+                    [],
+                );
+                const { timeline, skipped } = buildDramaEpisodeTimeline({ episode: detail.episode, segments: [...detail.segments].sort((left, right) => left.index - right.index), media });
+                if (!timeline.clips.length) throw new Error("这一集的剧情段视频暂时不可用");
+                const existingClips = latest.current.input.timeline?.clips.length || 0;
+                if (existingClips) {
+                    const confirmed = await modal.confirm({
+                        title: `用第 ${detail.episode.number} 集替换画布时间线？`,
+                        content: `画布时间线里已有 ${existingClips} 个片段，载入后整条时间线会被替换。已导出的视频不受影响。`,
+                        okText: "替换并载入",
+                        cancelText: "保留现有时间线",
+                    });
+                    if (!confirmed) return;
+                }
+                let anchor = findDramaFinalNode(nodesRef.current, episodeId);
+                if (!anchor) {
+                    const created = await buildFinal(episodeId, false);
+                    anchor = findDramaFinalNode(nodesRef.current, episodeId) || created;
+                    if (anchor === created) setNodes((items) => [...items, created]);
+                }
+                latest.current.input.saveTimeline(timeline);
+                latest.current.input.openTimeline(anchor.id);
+                if (skipped.length) message.warning(`第 ${skipped.join("、")} 段还没有可用视频，未放进时间线`);
+            }),
+        [buildFinal, fetchEpisode, message, modal, nodesRef, registerMedia, run, setNodes],
     );
 
     /** 短剧侧已更新：把节点换成短剧当前的媒体，画布上原来的版本留在版本历史里。 */
@@ -506,6 +547,7 @@ export function useCanvasDrama(input: UseCanvasDramaInput) {
         projectSegment,
         projectEpisode,
         projectFinal,
+        openEpisodeCut,
         refreshNode,
         adoptNodeId,
         openAdopt,

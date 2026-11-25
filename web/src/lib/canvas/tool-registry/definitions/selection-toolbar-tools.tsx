@@ -11,10 +11,12 @@ import {
     AlignVerticalSpaceBetween,
     AtSign,
     Columns2,
+    Film,
     FolderTree,
     Grid3X3,
     LayoutTemplate,
     Link2,
+    LoaderCircle,
     Workflow,
 } from "lucide-react";
 
@@ -94,9 +96,21 @@ export const selectionToolbarTools: ToolDefinition[] = [
         label: "对比图片",
         icon: <Columns2 />,
         defaultVisible: true,
-        defaultOrder: 150,
+        defaultOrder: 149,
         applicable: (ctx) => Boolean(ctx.handlers.onCompareImages),
         run: (ctx) => ctx.handlers.onCompareImages?.(),
+    },
+    {
+        id: "selection-merge-videos",
+        toolbar: "selection",
+        category: "selection",
+        label: (ctx) => `合并选中视频（${ctx.selectedVideoCount}）`,
+        icon: (ctx) => (ctx.mergingVideos ? <LoaderCircle className="animate-spin" /> : <Film />),
+        defaultVisible: true,
+        defaultOrder: 150,
+        applicable: (ctx) => ctx.selectedVideoCount >= 2,
+        disabled: (ctx) => ctx.mergingVideos,
+        run: (ctx) => ctx.handlers.onMergeVideos?.(),
     },
 ];
 

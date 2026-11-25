@@ -34,19 +34,19 @@ test("copied guide manifest is accepted by the real plugin registry", async () =
     }
 });
 
-test("retired editor API is rejected without registering a plugin", () => {
+test("editor v2 plugin API registers its editor slots", () => {
     const manifest = {
         apiVersion: "yingce.plugin/v2",
-        id: "merge-test-retired-editor",
-        name: "Retired editor",
+        id: "merge-test-editor-v2",
+        name: "Editor v2",
         version: "1.0.0",
-        description: "Retired editor API",
+        description: "Editor v2 slots",
         permissions: ["timeline.read"],
         contributes: { editorSlots: [{ slot: "preview-renderer" }] },
     } as unknown as PluginManifest;
     try {
-        expect(() => registerPlugin({ manifest })).toThrow("不支持的插件 API 版本");
-        expect(getRegisteredPlugin(manifest.id)).toBeUndefined();
+        expect(() => registerPlugin({ manifest })).not.toThrow();
+        expect(getRegisteredPlugin(manifest.id)?.editorSlots).toEqual([{ slot: "preview-renderer" }]);
     } finally {
         unregisterPlugin(manifest.id);
     }

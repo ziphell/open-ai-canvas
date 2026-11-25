@@ -26,6 +26,7 @@ import { getProjectUnit } from "@/services/api/projects";
 import { ensureCanvasNodeAsset } from "@/services/project-asset-sync";
 import { useAssetStore, type ImageAsset } from "@/stores/use-asset-store";
 import { CanvasNodeType, type CanvasNodeData, type ContextMenuState, type Position } from "@/types/canvas";
+import type { TimelineDirectMedia } from "@/types/timeline";
 import type { CanvasUploadStatus } from "./canvas-project-feedback";
 
 type UseCanvasUploadOptions = {
@@ -161,6 +162,34 @@ export function useCanvasUpload({ canvasId, domainProjectId, nodesRef, selectedN
             }
         },
         [canvasId, domainProjectId, message, queryClient, setNodes],
+    );
+
+    const persistTimelineMedia = useCallback(
+        async (media: TimelineDirectMedia) => {
+            const type = media.kind === "audio" ? CanvasNodeType.Audio : media.kind === "video" ? CanvasNodeType.Video : CanvasNodeType.Image;
+            const defaults = NODE_DEFAULT_SIZE[type];
+            const node: CanvasNodeData = {
+                id: media.id,
+                type,
+                title: media.title,
+                position: { x: 0, y: 0 },
+                width: media.width || defaults.width,
+                height: media.height || defaults.height,
+                metadata: {
+                    content: media.url || media.dataUrl || media.content || "",
+                    storageKey: media.storageKey,
+                    naturalWidth: media.width,
+                    naturalHeight: media.height,
+                    durationMs: media.durationMs,
+                    bytes: media.bytes,
+                    mimeType: media.mimeType,
+                },
+            };
+            const result = await ensureCanvasNodeAsset({ canvasId, domainProjectId, node, source: "canvas-upload" });
+            if (domainProjectId) await queryClient.invalidateQueries({ queryKey: ["project", domainProjectId] });
+            return result.assetId;
+        },
+        [canvasId, domainProjectId, queryClient],
     );
 
     const activeUploadsRef = useRef(new Set<string>());
@@ -886,12 +915,110 @@ export function useCanvasUpload({ canvasId, domainProjectId, nodesRef, selectedN
         [getCanvasCenter, insertAssetPayloads],
     );
 
+    // 时间线专用：把本地音视频文件上传为直连媒体（仅时间线作用域，不创建画布节点），返回媒体描述数组。
+    const uploadTimelineMedia = useCallback(
+        async (files: File[]): Promise<TimelineDirectMedia[]> => {
+            const supportedFiles = files.filter((file) => file.type.startsWith("video/") || isAudioFile(file));
+            if (!supportedFiles.length) {
+                message.warning(translate("canvasPage.upload.selectTimelineFiles"));
+                return [];
+            }
+            const created: TimelineDirectMedia[] = [];
+            for (const file of supportedFiles) {
+                try {
+                    if (isAudioFile(file)) {
+                        const audio = await uploadMediaFile(file, "audio");
+                        const media: TimelineDirectMedia = {
+                            id: `audio-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                            kind: "audio",
+                            title: file.name,
+                            storageKey: audio.storageKey,
+                            url: audio.url,
+                            durationMs: audio.durationMs,
+                            bytes: audio.bytes,
+                            mimeType: audio.mimeType,
+                        };
+                        media.assetId = await persistTimelineMedia(media);
+                        created.push(media);
+                    } else {
+                        const video = await uploadMediaFile(file, "video");
+                        const media: TimelineDirectMedia = {
+                            id: `video-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                            kind: "video",
+                            title: file.name,
+                            storageKey: video.storageKey,
+                            url: video.url,
+                            width: video.width,
+                            height: video.height,
+                            durationMs: video.durationMs,
+                            bytes: video.bytes,
+                            mimeType: video.mimeType,
+                        };
+                        media.assetId = await persistTimelineMedia(media);
+                        created.push(media);
+                    }
+                } catch (error) {
+                    message.error(error instanceof Error ? translate("canvasPage.upload.assetUploadFailedWithReason", { error: error.message }) : translate("canvasPage.upload.assetUploadFailed"));
+                }
+            }
+            if (created.length) message.success(translate("canvasPage.upload.uploadedToTimeline", { count: created.length }));
+            return created;
+        },
+        [message, persistTimelineMedia],
+    );
+
+    // 组装能力闭环：把时间线合成结果（MP4 Blob）上传并创建为新的视频节点放回画布，
+    // 复用上传/持久化/选中逻辑，新节点可继续编辑字幕与样式。
+    const createVideoNodeFromBlob = useCallback(
+        async (blob: Blob, title: string): Promise<CanvasNodeData | null> => {
+            const progress = startUploadStatus(translate("canvasPage.upload.composeClip"), translate("canvasPage.upload.uploadingComposite"), domainProjectId ? 4 : 3);
+            try {
+                progress.update(translate("canvasPage.upload.uploadingToServer"), 2);
+                const video = await uploadMediaFile(blob, "video");
+                progress.update(translate("canvasPage.upload.updatingNode"), 3);
+                const size = fitNodeSize(video.width || 1280, video.height || 720, VIDEO_NODE_MAX_SIZE.width, VIDEO_NODE_MAX_SIZE.height);
+                const center = getCanvasCenter();
+                const id = `video-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                const node = {
+                    id,
+                    type: CanvasNodeType.Video,
+                    title,
+                    position: { x: center.x - size.width / 2, y: center.y - size.height / 2 },
+                    width: size.width,
+                    height: size.height,
+                    metadata: { ...videoMetadata(video), status: NODE_STATUS_SUCCESS },
+                } satisfies CanvasNodeData;
+                setNodes((current) => [...current, node]);
+                selectInsertedNode(id, "preserve");
+                if (domainProjectId) progress.update(translate("canvasPage.upload.writingProjectAssets"), 4);
+                const persisted = await persistMediaNode(node);
+                progress.done(
+                    persisted.syncPending
+                        ? domainProjectId
+                            ? translate("canvasPage.upload.clipSavedProjectSync")
+                            : translate("canvasPage.upload.clipSavedAssetSync")
+                        : persisted.persisted
+                          ? translate("canvasPage.upload.clipAddedToProject")
+                          : translate("canvasPage.upload.clipProjectRetry"),
+                );
+                return node;
+            } catch (error) {
+                const details = error instanceof Error ? error.message : translate("canvasPage.upload.composeClipFailed");
+                progress.fail(details);
+                message.error(details);
+                return null;
+            }
+        },
+        [domainProjectId, getCanvasCenter, message, persistMediaNode, selectInsertedNode, setNodes, startUploadStatus],
+    );
+
     return {
         assetPickerOpen,
         closeAssetPicker,
         createFileNode,
         createAssetPayloadNode,
         createImageAssetNode,
+        createVideoNodeFromBlob,
         fileDropActive,
         handleAssetsInsert,
         handleDrop,
@@ -912,6 +1039,7 @@ export function useCanvasUpload({ canvasId, domainProjectId, nodesRef, selectedN
         startUploadStatus,
         uploadModalOpen,
         uploadStatus,
+        uploadTimelineMedia,
     };
 }
 

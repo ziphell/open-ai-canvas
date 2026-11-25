@@ -8,9 +8,9 @@ import "../src/lib/plugins/builtin";
 
 describe("official application plugin classification", () => {
     test("classifies the remaining built-in application plugins", () => {
-        expect(isOfficialApplicationPluginId("editor-shell")).toBe(false);
-        expect(getRegisteredPlugin("editor-shell")).toBeUndefined();
-        for (const id of OFFICIAL_APPLICATION_PLUGIN_IDS) expect(getRegisteredPlugin(id)?.manifest.apiVersion).toBe("yingce.plugin/v1");
+        expect(isOfficialApplicationPluginId("editor-shell")).toBe(true);
+        expect(getRegisteredPlugin("editor-shell")).toBeDefined();
+        for (const id of OFFICIAL_APPLICATION_PLUGIN_IDS) expect(getRegisteredPlugin(id)?.manifest.apiVersion).toBe(id === "editor-shell" ? "yingce.plugin/v2" : "yingce.plugin/v1");
         expect(isOfficialApplicationPluginId("ai-art-critique")).toBe(true);
         expect(isOfficialApplicationPluginId("prompt-optimizer")).toBe(true);
         expect(isOfficialApplicationPluginId("eagle-asset-connector")).toBe(true);
@@ -28,7 +28,8 @@ describe("official application plugin classification", () => {
     test("exposes a single de-duplicated id list", () => {
         const ids = [...OFFICIAL_APPLICATION_PLUGIN_IDS];
         expect(new Set(ids).size).toBe(ids.length);
-        expect(ids).toHaveLength(5);
+        expect(ids).toHaveLength(6);
+        expect(ids).toContain("editor-shell");
         expect(ids).toContain("user-feedback");
     });
 

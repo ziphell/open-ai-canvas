@@ -56,6 +56,7 @@ import { createPortraitTextureNode, createNineGridNode } from "@/lib/canvas/canv
 import { captureVideoFrames } from "@/lib/canvas/canvas-video-frame";
 import { buildVideoFrameNodes } from "@/lib/canvas/canvas-video-frame-nodes";
 import { extractVideoAudio, trimVideoSegment } from "@/lib/canvas/canvas-video-segment";
+import { mergeVideos, type MergeVideoProgress } from "@/lib/canvas/canvas-video-merge";
 import { generationErrorMessage } from "@/lib/generation-error";
 import { modelCapabilityConfigFor } from "@/lib/model-capabilities";
 import { defaultImageParamsForModel, modelCompatibilityError } from "@/lib/model-selection";
@@ -165,6 +166,8 @@ export function useCanvasMediaTools({
     const [segmentDialogMode, setSegmentDialogMode] = useState<"audio" | "video" | null>(null);
     const [segmentRunningMode, setSegmentRunningMode] = useState<"audio" | "video" | null>(null);
     const segmentRunningRef = useRef(false);
+    const mergeVideoRunningRef = useRef(false);
+    const [mergeVideoProgress, setMergeVideoProgress] = useState<MergeVideoProgress | null>(null);
     const [panoramaConfigNodeId, setPanoramaConfigNodeId] = useState<string | null>(null);
     const [videoProcessingDialog, setVideoProcessingDialog] = useState<{ nodeId: string; operation: VideoProcessingOperation } | null>(null);
 
@@ -489,12 +492,13 @@ export function useCanvasMediaTools({
     const runTrimVideoSegments = useCallback(
         async (node: CanvasNodeData, params: CanvasVideoSegmentParams) => {
             const segments = params.segments || [];
-            if (segments.length !== 1) {
-                message.warning("请选择一个参考片段");
+            if (!segments.length) {
+                message.warning(translate("canvasPage.mediaTools.addClipSegment"));
                 return;
             }
-            const generationConfig = buildGenerationConfig(effectiveConfig, node, "video");
-            const selectedConfig = { ...generationConfig, model: params.model || generationConfig.model };
+            const createsGenerationNodes = params.action === "create-generation-nodes";
+            const generationConfig = createsGenerationNodes ? buildGenerationConfig(effectiveConfig, node, "video") : null;
+            const selectedConfig = generationConfig ? { ...generationConfig, model: params.model || generationConfig.model } : null;
             if (selectedConfig) {
                 const batchError = validateVideoSegmentBatch(selectedConfig, segments, params.operation);
                 if (batchError) {
@@ -596,7 +600,7 @@ export function useCanvasMediaTools({
     const handleSegmentConfirm = useCallback(
         async (node: CanvasNodeData, params: CanvasVideoSegmentParams) => {
             if (segmentRunningRef.current || !node.metadata?.content) return;
-            if (params.mode === "video") {
+            if (params.mode === "video" && params.action === "create-generation-nodes") {
                 const generationConfig = buildGenerationConfig(effectiveConfig, node, "video");
                 const selectedConfig = { ...generationConfig, model: params.model || generationConfig.model };
                 const batchError = validateVideoSegmentBatch(selectedConfig, params.segments || [], params.operation);
@@ -619,6 +623,72 @@ export function useCanvasMediaTools({
         },
         [effectiveConfig, message, runExtractVideoAudio, runTrimVideoSegments],
     );
+
+    const mergeVideosByIds = useCallback(
+        async (videoNodeIds: string[]) => {
+            if (mergeVideoRunningRef.current) return;
+            const requestedIds = new Set(videoNodeIds);
+            const videos = nodesRef.current
+                .filter((node) => requestedIds.has(node.id) && node.type === CanvasNodeType.Video && Boolean(node.metadata?.content))
+                .sort((left, right) => {
+                    const leftShot = left.metadata?.shotIndex ?? Number.MAX_SAFE_INTEGER;
+                    const rightShot = right.metadata?.shotIndex ?? Number.MAX_SAFE_INTEGER;
+                    return leftShot - rightShot || left.position.y - right.position.y || left.position.x - right.position.x;
+                });
+            if (videos.length < 2) {
+                message.warning(translate("canvasPage.mediaTools.selectTwoVideos"));
+                return;
+            }
+            mergeVideoRunningRef.current = true;
+            setMergeVideoProgress({ phase: "reading", progress: 0 });
+            try {
+                const blob = await mergeVideos(
+                    videos.map((node) => ({ id: node.id, url: node.metadata?.content, storageKey: node.metadata?.storageKey })),
+                    setMergeVideoProgress,
+                );
+                setMergeVideoProgress({ phase: "encoding", progress: 98 });
+                const uploaded = await storeGeneratedVideo({ blob });
+                const size = fitNodeSize(uploaded.width || 1280, uploaded.height || 720, VIDEO_NODE_MAX_SIZE.width, VIDEO_NODE_MAX_SIZE.height);
+                const left = Math.max(...videos.map((node) => node.position.x + node.width)) + 120;
+                const top = Math.min(...videos.map((node) => node.position.y));
+                const mergedNode = createCanvasNode(CanvasNodeType.Video, { x: left + size.width / 2, y: top + size.height / 2 }, {
+                    ...videoMetadata(uploaded),
+                    prompt: `按选中顺序合并 ${videos.length} 段视频`,
+                    workflowKind: "final",
+                    workflowTitle: translate("canvasPage.mediaTools.mergeFinalTitle"),
+                    videoEditOperation: "concat",
+                    status: NODE_STATUS_SUCCESS,
+                });
+                mergedNode.title = translate("canvasPage.mediaTools.titleMerged", { count: videos.length });
+                mergedNode.width = size.width;
+                mergedNode.height = size.height;
+                mergedNode.position = { x: left, y: top };
+                const links = videos.map((node) => ({ id: nanoid(), fromNodeId: node.id, toNodeId: mergedNode.id }));
+                const nextNodes = [...nodesRef.current, mergedNode];
+                const nextConnections = [...connectionsRef.current, ...links];
+                nodesRef.current = nextNodes;
+                connectionsRef.current = nextConnections;
+                setNodes(nextNodes);
+                setConnections(nextConnections);
+                const selection = new Set([mergedNode.id]);
+                selectedNodeIdsRef.current = selection;
+                setSelectedNodeIds(selection);
+                setSelectedConnectionId(null);
+                setDialogNodeId(null);
+                await persistMediaNodes([mergedNode]);
+                setMergeVideoProgress({ phase: "encoding", progress: 100 });
+                message.success(translate("canvasPage.mediaTools.mergedVideos", { count: videos.length }));
+            } catch (error) {
+                message.error(error instanceof Error ? error.message : translate("canvasPage.mediaTools.mergeFailed"));
+            } finally {
+                mergeVideoRunningRef.current = false;
+                window.setTimeout(() => setMergeVideoProgress(null), 700);
+            }
+        },
+        [connectionsRef, message, nodesRef, persistMediaNodes, selectedNodeIdsRef, setConnections, setDialogNodeId, setNodes, setSelectedConnectionId, setSelectedNodeIds],
+    );
+
+    const mergeSelectedVideos = useCallback(() => mergeVideosByIds(Array.from(selectedNodeIdsRef.current)), [mergeVideosByIds, selectedNodeIdsRef]);
 
     const openPanoramaConfig = useCallback((node: CanvasNodeData) => {
         setPanoramaConfigNodeId(node.id);
@@ -2113,6 +2183,9 @@ export function useCanvasMediaTools({
         imageEditNodeId,
         imageEditPreset,
         layerDecompositionNodeId,
+        mergeSelectedVideos,
+        mergeVideosByIds,
+        mergeVideoProgress,
         textEditNodeId,
         saveAnnotatedImageNode,
         segmentDialogMode,

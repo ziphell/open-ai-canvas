@@ -682,7 +682,7 @@ Token 报价的 `estimated` 为 `true`，`quantity` 是预留 Token 数。`inten
 
 ## 短剧内部合成规格与来源标识
 
-手工编辑器退场后，不再注册 `POST /timeline/renders` 和 `POST /timeline/transcriptions`；短剧内部仍可创建渲染任务，已受理任务继续使用现有处理器。剪映草稿与资产包导出保留在短剧接口。
+手工剪辑恢复后重新注册 `POST /timeline/renders` 和 `POST /timeline/transcriptions`：前者提交时间线快照（≤64 MiB）由本地 ffmpeg 合成，后者提交资源由本地 whisper 转写；两者都校验用户归属、功能门控、运行时策略与 active 任务限额，不经模型路由和计费。短剧内部渲染与剪映草稿/资产包导出继续走短剧接口。
 
 内部渲染快照的 `timeline` 可带 `fit`（`auto` / `pad` / `crop`，缺省 `auto`）。`auto` 按片段判断：来源与输出宽高比相对差 `|源宽高比 ÷ 目标宽高比 − 1|` 不超过 3% 时裁切填满，否则等比缩小补黑边；来源尺寸未知时补黑边。
 

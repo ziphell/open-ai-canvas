@@ -110,11 +110,11 @@ describe("canvas node toolbar model", () => {
         const tools = resolveToolbarTools("node-hover", ctx, null);
         const groups = new Map(tools.map((tool) => [tool.id, resolveNodeToolbarPlacement(tool, ctx).group]));
 
-        expect([...groups].filter(([, group]) => group === "primary").map(([id]) => id)).toEqual(["trimRegenerate"]);
+        expect([...groups].filter(([, group]) => group === "primary").map(([id]) => id)).toEqual(["trimRegenerate", "subtitles"]);
         expect([...groups].filter(([, group]) => group === "process").map(([id]) => id)).toEqual(["extractFrames", "extractAudio"]);
         expect(groups.get("download")).toBe("utility");
-        expect(groups.has("timeline")).toBe(false);
-        expect(groups.has("subtitles")).toBe(false);
+        expect(groups.get("timeline")).toBe("workspace");
+        expect(groups.get("subtitles")).toBe("primary");
         expect(groups.get("uploadVideo")).toBe("more");
         expect(groups.get("delete")).toBe("more");
         expect(groups.get("node-lock")).toBe("more");
@@ -128,8 +128,8 @@ describe("canvas node toolbar model", () => {
             return typeof value === "function" ? value(ctx) : value;
         };
 
-        expect(displayLabel("subtitles")).toBeUndefined();
-        expect(displayLabel("timeline")).toBeUndefined();
+        expect(displayLabel("subtitles")).toBe("字幕");
+        expect(displayLabel("timeline")).toBe("进入剪辑");
         expect(displayLabel("extractFrames")).toBe("提取画面");
         expect(displayLabel("extractAudio")).toBe("提取音频");
     });

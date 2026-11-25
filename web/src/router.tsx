@@ -77,6 +77,7 @@ const TasksPage = workspaceRoutePages.tasks;
 const ProjectsPage = workspaceRoutePages.projects;
 const ProjectDetailPage = workspaceRoutePages.projectDetail;
 const ProjectCreatePage = workspaceRoutePages.projectCreate;
+const ProjectEditorPage = lazy(() => import("@/pages/projects/editor-page"));
 const SettingsPage = workspaceRoutePages.settings;
 const ReferralPage = workspaceRoutePages.referral;
 const AdminReferralPage = lazyAdminPage(() => import("@/pages/admin/referral/referral-admin-page"));
@@ -232,6 +233,14 @@ const routes: RouteObject[] = [
                 element: (
                     <RequireAuth>
                         <RequireFeature feature="shortDramaEnabled">{deferred(<ProjectDetailPage />)}</RequireFeature>
+                    </RequireAuth>
+                ),
+            },
+            {
+                path: "/projects/:projectId/editor",
+                element: (
+                    <RequireAuth>
+                        <RequireFeature feature="shortDramaEnabled">{deferred(<ProjectEditorPage />)}</RequireFeature>
                     </RequireAuth>
                 ),
             },

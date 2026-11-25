@@ -2,7 +2,11 @@ import { FFmpeg } from "@ffmpeg/ffmpeg";
 import ffmpegCoreURL from "@ffmpeg/core?url";
 import ffmpegWasmURL from "@ffmpeg/core/wasm?url";
 import { fetchFile } from "@ffmpeg/util";
+import { getMediaBlob } from "@/services/file-storage";
+import { concatVideoFiles } from "./canvas-video-concat";
 import { buildRecordingTranscodeArgs } from "./canvas-video-merge-args";
+
+export type MergeVideoInput = { id: string; url?: string; storageKey?: string };
 
 export type MergeVideoProgress = { phase: "loading" | "reading" | "encoding"; progress: number };
 
@@ -95,6 +99,44 @@ export async function transcodeVideoToMp4(input: Blob, onProgress?: (progress: M
                 return new Blob([output as BlobPart], { type: "video/mp4" });
             } finally {
                 await Promise.all([inputName, outputName].map((file) => ffmpeg.deleteFile(file).catch(() => undefined)));
+            }
+        },
+        onProgress,
+        signal,
+    );
+}
+
+/** 按传入顺序合并视频；与其它 FFmpeg 任务共用同一串行队列。 */
+export async function mergeVideos(inputs: MergeVideoInput[], onProgress?: (progress: MergeVideoProgress) => void, signal?: AbortSignal) {
+    if (inputs.length < 2) throw new Error("至少选择 2 个视频才能合并");
+    return runFFmpegTask(
+        async (ffmpeg) => {
+            const files: string[] = [];
+            try {
+                for (let index = 0; index < inputs.length; index += 1) {
+                    const input = inputs[index];
+                    const storedBlob = input.storageKey ? await getMediaBlob(input.storageKey) : null;
+                    const remoteBlob =
+                        !storedBlob && input.url
+                            ? await fetch(input.url).then((response) => {
+                                  if (!response.ok) throw new Error(`视频资源请求失败（${response.status}）`);
+                                  return response.blob();
+                              })
+                            : null;
+                    const blob = storedBlob || remoteBlob;
+                    if (!blob) throw new Error(`无法读取第 ${index + 1} 个视频`);
+                    const name = `input-${index}.mp4`;
+                    await ffmpeg.writeFile(name, await fetchFile(blob));
+                    files.push(name);
+                    signal?.throwIfAborted();
+                    onProgress?.({ phase: "reading", progress: Math.round(((index + 1) / inputs.length) * 45) });
+                }
+                onProgress?.({ phase: "encoding", progress: 55 });
+                const output = await concatVideoFiles(ffmpeg, files);
+                onProgress?.({ phase: "encoding", progress: 100 });
+                return new Blob([output as BlobPart], { type: "video/mp4" });
+            } finally {
+                await Promise.all(files.map((file) => ffmpeg.deleteFile(file).catch(() => undefined)));
             }
         },
         onProgress,

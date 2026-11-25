@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { App, Button } from "antd";
-import { Clapperboard, Download, Film } from "lucide-react";
+import { Clapperboard, Download, Film, Scissors } from "lucide-react";
+import { useNavigate } from "react-router";
 
 import type { DramaEpisodeDetail } from "@/services/api/drama";
 
@@ -30,6 +31,7 @@ export function FinalView({
     const { episode } = detail;
     const segments = [...detail.segments].sort((left, right) => left.index - right.index);
     const { message } = App.useApp();
+    const navigate = useNavigate();
     const [exportingDraft, setExportingDraft] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
     const url = useResourceMediaUrl(episode.finalResourceId, "playback");
@@ -106,6 +108,9 @@ export function FinalView({
                 </Button>
                 <Button icon={<Download className="size-4" />} disabled={!episode.finalResourceId} onClick={download}>
                     下载成片
+                </Button>
+                <Button icon={<Scissors className="size-4" />} disabled={!segments.length} onClick={() => navigate(`/projects/${projectId}/editor`)} title="进入多轨剪辑工作台">
+                    进入剪辑
                 </Button>
                 <Button icon={<Clapperboard className="size-4" />} disabled={!segments.length} onClick={() => setExportingDraft(true)} title="检查可用剧情段、缺段与旧版本后，导出剪映草稿">
                     导出剪映草稿
