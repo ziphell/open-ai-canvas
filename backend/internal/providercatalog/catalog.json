@@ -1,0 +1,2479 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-11-25T20:27:19+08:00",
+  "tags": [
+    {
+      "id": "video",
+      "label": "视频",
+      "tone": "blue"
+    },
+    {
+      "id": "official",
+      "label": "官方",
+      "tone": "green"
+    },
+    {
+      "id": "image",
+      "label": "生图",
+      "tone": "violet"
+    },
+    {
+      "id": "text",
+      "label": "文本",
+      "tone": "cyan"
+    },
+    {
+      "id": "domestic",
+      "label": "国模",
+      "tone": "amber"
+    }
+  ],
+  "providers": [
+    {
+      "website": "https://api.yingce.tv/pricing",
+      "startsAt": "2026-10-20T16:29:07+08:00",
+      "permanent": true,
+      "connection": {
+        "baseUrl": "https://api.yingce.tv"
+      },
+      "id": "yingce",
+      "name": "影策中转站 · 视频+生图",
+      "tags": [
+        "official",
+        "video",
+        "image"
+      ],
+      "rank": 0,
+      "summary": "特惠分组：11 个视频模型 + 9 个生图模型；创建令牌时请选择“特惠分组”。",
+      "keyGuide": {
+        "url": "https://api.yingce.tv/console/token",
+        "steps": [
+          "登录影策中转站 https://api.yingce.tv，进入控制台的“API 令牌”页面。",
+          "创建一个 API Key（令牌），分组选择“特惠分组”，用于视频和生图模型。",
+          "复制该 Key，在“影策中转站 · 视频+生图”渠道中填写；如启用模型限制，请勾选所需全部模型。",
+          "国模需要另建“国模”分组的 Key，并在“影策中转站 · 国模”渠道中单独填写。",
+          "视频统一使用 NewAPI Video Generations Channel 2；2.0 参考为 9/3/3，2.5 为 30/10/10。",
+          "Nano Banana 系列使用 Gemini 生图，其他图片模型使用 OpenAI 生图；价格以模型广场为准。"
+        ],
+        "promo": "视频+生图请选择“特惠分组”；按 1 KFC = 1 元展示，实际计费以模型广场为准。"
+      },
+      "models": [
+        {
+          "modelKey": "sd-2.0-fast",
+          "providerModelKey": "sd-2.0-fast",
+          "displayName": "sd-2.0-fast",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "icon": "ByteDance.Color",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "全能参考",
+              "color": "purple"
+            },
+            {
+              "text": "720P",
+              "color": "blue"
+            },
+            {
+              "text": "按次",
+              "color": "purple"
+            }
+          ],
+          "description": "特惠分组；720P，5–15 秒；全能参考 9 图 / 3 视频 / 3 音频；¥1.2/次。实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "fixed_request",
+              "cost": 1.2
+            }
+          ],
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 9,
+                "maxImageBytes": 20971520,
+                "maxVideos": 3,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 3,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "range",
+                "min": 5,
+                "max": 15,
+                "step": 1,
+                "default": 5
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "720P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "reference_to_video"
+            }
+          }
+        },
+        {
+          "modelKey": "sd2.0-c2",
+          "providerModelKey": "sd2.0-c2",
+          "displayName": "sd2.0-c2",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "icon": "Doubao.Color",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "全能参考",
+              "color": "purple"
+            },
+            {
+              "text": "720P",
+              "color": "blue"
+            },
+            {
+              "text": "按次",
+              "color": "purple"
+            }
+          ],
+          "description": "特惠分组；720P，5–15 秒；全能参考 9 图 / 3 视频 / 3 音频；¥2/次。实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "fixed_request",
+              "cost": 2.0
+            }
+          ],
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 9,
+                "maxImageBytes": 20971520,
+                "maxVideos": 3,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 3,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "range",
+                "min": 5,
+                "max": 15,
+                "step": 1,
+                "default": 5
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "720P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "reference_to_video"
+            }
+          }
+        },
+        {
+          "modelKey": "sd2.0-c3",
+          "providerModelKey": "sd2.0-c3",
+          "displayName": "sd2.0-c3",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "icon": "Doubao.Color",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "全能参考",
+              "color": "purple"
+            },
+            {
+              "text": "720P",
+              "color": "blue"
+            },
+            {
+              "text": "按次",
+              "color": "purple"
+            }
+          ],
+          "description": "特惠分组；720P，5–15 秒；全能参考 9 图 / 3 视频 / 3 音频；¥3.5/次。实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "fixed_request",
+              "cost": 3.5
+            }
+          ],
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 9,
+                "maxImageBytes": 20971520,
+                "maxVideos": 3,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 3,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "range",
+                "min": 5,
+                "max": 15,
+                "step": 1,
+                "default": 5
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "720P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "reference_to_video"
+            }
+          }
+        },
+        {
+          "modelKey": "sd2.0-c4",
+          "providerModelKey": "sd2.0-c4",
+          "displayName": "sd2.0-c4",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "icon": "Doubao.Color",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "全能参考",
+              "color": "purple"
+            },
+            {
+              "text": "720P",
+              "color": "blue"
+            },
+            {
+              "text": "按次",
+              "color": "purple"
+            }
+          ],
+          "description": "特惠分组；720P，5–15 秒；全能参考 9 图 / 3 视频 / 3 音频；¥1.5/次。实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "fixed_request",
+              "cost": 1.5
+            }
+          ],
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 9,
+                "maxImageBytes": 20971520,
+                "maxVideos": 3,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 3,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "range",
+                "min": 5,
+                "max": 15,
+                "step": 1,
+                "default": 5
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "720P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "reference_to_video"
+            }
+          }
+        },
+        {
+          "modelKey": "sd2.0-c6",
+          "providerModelKey": "sd2.0-c6",
+          "displayName": "sd2.0-c6",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "icon": "Doubao.Color",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "全能参考",
+              "color": "purple"
+            },
+            {
+              "text": "720P",
+              "color": "blue"
+            },
+            {
+              "text": "按次",
+              "color": "purple"
+            }
+          ],
+          "description": "特惠分组；720P，5–15 秒；全能参考 9 图 / 3 视频 / 3 音频；¥3.5/次。实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "fixed_request",
+              "cost": 3.5
+            }
+          ],
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 9,
+                "maxImageBytes": 20971520,
+                "maxVideos": 3,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 3,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "range",
+                "min": 5,
+                "max": 15,
+                "step": 1,
+                "default": 5
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "720P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "reference_to_video"
+            }
+          }
+        },
+        {
+          "modelKey": "sd-2.5-720p",
+          "providerModelKey": "sd-2.5-720p",
+          "displayName": "sd-2.5-720p",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "icon": "ByteDance.Color",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "全能参考",
+              "color": "purple"
+            },
+            {
+              "text": "720P",
+              "color": "blue"
+            },
+            {
+              "text": "按次",
+              "color": "purple"
+            }
+          ],
+          "description": "特惠分组；720P，5–30 秒；全能参考 30 图 / 10 视频 / 10 音频；¥5/次。参考音视频合计不超过 30 秒。实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "fixed_request",
+              "cost": 5.0
+            }
+          ],
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 30,
+                "maxImageBytes": 20971520,
+                "maxVideos": 10,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 30,
+                "maxAudios": 10,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 30
+              },
+              "duration": {
+                "selection": "range",
+                "min": 5,
+                "max": 30,
+                "step": 1,
+                "default": 5
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "720P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "reference_to_video"
+            }
+          }
+        },
+        {
+          "modelKey": "sd2.5-c1",
+          "providerModelKey": "sd2.5-c1",
+          "displayName": "sd2.5-c1",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "icon": "Doubao.Color",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "全能参考",
+              "color": "purple"
+            },
+            {
+              "text": "720P",
+              "color": "blue"
+            },
+            {
+              "text": "按次",
+              "color": "purple"
+            }
+          ],
+          "description": "特惠分组；720P，4–30 秒；全能参考 30 图 / 10 视频 / 10 音频；¥8.5/次。实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "fixed_request",
+              "cost": 8.5
+            }
+          ],
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 30,
+                "maxImageBytes": 20971520,
+                "maxVideos": 10,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 10,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "range",
+                "min": 4,
+                "max": 30,
+                "step": 1,
+                "default": 5
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "720P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "reference_to_video"
+            }
+          }
+        },
+        {
+          "modelKey": "sd2.5-c2",
+          "providerModelKey": "sd2.5-c2",
+          "displayName": "sd2.5-c2",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "icon": "Doubao.Color",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "全能参考",
+              "color": "purple"
+            },
+            {
+              "text": "720P",
+              "color": "blue"
+            },
+            {
+              "text": "按秒",
+              "color": "purple"
+            }
+          ],
+          "description": "特惠分组；720P，4–30 秒；全能参考 30 图 / 10 视频 / 10 音频；¥0.65/秒。实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.65
+            }
+          ],
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 30,
+                "maxImageBytes": 20971520,
+                "maxVideos": 10,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 10,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "range",
+                "min": 4,
+                "max": 30,
+                "step": 1,
+                "default": 5
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "720P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "reference_to_video"
+            }
+          }
+        },
+        {
+          "modelKey": "sd2.5-c3",
+          "providerModelKey": "sd2.5-c3",
+          "displayName": "sd2.5-c3",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "icon": "Doubao.Color",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "全能参考",
+              "color": "purple"
+            },
+            {
+              "text": "720P",
+              "color": "blue"
+            },
+            {
+              "text": "按次",
+              "color": "purple"
+            }
+          ],
+          "description": "特惠分组；720P，4–30 秒；全能参考 30 图 / 10 视频 / 10 音频；¥8/次。实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "fixed_request",
+              "cost": 8.0
+            }
+          ],
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 30,
+                "maxImageBytes": 20971520,
+                "maxVideos": 10,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 10,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "range",
+                "min": 4,
+                "max": 30,
+                "step": 1,
+                "default": 5
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "720P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "reference_to_video"
+            }
+          }
+        },
+        {
+          "modelKey": "sd2.5-c4",
+          "providerModelKey": "sd2.5-c4",
+          "displayName": "sd2.5-c4",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "icon": "Doubao.Color",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "全能参考",
+              "color": "purple"
+            },
+            {
+              "text": "480P",
+              "color": "blue"
+            },
+            {
+              "text": "按秒",
+              "color": "purple"
+            }
+          ],
+          "description": "特惠分组；480P，5–30 秒；全能参考 30 图 / 10 视频 / 10 音频；¥0.55/秒。实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "480p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.55
+            }
+          ],
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 30,
+                "maxImageBytes": 20971520,
+                "maxVideos": 10,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 10,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "range",
+                "min": 5,
+                "max": 30,
+                "step": 1,
+                "default": 5
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "480P"
+              ],
+              "defaultResolution": "480P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "reference_to_video"
+            }
+          }
+        },
+        {
+          "modelKey": "sd2.5-c5",
+          "providerModelKey": "sd2.5-c5",
+          "displayName": "sd2.5-c5",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "icon": "Doubao.Color",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "全能参考",
+              "color": "purple"
+            },
+            {
+              "text": "720P",
+              "color": "blue"
+            },
+            {
+              "text": "按秒",
+              "color": "purple"
+            }
+          ],
+          "description": "特惠分组；720P，5–30 秒；全能参考 30 图 / 10 视频 / 10 音频；¥1/秒。实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "per_second",
+              "cost": 1.0
+            }
+          ],
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 30,
+                "maxImageBytes": 20971520,
+                "maxVideos": 10,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 10,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "range",
+                "min": 5,
+                "max": 30,
+                "step": 1,
+                "default": 5
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "720P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "reference_to_video"
+            }
+          }
+        },
+        {
+          "modelKey": "nano-banana-2.1",
+          "providerModelKey": "nano-banana-2.1",
+          "displayName": "nano-banana-2.1",
+          "capability": "image",
+          "protocol": "gemini-image",
+          "channelLabel": "Google Gemini Image",
+          "icon": "NanoBanana.Color",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "Gemini 生图",
+              "color": "blue"
+            }
+          ],
+          "description": "特惠分组；¥0.05/张；使用Gemini 生图协议，实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "billingMode": "fixed_request",
+              "cost": 0.05
+            }
+          ]
+        },
+        {
+          "modelKey": "nano-banana-pro",
+          "providerModelKey": "nano-banana-pro",
+          "displayName": "nano-banana-pro",
+          "capability": "image",
+          "protocol": "gemini-image",
+          "channelLabel": "Google Gemini Image",
+          "icon": "NanoBanana.Color",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "Gemini 生图",
+              "color": "blue"
+            }
+          ],
+          "description": "特惠分组；¥0.05/张；使用Gemini 生图协议，实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "billingMode": "fixed_request",
+              "cost": 0.05
+            }
+          ]
+        },
+        {
+          "modelKey": "nano-banana2",
+          "providerModelKey": "nano-banana2",
+          "displayName": "nano-banana2",
+          "capability": "image",
+          "protocol": "gemini-image",
+          "channelLabel": "Google Gemini Image",
+          "icon": "NanoBanana",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "Gemini 生图",
+              "color": "blue"
+            }
+          ],
+          "description": "特惠分组；¥0.04/张；使用Gemini 生图协议，实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "billingMode": "fixed_request",
+              "cost": 0.04
+            }
+          ]
+        },
+        {
+          "modelKey": "gpt-image-2",
+          "providerModelKey": "gpt-image-2",
+          "displayName": "gpt-image-2",
+          "capability": "image",
+          "protocol": "openai-image",
+          "channelLabel": "OpenAI Images",
+          "icon": "OpenAI",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "OpenAI 生图",
+              "color": "blue"
+            }
+          ],
+          "description": "特惠分组；¥0.004/张；使用OpenAI 生图协议，实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "billingMode": "fixed_request",
+              "cost": 0.004
+            }
+          ]
+        },
+        {
+          "modelKey": "gpt-image-2.5",
+          "providerModelKey": "gpt-image-2.5",
+          "displayName": "gpt-image-2.5",
+          "capability": "image",
+          "protocol": "openai-image",
+          "channelLabel": "OpenAI Images",
+          "icon": "OpenAI",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "OpenAI 生图",
+              "color": "blue"
+            }
+          ],
+          "description": "特惠分组；¥0.0045/张；使用OpenAI 生图协议，实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "billingMode": "fixed_request",
+              "cost": 0.0045
+            }
+          ]
+        },
+        {
+          "modelKey": "gpt-image-2.6",
+          "providerModelKey": "gpt-image-2.6",
+          "displayName": "gpt-image-2.6",
+          "capability": "image",
+          "protocol": "openai-image",
+          "channelLabel": "OpenAI Images",
+          "icon": "OpenAI",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "OpenAI 生图",
+              "color": "blue"
+            }
+          ],
+          "description": "特惠分组；¥0.0045/张；使用OpenAI 生图协议，实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "billingMode": "fixed_request",
+              "cost": 0.0045
+            }
+          ]
+        },
+        {
+          "modelKey": "gpt-image-2.6-flare",
+          "providerModelKey": "gpt-image-2.6-flare",
+          "displayName": "gpt-image-2.6-flare",
+          "capability": "image",
+          "protocol": "openai-image",
+          "channelLabel": "OpenAI Images",
+          "icon": "OpenAI",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "OpenAI 生图",
+              "color": "blue"
+            }
+          ],
+          "description": "特惠分组；¥0.0045/张；使用OpenAI 生图协议，实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "billingMode": "fixed_request",
+              "cost": 0.0045
+            }
+          ]
+        },
+        {
+          "modelKey": "gpt-image-2.6-sunburst",
+          "providerModelKey": "gpt-image-2.6-sunburst",
+          "displayName": "gpt-image-2.6-sunburst",
+          "capability": "image",
+          "protocol": "openai-image",
+          "channelLabel": "OpenAI Images",
+          "icon": "OpenAI",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "OpenAI 生图",
+              "color": "blue"
+            }
+          ],
+          "description": "特惠分组；¥0.0045/张；使用OpenAI 生图协议，实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "billingMode": "fixed_request",
+              "cost": 0.0045
+            }
+          ]
+        },
+        {
+          "modelKey": "yingce-image-2.5",
+          "providerModelKey": "yingce-image-2.5",
+          "displayName": "yingce-image-2.5",
+          "capability": "image",
+          "protocol": "openai-image",
+          "channelLabel": "OpenAI Images",
+          "icon": "BAAI",
+          "tags": [
+            {
+              "text": "特惠分组",
+              "color": "green"
+            },
+            {
+              "text": "OpenAI 生图",
+              "color": "blue"
+            }
+          ],
+          "description": "特惠分组；支持 1–4K；¥0.004/张；使用OpenAI 生图协议，实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "billingMode": "fixed_request",
+              "cost": 0.004
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "website": "https://api.yingce.tv/pricing",
+      "startsAt": "2026-10-20T16:29:07+08:00",
+      "permanent": true,
+      "connection": {
+        "baseUrl": "https://api.yingce.tv"
+      },
+      "id": "yingce-guomo",
+      "name": "影策中转站 · 国模",
+      "tags": [
+        "official",
+        "domestic",
+        "text"
+      ],
+      "rank": 1,
+      "summary": "国模分组：DeepSeek、GLM 全部 3 个文本模型；创建令牌时请选择“国模”。",
+      "keyGuide": {
+        "url": "https://api.yingce.tv/console/token",
+        "steps": [
+          "登录影策中转站 https://api.yingce.tv，进入控制台的“API 令牌”页面。",
+          "创建一个独立 API Key（令牌），分组选择“国模”，用于 DeepSeek 和 GLM 文本模型。",
+          "复制该 Key，在“影策中转站 · 国模”渠道中填写；如启用模型限制，请勾选全部国模。",
+          "视频和生图需要另建“特惠分组”的 Key，并在“影策中转站 · 视频+生图”渠道中单独填写。",
+          "文本模型使用 OpenAI Chat Completions 协议，接口地址为 https://api.yingce.tv。",
+          "价格已计入“国模”分组 0.12 倍率，按每百万 Token 展示；实际计费以模型广场为准。"
+        ],
+        "promo": "国模请选择“国模”分组；输入、输出及缓存价格已计入该分组倍率。"
+      },
+      "models": [
+        {
+          "modelKey": "deepseek-v4-pro",
+          "providerModelKey": "deepseek-v4-pro",
+          "displayName": "deepseek-v4-pro",
+          "capability": "text",
+          "protocol": "chat-completion",
+          "channelLabel": "OpenAI Chat Completions",
+          "icon": "DeepSeek.Color",
+          "tags": [
+            {
+              "text": "国模",
+              "color": "green"
+            },
+            {
+              "text": "按 Token",
+              "color": "blue"
+            }
+          ],
+          "description": "国模分组（已计入 0.12 倍率）；每百万 Token：输入 ¥1.08、输出 ¥3.24、缓存输入 ¥0.036；实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "billingMode": "token",
+              "inputPerMillion": 1.08,
+              "outputPerMillion": 3.24,
+              "cachedPerMillion": 0.036
+            }
+          ]
+        },
+        {
+          "modelKey": "deepseek-v4.1-flash-1017",
+          "providerModelKey": "deepseek-v4.1-flash-1017",
+          "displayName": "deepseek-v4.1-flash-1017",
+          "capability": "text",
+          "protocol": "chat-completion",
+          "channelLabel": "OpenAI Chat Completions",
+          "icon": "DeepSeek.Color",
+          "tags": [
+            {
+              "text": "国模",
+              "color": "green"
+            },
+            {
+              "text": "按 Token",
+              "color": "blue"
+            }
+          ],
+          "description": "国模分组（已计入 0.12 倍率）；每百万 Token：输入 ¥0.24、输出 ¥0.96、缓存输入 ¥0.0048；实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "billingMode": "token",
+              "inputPerMillion": 0.24,
+              "outputPerMillion": 0.96,
+              "cachedPerMillion": 0.0048
+            }
+          ]
+        },
+        {
+          "modelKey": "glm-5.3-flash",
+          "providerModelKey": "glm-5.3-flash",
+          "displayName": "glm-5.3-flash",
+          "capability": "text",
+          "protocol": "chat-completion",
+          "channelLabel": "OpenAI Chat Completions",
+          "icon": "Zhipu.Color",
+          "tags": [
+            {
+              "text": "国模",
+              "color": "green"
+            },
+            {
+              "text": "按 Token",
+              "color": "blue"
+            }
+          ],
+          "description": "国模分组（已计入 0.12 倍率）；每百万 Token：输入 ¥0.096、输出 ¥0.336、缓存输入 ¥0.0276；实际计费以模型广场为准。",
+          "priceTiers": [
+            {
+              "billingMode": "token",
+              "inputPerMillion": 0.096,
+              "outputPerMillion": 0.336,
+              "cachedPerMillion": 0.0276
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "metaso",
+      "name": "秘塔",
+      "tags": [
+        "video"
+      ],
+      "logo": "/v1/logos/metaso.svg",
+      "summary": "MiniMax H3 全模态视频生成",
+      "website": "https://metaso.cn",
+      "rank": 10,
+      "startsAt": "2026-10-16T12:21:44+08:00",
+      "permanent": true,
+      "connection": {
+        "baseUrl": "https://metaso.cn"
+      },
+      "keyGuide": {
+        "url": "https://metaso.cn",
+        "steps": [
+          "登录秘塔官网，进入 API 入口",
+          "获取 API Key，复制后粘贴到左侧"
+        ]
+      },
+      "models": [
+        {
+          "modelKey": "MiniMax-H3",
+          "providerModelKey": "MiniMax-H3",
+          "displayName": "MiniMax",
+          "channelLabel": "MiniMax-H3",
+          "icon": "minimax",
+          "tags": [
+            {
+              "text": "满血H3模型",
+              "color": "purple"
+            },
+            {
+              "text": "最快30秒生成",
+              "color": "blue"
+            }
+          ],
+          "description": "支持480P、768P视频30秒生成，2K视频15秒生成",
+          "capability": "video",
+          "protocol": "metaso-h3",
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 9,
+                "maxImageBytes": 31457280,
+                "maxVideos": 3,
+                "maxVideoBytes": 52428800,
+                "maxVideoDurationSeconds": 15,
+                "maxAudios": 3,
+                "maxAudioBytes": 15728640,
+                "maxAudioDurationSeconds": 15
+              },
+              "duration": {
+                "selection": "range",
+                "min": 4,
+                "max": 30,
+                "step": 1,
+                "default": 5
+              },
+              "ratios": [
+                "adaptive",
+                "21:9",
+                "16:9",
+                "4:3",
+                "1:1",
+                "3:4",
+                "9:16"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "480P",
+                "768P",
+                "2K"
+              ],
+              "defaultResolution": "768P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": true,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "extend",
+                "audio_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "text_to_video"
+            }
+          },
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "480p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.075
+            },
+            {
+              "selector": {
+                "vquality": "768p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.09
+            },
+            {
+              "selector": {
+                "vquality": "1440p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.18
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "yuxibox",
+      "name": "宇熙Box",
+      "tags": [
+        "video"
+      ],
+      "summary": "Wan3 / Seedance 视频中转；Seedance 使用 NewAPI Video Generations Channel 2，Wan3 使用 NewAPI Media Task Channel 1",
+      "website": "https://yuxibox.cn",
+      "rank": 20,
+      "startsAt": "2026-10-20T15:13:29+08:00",
+      "permanent": true,
+      "connection": {
+        "baseUrl": "https://yuxibox.cn"
+      },
+      "keyGuide": {
+        "url": "https://yuxibox.cn",
+        "steps": [
+          "登录宇熙Box，获取 API Key 后填写到渠道配置",
+          "Seedance 模型使用 NewAPI Video Generations Channel 2；Wan3 模型使用 NewAPI Media Task Channel 1",
+          "default 分组：以上全部模型均可用",
+          "wan3 分组：wan3.0-video、wan3.0-video-prime（均同时支持 default）",
+          "sd官转 分组：seedance-2.0（官渠）（同时支持 default）",
+          "seedance 分组：Seedance 2.0 YX、2.5 YX、2.5 YX 按次、seedance2.5-yx-count"
+        ],
+        "promo": "实际计费以中转模型广场页面显示为准"
+      },
+      "models": [
+        {
+          "modelKey": "wan3.0-video",
+          "providerModelKey": "wan3.0-video",
+          "displayName": "wan3.0-video",
+          "channelLabel": "NewAPI Media Task Channel 1",
+          "tags": [
+            {
+              "text": "default",
+              "color": "blue"
+            },
+            {
+              "text": "wan3",
+              "color": "purple"
+            }
+          ],
+          "description": "480P：¥0.21/秒；720P：¥0.23/秒；1080P：¥0.27/秒；分组：default、wan3。实际计费以中转模型广场页面显示为准。",
+          "capability": "video",
+          "protocol": "newapi-channel-1",
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 10,
+                "maxImageBytes": 0,
+                "maxVideos": 5,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 5,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "range",
+                "min": 2,
+                "max": 30,
+                "step": 1,
+                "default": 6
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "480P",
+                "720P",
+                "1080P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video",
+                "audio_to_video"
+              ],
+              "defaultOperation": "text_to_video"
+            }
+          },
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "480p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.21
+            },
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.23
+            },
+            {
+              "selector": {
+                "vquality": "1080p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.27
+            }
+          ]
+        },
+        {
+          "modelKey": "wan3.0-video-prime",
+          "providerModelKey": "wan3.0-video-prime",
+          "displayName": "wan3.0-video-prime",
+          "channelLabel": "NewAPI Media Task Channel 1",
+          "tags": [
+            {
+              "text": "default",
+              "color": "blue"
+            },
+            {
+              "text": "wan3",
+              "color": "purple"
+            }
+          ],
+          "description": "480P：¥0.22/秒；720P：¥0.26/秒；1080P：¥0.30/秒；分组：default、wan3。实际计费以中转模型广场页面显示为准。",
+          "capability": "video",
+          "protocol": "newapi-channel-1",
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 10,
+                "maxImageBytes": 0,
+                "maxVideos": 5,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 5,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "range",
+                "min": 2,
+                "max": 30,
+                "step": 1,
+                "default": 6
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "480P",
+                "720P",
+                "1080P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video",
+                "audio_to_video"
+              ],
+              "defaultOperation": "text_to_video"
+            }
+          },
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "480p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.22
+            },
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.26
+            },
+            {
+              "selector": {
+                "vquality": "1080p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.3
+            }
+          ]
+        },
+        {
+          "modelKey": "seedance-2.0（官渠）",
+          "providerModelKey": "seedance-2.0（官渠）",
+          "displayName": "seedance-2.0（官渠）",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "tags": [
+            {
+              "text": "default",
+              "color": "blue"
+            },
+            {
+              "text": "sd官转",
+              "color": "purple"
+            }
+          ],
+          "description": "固定 720P：¥2.60/次；分组：default、sd官转。实际计费以中转模型广场页面显示为准。",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 9,
+                "maxImageBytes": 31457280,
+                "maxVideos": 3,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 3,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "range",
+                "min": 4,
+                "max": 15,
+                "step": 1,
+                "default": 6
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "720P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "audio_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "text_to_video"
+            }
+          },
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "fixed_request",
+              "cost": 2.6
+            }
+          ]
+        },
+        {
+          "modelKey": "seedance-2.0（YX）",
+          "providerModelKey": "seedance-2.0（YX）",
+          "displayName": "seedance-2.0（YX）",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "tags": [
+            {
+              "text": "default",
+              "color": "blue"
+            },
+            {
+              "text": "seedance",
+              "color": "purple"
+            }
+          ],
+          "description": "720P：¥0.25/秒；分组：default、seedance。实际计费以中转模型广场页面显示为准。",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 9,
+                "maxImageBytes": 31457280,
+                "maxVideos": 3,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 3,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "range",
+                "min": 1,
+                "max": 15,
+                "step": 1,
+                "default": 6
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "720P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "text_to_video"
+            }
+          },
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.25
+            }
+          ]
+        },
+        {
+          "modelKey": "seedance-2.5（YX）",
+          "providerModelKey": "seedance-2.5（YX）",
+          "displayName": "seedance-2.5（YX）",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "tags": [
+            {
+              "text": "default",
+              "color": "blue"
+            },
+            {
+              "text": "seedance",
+              "color": "purple"
+            }
+          ],
+          "description": "720P：¥0.30/秒；分组：default、seedance。实际计费以中转模型广场页面显示为准。",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 30,
+                "maxImageBytes": 31457280,
+                "maxVideos": 10,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 10,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "range",
+                "min": 1,
+                "max": 15,
+                "step": 1,
+                "default": 6
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "720P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "text_to_video"
+            }
+          },
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.3
+            }
+          ]
+        },
+        {
+          "modelKey": "seedance-2.5（YX）-按次",
+          "providerModelKey": "seedance-2.5（YX）-按次",
+          "displayName": "seedance-2.5（YX）-按次",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "tags": [
+            {
+              "text": "default",
+              "color": "blue"
+            },
+            {
+              "text": "seedance",
+              "color": "purple"
+            }
+          ],
+          "description": "固定 30 秒 / 720P：¥3.50/条；分组：default、seedance。实际计费以中转模型广场页面显示为准。",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 30,
+                "maxImageBytes": 31457280,
+                "maxVideos": 10,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 10,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "enum",
+                "values": [
+                  30
+                ],
+                "default": 30
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "720P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "text_to_video"
+            }
+          },
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "720p",
+                "videoSeconds": "30"
+              },
+              "billingMode": "fixed_request",
+              "cost": 3.5
+            }
+          ]
+        },
+        {
+          "modelKey": "seedance2.5-yx-count",
+          "providerModelKey": "seedance2.5-yx-count",
+          "displayName": "seedance2.5-yx-count",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "tags": [
+            {
+              "text": "default",
+              "color": "blue"
+            },
+            {
+              "text": "seedance",
+              "color": "purple"
+            }
+          ],
+          "description": "¥4.00/条；分组：default、seedance。实际计费以中转模型广场页面显示为准。",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "priceTiers": [
+            {
+              "billingMode": "fixed_request",
+              "cost": 4.0
+            }
+          ],
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 30,
+                "maxImageBytes": 31457280,
+                "maxVideos": 10,
+                "maxVideoBytes": 0,
+                "maxVideoDurationSeconds": 0,
+                "maxAudios": 10,
+                "maxAudioBytes": 0,
+                "maxAudioDurationSeconds": 0
+              },
+              "duration": {
+                "selection": "range",
+                "min": 1,
+                "max": 15,
+                "step": 1,
+                "default": 6
+              },
+              "ratios": [
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+                "21:9"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "720P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": false,
+                "default": false
+              },
+              "watermark": {
+                "supported": false,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "text_to_video"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "wanyouyinli",
+      "name": "万有引力",
+      "tags": [
+        "video"
+      ],
+      "summary": "视频生成服务",
+      "website": "https://lxmone.xyz",
+      "rank": 30,
+      "startsAt": "2026-10-20T11:01:11+08:00",
+      "permanent": true,
+      "connection": {
+        "baseUrl": "https://lxmone.xyz"
+      },
+      "keyGuide": {
+        "url": "https://lxmone.xyz",
+        "steps": [
+          "登录万有引力服务平台",
+          "获取 API Key 后填写到渠道配置"
+        ]
+      },
+      "models": [
+        {
+          "modelKey": "wan3.0-image-prime",
+          "providerModelKey": "wan3.0-image-prime",
+          "displayName": "wan3.0-image-prime",
+          "channelLabel": "NewAPI Media Task Channel 1",
+          "tags": [],
+          "description": "视频生成",
+          "capability": "video",
+          "protocol": "newapi-channel-1",
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 9,
+                "maxImageBytes": 31457280,
+                "maxVideos": 3,
+                "maxVideoBytes": 52428800,
+                "maxVideoDurationSeconds": 15,
+                "maxAudios": 3,
+                "maxAudioBytes": 15728640,
+                "maxAudioDurationSeconds": 15
+              },
+              "duration": {
+                "selection": "range",
+                "min": 4,
+                "max": 30,
+                "step": 1,
+                "default": 15
+              },
+              "ratios": [
+                "adaptive",
+                "21:9",
+                "16:9",
+                "4:3",
+                "1:1",
+                "3:4",
+                "9:16"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "480P",
+                "720P",
+                "1080P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": true,
+                "default": false
+              },
+              "watermark": {
+                "supported": true,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "extend",
+                "audio_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "text_to_video"
+            }
+          },
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "480p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.2
+            },
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.24
+            },
+            {
+              "selector": {
+                "vquality": "1080p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.28
+            }
+          ]
+        },
+        {
+          "modelKey": "wan3.0-video",
+          "providerModelKey": "wan3.0-video",
+          "displayName": "wan3.0-video",
+          "channelLabel": "NewAPI Media Task Channel 1",
+          "tags": [],
+          "description": "视频生成",
+          "capability": "video",
+          "protocol": "newapi-channel-1",
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 9,
+                "maxImageBytes": 31457280,
+                "maxVideos": 3,
+                "maxVideoBytes": 52428800,
+                "maxVideoDurationSeconds": 15,
+                "maxAudios": 3,
+                "maxAudioBytes": 15728640,
+                "maxAudioDurationSeconds": 15
+              },
+              "duration": {
+                "selection": "range",
+                "min": 4,
+                "max": 30,
+                "step": 1,
+                "default": 15
+              },
+              "ratios": [
+                "adaptive",
+                "21:9",
+                "16:9",
+                "4:3",
+                "1:1",
+                "3:4",
+                "9:16"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "480P",
+                "720P",
+                "1080P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": true,
+                "default": false
+              },
+              "watermark": {
+                "supported": true,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "extend",
+                "audio_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "text_to_video"
+            }
+          },
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "480p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.21
+            },
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.23
+            },
+            {
+              "selector": {
+                "vquality": "1080p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.27
+            }
+          ]
+        },
+        {
+          "modelKey": "seedance2.5d",
+          "providerModelKey": "seedance2.5d",
+          "displayName": "seedance2.5d",
+          "channelLabel": "NewAPI Video Generations Channel 2",
+          "tags": [],
+          "description": "视频生成",
+          "capability": "video",
+          "protocol": "newapi-channel-2",
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 30,
+                "maxImageBytes": 31457280,
+                "maxVideos": 10,
+                "maxVideoBytes": 52428800,
+                "maxVideoDurationSeconds": 15,
+                "maxAudios": 10,
+                "maxAudioBytes": 15728640,
+                "maxAudioDurationSeconds": 15
+              },
+              "duration": {
+                "selection": "range",
+                "min": 4,
+                "max": 30,
+                "step": 1,
+                "default": 15
+              },
+              "ratios": [
+                "adaptive",
+                "21:9",
+                "16:9",
+                "4:3",
+                "1:1",
+                "3:4",
+                "9:16"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "480P",
+                "720P",
+                "1080P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": true,
+                "default": false
+              },
+              "watermark": {
+                "supported": true,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "extend",
+                "audio_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "text_to_video"
+            }
+          },
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.6
+            }
+          ]
+        },
+        {
+          "modelKey": "kling-video-v4",
+          "providerModelKey": "kling-video-v4",
+          "displayName": "kling-video-v4",
+          "channelLabel": "NewAPI Media Task Channel 1",
+          "tags": [],
+          "description": "视频生成",
+          "capability": "video",
+          "protocol": "newapi-channel-1",
+          "capabilityConfig": {
+            "version": 1,
+            "video": {
+              "references": {
+                "promptMaxChars": 8000,
+                "minImages": 0,
+                "maxImages": 9,
+                "maxImageBytes": 31457280,
+                "maxVideos": 3,
+                "maxVideoBytes": 52428800,
+                "maxVideoDurationSeconds": 15,
+                "maxAudios": 3,
+                "maxAudioBytes": 15728640,
+                "maxAudioDurationSeconds": 15
+              },
+              "duration": {
+                "selection": "range",
+                "min": 4,
+                "max": 30,
+                "step": 1,
+                "default": 15
+              },
+              "ratios": [
+                "adaptive",
+                "21:9",
+                "16:9",
+                "4:3",
+                "1:1",
+                "3:4",
+                "9:16"
+              ],
+              "defaultRatio": "16:9",
+              "resolutions": [
+                "480P",
+                "720P",
+                "1080P"
+              ],
+              "defaultResolution": "720P",
+              "generateAudio": {
+                "supported": true,
+                "default": false
+              },
+              "watermark": {
+                "supported": true,
+                "default": false
+              },
+              "operations": [
+                "text_to_video",
+                "image_to_video",
+                "extend",
+                "audio_to_video",
+                "reference_to_video"
+              ],
+              "defaultOperation": "text_to_video"
+            }
+          },
+          "priceTiers": [
+            {
+              "selector": {
+                "vquality": "720p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.21
+            },
+            {
+              "selector": {
+                "vquality": "1080p"
+              },
+              "billingMode": "per_second",
+              "cost": 0.27
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

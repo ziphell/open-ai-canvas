@@ -12,6 +12,8 @@ export type ResolvedVideoImageReference = {
 type VideoReferenceContext = {
     videoCount?: number;
     audioCount?: number;
+    /** 为 false 时不按图片数量推断首尾帧；只有显式帧节点会产生帧角色。 */
+    inferFrames?: boolean;
 };
 
 export function resolveVideoImageReferences(images: ReferenceImage[], options?: RequestOptions, context: VideoReferenceContext = {}): ResolvedVideoImageReference[] {
@@ -29,7 +31,7 @@ export function resolveVideoImageReferences(images: ReferenceImage[], options?: 
         }));
     }
 
-    if (context.videoCount || context.audioCount) {
+    if (context.inferFrames === false || context.videoCount || context.audioCount) {
         return images.map((image) => ({ image, role: "reference_image" }));
     }
 

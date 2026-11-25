@@ -145,40 +145,67 @@ func TestDefaultVideoCapabilityUsesProtocolSpecificResolutionTiers(t *testing.T)
 	}
 }
 
-func TestDefaultMiniMaxVideoCapabilitySupportsThirtySecondGeneration(t *testing.T) {
-	for _, protocol := range []string{"minimax-video", "metaso-h3"} {
-		t.Run(protocol, func(t *testing.T) {
-			profile := DefaultModelCapabilityConfigForModel(protocol, "MiniMax-H3").Video
-			if profile == nil || profile.Duration.Default != 5 {
-				t.Fatalf("MiniMax duration profile = %#v", profile)
+func TestDefaultMiniMaxH3VideoCapabilityUsesOfficialLimits(t *testing.T) {
+	profile := DefaultModelCapabilityConfigForModel("minimax-video", "MiniMax-H3").Video
+	if profile == nil || profile.Duration.Default != 5 || profile.Duration.Min != 4 || profile.Duration.Max != 15 {
+		t.Fatalf("MiniMax duration profile = %#v", profile)
+	}
+	if fmt.Sprint(profile.Resolutions) != "[768P 2K]" || !profile.GenerateAudio.Supported || !profile.GenerateAudio.Default {
+		t.Fatalf("MiniMax output profile = %#v", profile)
+	}
+	for _, seconds := range []int{3, 4, 15, 16, 20, 30, 31} {
+		t.Run(fmt.Sprint(seconds), func(t *testing.T) {
+			input := canvasGenerationInput{Mode: "video", Prompt: "a clip", Config: providerConfig{InterfaceType: "minimax-video", Model: "MiniMax-H3", VideoSeconds: fmt.Sprint(seconds), Size: "16:9", VQuality: "768P"}}
+			err := validateVideoTask(profile, input)
+			valid := seconds >= 4 && seconds <= 15
+			if valid && err != nil {
+				t.Fatalf("validateVideoTask(%d seconds): %v", seconds, err)
 			}
-			for _, seconds := range []int{3, 4, 15, 16, 20, 30, 31} {
-				t.Run(fmt.Sprint(seconds), func(t *testing.T) {
-					input := canvasGenerationInput{Mode: "video", Prompt: "a clip", Config: providerConfig{InterfaceType: protocol, Model: "MiniMax-H3", VideoSeconds: fmt.Sprint(seconds), Size: "16:9", VQuality: "768P"}}
-					err := validateVideoTask(profile, input)
-					valid := seconds >= 4 && seconds <= 30
-					if valid && err != nil {
-						t.Fatalf("validateVideoTask(%d seconds): %v", seconds, err)
-					}
-					label := videoDurationAllowedLabel(profile.Duration)
-					if !strings.Contains(label, "4–30 秒") {
-						t.Fatalf("allowed range label = %q", label)
-					}
-					want := fmt.Sprintf("视频时长 %d 秒不在当前模型支持范围内（%s）", seconds, label)
-					if !valid && (err == nil || !strings.Contains(err.Error(), want)) {
-						t.Fatalf("validateVideoTask(%d seconds) error = %v, want %q", seconds, err, want)
-					}
-					var argumentErr *modelCapabilityArgumentError
-					if !valid && (!errors.As(err, &argumentErr) || argumentErr.Field != "durationSeconds" || argumentErr.Issue != "unsupported_value") {
-						t.Fatalf("validateVideoTask(%d seconds) lost the field code: %#v", seconds, err)
-					}
-				})
+			label := videoDurationAllowedLabel(profile.Duration)
+			if !strings.Contains(label, "4–15 秒") {
+				t.Fatalf("allowed range label = %q", label)
+			}
+			want := fmt.Sprintf("视频时长 %d 秒不在当前模型支持范围内（%s）", seconds, label)
+			if !valid && (err == nil || !strings.Contains(err.Error(), want)) {
+				t.Fatalf("validateVideoTask(%d seconds) error = %v, want %q", seconds, err, want)
+			}
+			var argumentErr *modelCapabilityArgumentError
+			if !valid && (!errors.As(err, &argumentErr) || argumentErr.Field != "durationSeconds" || argumentErr.Issue != "unsupported_value") {
+				t.Fatalf("validateVideoTask(%d seconds) lost the field code: %#v", seconds, err)
 			}
 		})
 	}
 }
 
-func TestDefaultMiniMaxVideoCapabilitySupportsReferenceGeneration(t *testing.T) {
+func TestDefaultMiniMaxH3VideoModelVariantsUseDocumentedLimits(t *testing.T) {
+	maxProfile := DefaultModelCapabilityConfigForModel("minimax-video", "MiniMax-H3-Max").Video
+	if maxProfile == nil || maxProfile.Duration.Min != 5 || maxProfile.Duration.Max != 15 || fmt.Sprint(maxProfile.Resolutions) != "[480P 768P]" {
+		t.Fatalf("MiniMax-H3-Max profile = %#v", maxProfile)
+	}
+	for _, model := range []string{"MiniMax-H3-Highspeed", "MiniMax-H3-Lite"} {
+		profile := DefaultModelCapabilityConfigForModel("minimax-video", model).Video
+		if profile == nil || profile.Duration.Min != 4 || fmt.Sprint(profile.Resolutions) != "[480P 768P]" {
+			t.Fatalf("%s profile = %#v", model, profile)
+		}
+	}
+}
+
+func TestDefaultMetasoH3CapabilitySupportsThirtySecondGeneration(t *testing.T) {
+	profile := DefaultModelCapabilityConfigForModel("metaso-h3", "MiniMax-H3").Video
+	if profile == nil || profile.Duration.Default != 5 || profile.Duration.Min != 4 || profile.Duration.Max != 30 {
+		t.Fatalf("Metaso H3 duration profile = %#v", profile)
+	}
+	for _, seconds := range []int{3, 4, 15, 16, 20, 30, 31} {
+		input := canvasGenerationInput{Mode: "video", Prompt: "a clip", Config: providerConfig{InterfaceType: "metaso-h3", Model: "MiniMax-H3", VideoSeconds: fmt.Sprint(seconds), Size: "16:9", VQuality: "768P"}}
+		err := validateVideoTask(profile, input)
+		valid := seconds >= 4 && seconds <= 30
+		if valid != (err == nil) {
+			t.Fatalf("validateVideoTask(%d seconds) error = %v", seconds, err)
+		}
+	}
+}
+
+func TestDefaultMiniMaxH3VideoCapabilitySupportsReferenceGeneration(t *testing.T) {
 	profile := DefaultModelCapabilityConfigForModel("minimax-video", "MiniMax-H3")
 	if profile == nil || profile.Video == nil {
 		t.Fatal("MiniMax video profile = nil")

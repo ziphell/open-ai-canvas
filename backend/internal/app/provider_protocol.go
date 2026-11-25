@@ -132,7 +132,7 @@ func runProtocolAdapterTaskWithPolicy(ctx context.Context, input canvasGeneratio
 			// 已完成但还没有媒体：能按任务 ID 回查时转入轮询，在宽限期内等媒体地址。
 			canPoll := taskID != "" && strings.TrimSpace(adapter.Metadata().Poll) != ""
 			if protocolResultReady(input.Mode, created.Result, adapter) || !canPoll {
-				result, err := finishProtocolAdapterResult(ctx, input, adapter, request, taskID, created.Result, policy)
+				result, err := finishProtocolAdapterResult(ctx, input, adapter, request, taskID, created.ResultID, created.Result, policy)
 				if !canPoll || !errors.Is(err, errProtocolResultNotReady) {
 					return result, err
 				}
@@ -177,7 +177,7 @@ func runProtocolAdapterTaskWithPolicy(ctx context.Context, input canvasGeneratio
 			if !protocolResultReady(input.Mode, state.Result, adapter) && lateResult.keepWaiting(time.Now()) {
 				return videoPollOutcome{}, nil
 			}
-			result, err := finishProtocolAdapterResult(ctx, input, adapter, request, taskID, state.Result, policy)
+			result, err := finishProtocolAdapterResult(ctx, input, adapter, request, taskID, state.ResultID, state.Result, policy)
 			if errors.Is(err, errProtocolResultNotReady) && lateResult.keepWaiting(time.Now()) {
 				return videoPollOutcome{}, nil
 			}
@@ -233,7 +233,7 @@ func queryProtocolAdapterVideoTask(ctx context.Context, input canvasGenerationIn
 	providerStatus := string(state.Status)
 	switch state.Status {
 	case protocol.StatusSucceeded:
-		result, err := finishProtocolAdapterResult(ctx, input, adapter, request, taskID, state.Result, defaultVideoPollPolicy())
+		result, err := finishProtocolAdapterResult(ctx, input, adapter, request, taskID, state.ResultID, state.Result, defaultVideoPollPolicy())
 		return result, providerStatus, err
 	case protocol.StatusFailed, protocol.StatusCancelled:
 		return nil, providerStatus, protocolTaskFailure(ctx, state.Status, state.Message, taskID)

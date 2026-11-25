@@ -681,7 +681,7 @@ func TestDeclarativeNewAPIChannel2TaskNotExistExhaustion(t *testing.T) {
 
 func TestDeclarativeMiniMaxFailureReachesTaskError(t *testing.T) {
 	allowLoopbackProviderTest(t)
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", "plugin-packages", "minimax-hailuo-video-v2.yingce-plugin"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "plugin-packages", "minimax-video.yingce-plugin"))
 	if err != nil {
 		t.Fatal(err)
 	}

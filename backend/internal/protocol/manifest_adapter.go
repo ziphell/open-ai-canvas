@@ -308,7 +308,7 @@ func (a manifestAdapter) ParsePoll(_ context.Context, c PollContext, body []byte
 		return PollResult{}, err
 	}
 	result := a.parse(payload, c)
-	return PollResult{TaskID: result.TaskID, Status: result.Status, Result: result.Result, Message: result.Message, Stage: result.Stage, QueueAhead: result.QueueAhead}, nil
+	return PollResult{TaskID: result.TaskID, ResultID: result.ResultID, Status: result.Status, Result: result.Result, Message: result.Message, Stage: result.Stage, QueueAhead: result.QueueAhead}, nil
 }
 
 func (a manifestAdapter) BuildCancel(_ context.Context, c PollContext) (RequestSpec, error) {
@@ -326,7 +326,7 @@ func (a manifestAdapter) BuildResult(_ context.Context, c PollContext) (RequestS
 	}
 	request := c.Request
 	request.Model = c.Model
-	return buildManifestOperation(*a.manifest.ResultOperation, a.manifest.Auth, request, c.TaskID)
+	return buildManifestOperationWithEnv(*a.manifest.ResultOperation, a.manifest.Auth, request, c.TaskID, map[string]any{"resultId": c.ResultID})
 }
 
 func (a manifestAdapter) parse(payload map[string]any, c PollContext) CreateResult {
@@ -339,6 +339,7 @@ func (a manifestAdapter) parse(payload map[string]any, c PollContext) CreateResu
 	if id == "" {
 		id = c.TaskID
 	}
+	resultID := manifestResponseString(response.ResultID, env)
 	statusText := manifestResponseString(response.Status, env)
 	if statusText == "" {
 		statusText = firstPathValue(payload, response.StatusPaths...)
@@ -402,7 +403,7 @@ func (a manifestAdapter) parse(payload map[string]any, c PollContext) CreateResu
 	if result.Text == "" && result.Reasoning == "" && len(result.Images) == 0 && len(result.Videos) == 0 && len(result.Audios) == 0 && !keepUsageForDownload {
 		result = nil
 	}
-	return CreateResult{TaskID: id, Status: status, Result: result, Message: message, Stage: stage, QueueAhead: queueAhead}
+	return CreateResult{TaskID: id, ResultID: resultID, Status: status, Result: result, Message: message, Stage: stage, QueueAhead: queueAhead}
 }
 
 func validateManifestRequest(rules []ManifestValidation, request GenerationRequest) error {

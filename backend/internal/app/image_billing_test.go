@@ -71,7 +71,7 @@ func TestImageBillingProviderUsageRecordedBeforeDownload(t *testing.T) {
 	}
 	result.Images[0].URL = ""
 	result.Images[0].DataURL = "data:image/png;base64,!invalid!"
-	if _, err := finishProtocolAdapterResult(ctx, canvasGenerationInput{Mode: "image"}, protocol.UnavailableAdapter{}, request, "", result, videoPollPolicy{}); err == nil {
+	if _, err := finishProtocolAdapterResult(ctx, canvasGenerationInput{Mode: "image"}, protocol.UnavailableAdapter{}, request, "", "", result, videoPollPolicy{}); err == nil {
 		t.Fatal("invalid image download unexpectedly succeeded")
 	}
 	saved, err := s.repo.BillingOrder(order.ID)

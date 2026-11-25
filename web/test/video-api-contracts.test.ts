@@ -160,17 +160,81 @@ describe("Seedance /videos image roles", () => {
 });
 
 describe("MiniMax explicit reference roles", () => {
-    test("preserves supported durations through 30 seconds in the upstream request", async () => {
-        for (const seconds of [4, 15, 16, 20, 30]) {
+    test("clamps durations to the documented range per model", async () => {
+        for (const [input, model, expected] of [
+            [3, "MiniMax-H3", 4],
+            [4, "MiniMax-H3", 4],
+            [15, "MiniMax-H3", 15],
+            [16, "MiniMax-H3", 15],
+            [30, "MiniMax-H3", 15],
+            [4, "MiniMax-H3-Max", 5],
+            [20, "MiniMax-H3-Max", 15],
+        ] as const) {
             let requestBody: unknown;
             const deps = {
                 transport: { post: async (_url: string, body: unknown) => ((requestBody = body), { task_id: "minimax-task-1" }) },
                 response: videoResponseTools,
             } as unknown as VideoProviderDeps;
-            const config = { ...defaultConfig, baseUrl: "https://api.minimax.io", videoSeconds: String(seconds), vquality: "768P", size: "16:9" };
-            await createMiniMaxVideoTask(deps, config as never, "MiniMax-H3", "a clip", [], [], []);
-            expect((requestBody as { duration: number }).duration).toBe(seconds);
+            const config = { ...defaultConfig, baseUrl: "https://api.minimax.io", videoSeconds: String(input), vquality: "768P", size: "16:9" };
+            await createMiniMaxVideoTask(deps, config as never, model, "a clip", [], [], []);
+            expect((requestBody as { duration: number }).duration).toBe(expected);
         }
+    });
+
+    test("projects official model resolutions", async () => {
+        for (const [model, quality, expected] of [
+            ["MiniMax-H3", "2K", "2K"],
+            ["MiniMax-H3", "480P", "768P"],
+            ["MiniMax-H3-Max", "480P", "480P"],
+            ["MiniMax-H3-Max", "2K", "768P"],
+        ] as const) {
+            let requestBody: unknown;
+            const deps = {
+                transport: { post: async (_url: string, body: unknown) => ((requestBody = body), { task_id: "minimax-task-1" }) },
+                response: videoResponseTools,
+            } as unknown as VideoProviderDeps;
+            const config = { ...defaultConfig, baseUrl: "https://api.minimax.io", videoSeconds: "5", vquality: quality, size: "16:9" };
+            await createMiniMaxVideoTask(deps, config as never, model, "a clip", [], [], []);
+            expect((requestBody as { resolution: string }).resolution).toBe(expected);
+        }
+    });
+
+    test("images without explicit frames are all references", async () => {
+        for (const count of [1, 3]) {
+            let requestBody: unknown;
+            const deps = {
+                transport: { post: async (_url: string, body: unknown) => ((requestBody = body), { task_id: "minimax-task-1" }) },
+                response: videoResponseTools,
+            } as unknown as VideoProviderDeps;
+            const references = Array.from({ length: count }, (_, index) => ({ id: `image-${index}`, name: `${index}.png`, type: "image/png", dataUrl: "", url: `https://cdn.example.com/${index}.png` }));
+            const config = { ...defaultConfig, baseUrl: "https://api.minimax.io", videoSeconds: "5", vquality: "768P", size: "16:9" };
+            await createMiniMaxVideoTask(deps, config as never, "MiniMax-H3", "a clip", references, [], []);
+            const imageBlocks = (requestBody as { content: Array<{ type: string; role?: string }> }).content.filter((item) => item.type === "image_url");
+            expect(imageBlocks.map((item) => item.role)).toEqual(Array(count).fill("reference_image"));
+        }
+    });
+
+    test("rejects mixing explicit first frames with reference media", async () => {
+        const deps = {
+            transport: { post: async () => ({ task_id: "minimax-task-1" }) },
+            response: videoResponseTools,
+        } as unknown as VideoProviderDeps;
+        await expect(
+            createMiniMaxVideoTask(
+                deps,
+                { ...defaultConfig, baseUrl: "https://api.minimax.io" } as never,
+                "MiniMax-H3",
+                "a clip",
+                [
+                    { id: "first", name: "first.png", type: "image/png", dataUrl: "", url: "https://cdn.example.com/first.png" },
+                    { id: "last", name: "last.png", type: "image/png", dataUrl: "", url: "https://cdn.example.com/last.png" },
+                    { id: "cast", name: "cast.png", type: "image/png", dataUrl: "", url: "https://cdn.example.com/cast.png" },
+                ],
+                [],
+                [],
+                { videoStartFrameNodeId: "first", videoEndFrameNodeId: "last" },
+            ),
+        ).rejects.toThrow("不能混用");
     });
 
     test("project assets use reference_image and reference_audio instead of first frame", async () => {

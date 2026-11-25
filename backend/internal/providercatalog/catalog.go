@@ -1,4 +1,4 @@
-// Package providercatalog 解析 ai.yingce.tv 托管的服务商目录（静态 JSON），
+// Package providercatalog 解析仓库维护的服务商目录（静态 JSON），
 // 按推广期过滤，并把推荐模型的人民币成本换算为积分成本与加价售价。
 //
 // 目录决定管理员 API Key 会被发往哪个 Base URL，因此这里只接受 https 地址，

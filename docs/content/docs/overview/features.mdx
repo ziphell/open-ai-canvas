@@ -199,7 +199,7 @@ MediaKit 深度插件独立且默认关闭，由管理员启用并配置系统�
 
 ## MiniMax H3 图片
 
-`minimax-h3-image` 独立插件接入 MiniMax `MiniMax-H3-Image` 与 `MiniMax-H3-Image-Highspeed`，无参考图走 `/v1/images/generations`，有 1–16 张参考图时走 `/v1/images/edits` 并保持参考图顺序。支持比例或像素尺寸、1K/2K/4K（默认 2K）和 1–10 张输出；蒙版、透明背景和质量档位不支持。与旧 `minimax-image` 插件并存，结果由宿主下载持久化。配置见[MiniMax H3 图片](/docs/backend/minimax-h3-image)。
+`minimax-image` 独立插件接入 MiniMax `MiniMax-H3-Image` 与 `MiniMax-H3-Image-Highspeed`，无参考图走 `/v1/images/generations`，有 1–16 张参考图时走 `/v1/images/edits` 并保持参考图顺序。支持比例或像素尺寸、1K/2K/4K（默认 2K）和 1–10 张输出；蒙版、透明背景和质量档位不支持。旧的 `/v1/image_generation` 插件已删除，结果由宿主下载持久化。配置见[MiniMax 图片](/docs/backend/minimax-image)。
 
 ## 百炼 MiniMax 视频
 

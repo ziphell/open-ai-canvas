@@ -32,7 +32,7 @@ func TestProtocolJSONResultDownloadsReferencedMedia(t *testing.T) {
 				http.NotFound(w, r)
 			}
 		}))
-		result, err := finishProtocolAdapterResult(context.Background(), canvasGenerationInput{Mode: "video", Config: providerConfig{BaseURL: server.URL}}, adapters[0], protocol.GenerationRequest{}, "job-1", nil, fastVideoPollPolicy())
+		result, err := finishProtocolAdapterResult(context.Background(), canvasGenerationInput{Mode: "video", Config: providerConfig{BaseURL: server.URL}}, adapters[0], protocol.GenerationRequest{}, "job-1", "", nil, fastVideoPollPolicy())
 		server.Close()
 		if body == `{"job_id":"job-1","outputs":[]}` {
 			if err == nil || downloads != 0 {
@@ -77,7 +77,7 @@ func TestProtocolPollResultDownloadsRootRelativeMedia(t *testing.T) {
 	result, err := finishProtocolAdapterResult(
 		context.Background(),
 		canvasGenerationInput{Mode: "video", Config: providerConfig{BaseURL: server.URL}},
-		adapters[0], request, "task-1", state.Result, fastVideoPollPolicy(),
+		adapters[0], request, "task-1", state.ResultID, state.Result, fastVideoPollPolicy(),
 	)
 	if err != nil || result["mode"] != "video" || downloads != 1 {
 		t.Fatalf("result=%v error=%v downloads=%d", result, err, downloads)

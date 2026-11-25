@@ -1,16 +1,46 @@
 package providercatalog
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestEmbeddedCatalogMatchesPublishedFile(t *testing.T) {
+	published, err := os.ReadFile(filepath.Join("..", "..", "..", "scripts", "provider-catalog", "catalog.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(bytes.TrimSpace(published), bytes.TrimSpace(embeddedCatalog)) {
+		t.Fatal("内置目录与 scripts/provider-catalog/catalog.json 不一致；请把仓库目录同步到 backend/internal/providercatalog/catalog.json 后再提交")
+	}
+}
+
+func TestEmbeddedSourceDoesNotNeedNetwork(t *testing.T) {
+	t.Setenv("CANVAS_PROVIDER_CATALOG_URL", "")
+	t.Setenv("CANVAS_PROVIDER_CATALOG_DISABLED", "")
+	dataDir := t.TempDir()
+	source := NewSource(dataDir, nil)
+	snapshot := source.Get(context.Background())
+	if snapshot.State != SourceLive || snapshot.Catalog == nil || len(snapshot.Catalog.Providers) == 0 {
+		t.Fatalf("embedded snapshot = %#v", snapshot)
+	}
+	refreshed := source.Refresh(context.Background())
+	if refreshed.State != SourceLive || refreshed.Catalog == nil {
+		t.Fatalf("embedded refresh = %#v", refreshed)
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "provider-catalog", "catalog.json")); !os.IsNotExist(err) {
+		t.Fatalf("embedded source must not persist a cache, stat err = %v", err)
+	}
+}
 
 const sampleCatalog = `{
   "schemaVersion": 1,

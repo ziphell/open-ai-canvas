@@ -211,7 +211,7 @@ function resolveModelAdaptationProfile(input: PromptOptimizationInput): ModelAda
             avoid: ["不要加入过多抽象叙事或无法在短片段中完成的事件。"],
         };
     }
-    if (containsAny(model, ["runway", "gen-3", "gen3", "minimax-video", "hailuo", "wan", "ltx-video", "hunyuan-video"])) {
+    if (containsAny(model, ["runway", "gen-3", "gen3", "minimax", "hailuo", "wan", "ltx-video", "hunyuan-video"])) {
         return {
             id: "general-video-family",
             label: "通用视频模型",

@@ -59,7 +59,7 @@ func OfficialDeclarativeVideoInterface(interfaceType string) (string, bool) {
 	case string(model.ChannelInterfaceAgnesVideo):
 		return "Agnes", true
 	case string(model.ChannelInterfaceMiniMaxVideo):
-		return "MiniMax", true
+		return "MiniMax H3", true
 	case string(model.ChannelInterfaceGeminiVeo):
 		return "Gemini Veo", true
 	case string(model.ChannelInterfaceNovitaVideo):

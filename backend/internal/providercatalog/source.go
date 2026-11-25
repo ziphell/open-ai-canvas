@@ -2,6 +2,7 @@ package providercatalog
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,11 +17,16 @@ import (
 )
 
 const (
-	DefaultURL      = "https://ai.yingce.tv/v1/catalog.json"
 	DefaultLogoBase = "https://ai.yingce.tv"
 	// 只有管理员打开目录时才会读取；超过该时间按需同步刷新一次。
 	staleAfter = 5 * time.Minute
 )
+
+// embeddedCatalog 是随应用分发的目录副本；默认直接使用它，只有配置
+// CANVAS_PROVIDER_CATALOG_URL 时才发起网络请求。
+//
+//go:embed catalog.json
+var embeddedCatalog []byte
 
 type SourceState string
 
@@ -65,7 +71,7 @@ type Source struct {
 
 func NewSource(dataDir string, client *http.Client) *Source {
 	source := &Source{
-		url:      DefaultURL,
+		url:      strings.TrimSpace(os.Getenv("CANVAS_PROVIDER_CATALOG_URL")),
 		logoBase: DefaultLogoBase,
 		disabled: strings.TrimSpace(os.Getenv("CANVAS_PROVIDER_CATALOG_DISABLED")) == "1",
 		client:   client,
@@ -73,6 +79,9 @@ func NewSource(dataDir string, client *http.Client) *Source {
 	}
 	if strings.TrimSpace(dataDir) != "" {
 		source.path = filepath.Join(dataDir, "provider-catalog", "catalog.json")
+	}
+	if source.url == "" {
+		source.loadEmbedded()
 	}
 	return source
 }
@@ -84,12 +93,17 @@ func NewSourceForTest(url string, logoBase string, client *http.Client, path str
 
 func (s *Source) Now() time.Time { return s.now() }
 
-// Get 有缓存时立即返回；过期缓存后台刷新，绝不让网络 I/O 持有快照锁。
+// Get 有内置目录时直接返回；配置了远程地址时使用缓存，过期后后台刷新。
 func (s *Source) Get(ctx context.Context) Snapshot {
 	s.mu.Lock()
 	if s.disabled {
 		s.mu.Unlock()
 		return Snapshot{State: SourceDisabled}
+	}
+	if s.url == "" {
+		result := s.snapshot
+		s.mu.Unlock()
+		return result
 	}
 	s.loadLocked()
 	stale := s.snapshot.Catalog == nil || s.now().Sub(s.snapshot.FetchedAt) > staleAfter
@@ -111,12 +125,13 @@ func (s *Source) Get(ctx context.Context) Snapshot {
 	return s.Refresh(ctx)
 }
 
-// Refresh 并发请求共享一次拉取，等待者取消不影响其他请求。
+// Refresh 并发请求共享一次拉取，等待者取消不影响其他请求；内置目录不发起网络请求。
 func (s *Source) Refresh(ctx context.Context) Snapshot {
 	s.mu.Lock()
-	if s.disabled {
+	if s.disabled || s.url == "" {
+		result := s.snapshot
 		s.mu.Unlock()
-		return Snapshot{State: SourceDisabled}
+		return result
 	}
 	s.loadLocked()
 	done := s.inflight
@@ -133,6 +148,19 @@ func (s *Source) Refresh(ctx context.Context) Snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.snapshot
+}
+
+func (s *Source) loadEmbedded() {
+	s.loaded = true
+	catalog, warnings, err := Parse(embeddedCatalog, s.logoBase)
+	for _, warning := range warnings {
+		log.Printf("provider catalog: %s", warning)
+	}
+	if err != nil {
+		s.snapshot = Snapshot{State: SourceUnavailable, LastError: fmt.Sprintf("内置服务商目录无效：%v", err)}
+		return
+	}
+	s.snapshot = Snapshot{Catalog: catalog, FetchedAt: s.now(), State: SourceLive}
 }
 
 func (s *Source) loadLocked() {

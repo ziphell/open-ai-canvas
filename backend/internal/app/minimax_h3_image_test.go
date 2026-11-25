@@ -19,12 +19,9 @@ func TestMiniMaxH3ImageRuntime(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := withProtocolRegistry(context.Background(), center.registrySnapshot())
-	adapter, ok := declarativeProtocolAdapterForContext(ctx, "minimax-h3-image")
+	adapter, ok := declarativeProtocolAdapterForContext(ctx, "minimax-image")
 	if !ok {
 		t.Fatal("official MiniMax H3 Image plugin was not installed")
-	}
-	if _, ok := declarativeProtocolAdapterForContext(ctx, "minimax-image"); !ok {
-		t.Fatal("legacy MiniMax Image plugin must remain installed alongside H3")
 	}
 	var generations, edits, downloads atomic.Int32
 	var mode atomic.Value
@@ -89,7 +86,7 @@ func TestMiniMaxH3ImageRuntime(t *testing.T) {
 	}
 	textInput := canvasGenerationInput{
 		Mode: "image", Prompt: "雨夜霓虹街道",
-		Config: providerConfig{BaseURL: server.URL, APIKey: "test-key", InterfaceType: "minimax-h3-image", Model: "MiniMax-H3-Image-Highspeed", Size: "16:9", ImageResolution: "2K", Count: "1"},
+		Config: providerConfig{BaseURL: server.URL, APIKey: "test-key", InterfaceType: "minimax-image", Model: "MiniMax-H3-Image-Highspeed", Size: "16:9", ImageResolution: "2K", Count: "1"},
 	}
 	result, err := run(textInput)
 	if err != nil {

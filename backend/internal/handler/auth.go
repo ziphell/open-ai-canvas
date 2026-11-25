@@ -369,7 +369,7 @@ func proxySystemRequestPath(c *gin.Context, svc *service.Service, user *model.Us
 	capability := "text"
 	var channelModel *model.ChannelModel
 	if !(c.Request.Method == http.MethodGet && path == "/models") {
-		if c.Request.Method == http.MethodGet && systemMiniMaxTaskPath.MatchString(path) && modelName == "" {
+		if c.Request.Method == http.MethodGet && modelName == "" && systemMiniMaxTaskPath.MatchString(path) {
 			supported, supportErr := svc.SystemChannelHasProtocol(channel.ID, model.ChannelInterfaceMiniMaxVideo)
 			if supportErr != nil {
 				failService(c, supportErr)
@@ -381,7 +381,8 @@ func proxySystemRequestPath(c *gin.Context, svc *service.Service, user *model.Us
 			}
 			protocol = model.ChannelInterfaceMiniMaxVideo
 			capability = "video"
-		} else {
+		}
+		if protocol == "" {
 			var modelErr error
 			channelModel, modelErr = svc.SystemChannelModel(channel.ID, modelName)
 			if modelErr != nil || channelModel.Protocol == "" {

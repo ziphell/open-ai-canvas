@@ -36,17 +36,27 @@ test("text multimodal capability is not guessed from a model name", () => {
     }
 });
 
-test("MiniMax H3 and METASO offer every duration from 4 to 30 seconds", () => {
-    for (const protocol of ["minimax-video", "metaso-h3"]) {
-        const profile = defaultModelCapabilityConfig(protocol, "MiniMax-H3").video!;
-        assert.deepEqual(
-            profile.duration.values,
-            Array.from({ length: 27 }, (_, index) => index + 4),
-        );
-        assert.equal(profile.duration.default, 5);
-        for (const seconds of ["4", "15", "16", "20", "30"]) {
-            assert.equal(normalizeVideoValue(profile, { seconds, ratio: "16:9", resolution: "768P" }).seconds, seconds);
-        }
+test("MiniMax H3 follows official duration and resolution limits", () => {
+    const profile = defaultModelCapabilityConfig("minimax-video", "MiniMax-H3").video!;
+    assert.deepEqual(profile.duration, { selection: "range", min: 4, max: 15, step: 1, default: 5 });
+    assert.deepEqual(profile.resolutions, ["768P", "2K"]);
+    assert.deepEqual(profile.generateAudio, { supported: true, default: true });
+    for (const seconds of ["4", "15"]) {
+        assert.equal(normalizeVideoValue(profile, { seconds, ratio: "16:9", resolution: "768P" }).seconds, seconds);
+    }
+    const max = defaultModelCapabilityConfig("minimax-video", "MiniMax-H3-Max").video!;
+    assert.equal(max.duration.min, 5);
+    assert.deepEqual(max.resolutions, ["480P", "768P"]);
+    for (const model of ["MiniMax-H3-Highspeed", "MiniMax-H3-Lite"]) {
+        assert.deepEqual(defaultModelCapabilityConfig("minimax-video", model).video!.resolutions, ["480P", "768P"]);
+    }
+});
+
+test("METASO H3 keeps its documented 4-30 second range", () => {
+    const profile = defaultModelCapabilityConfig("metaso-h3", "MiniMax-H3").video!;
+    assert.deepEqual(profile.duration, { selection: "range", min: 4, max: 30, step: 1, default: 5 });
+    for (const seconds of ["4", "15", "16", "20", "30"]) {
+        assert.equal(normalizeVideoValue(profile, { seconds, ratio: "16:9", resolution: "768P" }).seconds, seconds);
     }
 });
 

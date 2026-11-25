@@ -1,13 +1,13 @@
-# MiniMax Image 接口字段
+# MiniMax H3 Image 接口字段
 
 ## 协议身份
 
 - 插件 ID：`minimax-image`。
 - Provider ID：`minimax-image`。
 - 能力：`image`。
-- 默认 Base URL：`https://api.minimax.io`。
+- 默认 Base URL：`https://api.minimax.cn`。
 - 鉴权驱动：`bearer`。
-- 创建：`POST /v1/image_generation`。
+- 创建：`POST /v1/images/generations`。
 - 生命周期：同步响应。
 
 ## 配置字段
@@ -20,14 +20,13 @@
 
 | 统一字段 | 类型 | 必填 | 上游映射 | 说明 |
 | --- | --- | --- | --- | --- |
-| `model` | string | 是 | `model` | 图片模型 ID。 |
-| `prompt` | string | 是 | `prompt` | 图片提示词。 |
-| `images` | media[] | 否 | `provider image/reference fields` | 参考图或编辑源图，role 由业务层确定。 |
-| `imageCount` | integer | 否 | `n/sample_count` | 输出数量。 |
-| `aspectRatio` | string | 否 | `size/aspect_ratio` | 比例或尺寸，语义按协议说明。 |
-| `resolution` | string | 否 | `resolution/imageSize` | 分辨率档位。 |
-| `quality` | string | 否 | `quality` | 质量档位。 |
-| `providerOptions` | object | 否 | `provider-specific fields` | 插件命名空间内的厂商扩展字段。 |
+| `model` | string | 是 | `model` | MiniMax-H3-Image 或 MiniMax-H3-Image-Highspeed。 |
+| `prompt` | string | 是 | `prompt` | 图片提示词，去除首尾空白后不能为空，最长 32000 个字符。 |
+| `images` | media[] | 否 | `images[].image_url` | 参考图，1 到 16 张，按 order 顺序下发；有参考图时改走 /v1/images/edits。不支持 mask。 |
+| `imageCount` | integer | 否 | `n` | 输出数量，1 到 10，未设置时为 1。 |
+| `aspectRatio` | string | 否 | `aspect_ratio / size` | X:Y 比例（1 到 300 的整数，1:3 到 3:1）映射到 aspect_ratio，并固定 size=auto；宽x高像素尺寸映射到 size，不再发送 aspect_ratio 和 area。 |
+| `resolution` | string | 否 | `area` | 分辨率档位 1K、2K、4K；未设置时为 2K，避免落到上游默认的 4K。 |
+| `providerOptions` | object | 否 | `output_format / output_compression / disable_prompt_enhanced / aigc_watermark` | 仅开放 providerOptions.minimax-image.output_format（jpeg/png/webp）、output_compression（0-100）、disable_prompt_enhanced 与 aigc_watermark。 |
 
 ## 上游请求模板逐字段清单
 
@@ -36,15 +35,24 @@
 | 上游位置 | 值或转换表达式 |
 | --- | --- |
 | `create.method` | `"POST"` |
-| `create.path` | `"/v1/image_generation"` |
+| `create.path` | `"/v1/images/generations"` |
+| `create.pathTemplate` | `{"$if":{"condition":{"$gt":[{"$len":{"$ref":"request.images"}},0]},"then":"/v1/images/edits","else":"/v1/images/generations"}}` |
 | `create.contentType` | `"application/json"` |
-| `create.body` | `{"$merge":[{"model":{"$ref":"request.model"},"prompt":{"$ref":"request.prompt"},"images":{"$omitEmpty":{"$map":{"from":{"$ref":"request.images"},"as":"media","in":{"$ref":"media.value"}}}},"parameters":{"$omitEmpty":{"$ref":"request.providerOptions.minimax-image.parameters"}}},{"$coalesce":[{"$ref":"request.providerOptions.minimax-image.body"},{"$ref":"request.providerOptions.minimax-image.extra_body"},{}]}]}` |
+| `create.body.model` | `{"$ref":"request.model"}` |
+| `create.body.prompt` | `{"$ref":"request.prompt"}` |
+| `create.body.n` | `{"$if":{"condition":{"$gt":[{"$ref":"request.imageCount"},0]},"then":{"$ref":"request.imageCount"},"else":1}}` |
+| `create.body.size` | `{"$if":{"condition":{"$and":[{"$eq":[{"$len":{"$split":[{"$lower":{"$trim":{"$ref":"request.aspectRatio"}}},"x"]}},2]},{"$gt":[{"$toFloat":{"$at":[{"$split":[{"$lower":{"$trim":{"$ref":"request.aspectRatio"}}},"x"]},0]}},0]},{"$gt":[{"$toFloat":{"$at":[{"$split":[{"$lower":{"$trim":{"$ref":"request.aspectRatio"}}},"x"]},1]}},0]}]},"then":{"$lower":{"$trim":{"$ref":"request.aspectRatio"}}},"else":"auto"}}` |
+| `create.body.aspect_ratio` | `{"$if":{"condition":{"$or":[{"$and":[{"$eq":[{"$len":{"$split":[{"$lower":{"$trim":{"$ref":"request.aspectRatio"}}},"x"]}},2]},{"$gt":[{"$toFloat":{"$at":[{"$split":[{"$lower":{"$trim":{"$ref":"request.aspectRatio"}}},"x"]},0]}},0]},{"$gt":[{"$toFloat":{"$at":[{"$split":[{"$lower":{"$trim":{"$ref":"request.aspectRatio"}}},"x"]},1]}},0]}]},{"$in":[{"$lower":{"$trim":{"$ref":"request.aspectRatio"}}},["","auto"]]}]},"then":null,"else":{"$lower":{"$trim":{"$ref":"request.aspectRatio"}}}}}` |
+| `create.body.area` | `{"$if":{"condition":{"$and":[{"$eq":[{"$len":{"$split":[{"$lower":{"$trim":{"$ref":"request.aspectRatio"}}},"x"]}},2]},{"$gt":[{"$toFloat":{"$at":[{"$split":[{"$lower":{"$trim":{"$ref":"request.aspectRatio"}}},"x"]},0]}},0]},{"$gt":[{"$toFloat":{"$at":[{"$split":[{"$lower":{"$trim":{"$ref":"request.aspectRatio"}}},"x"]},1]}},0]}]},"then":null,"else":{"$if":{"condition":{"$in":[{"$upper":{"$trim":{"$ref":"request.resolution"}}},["1K","2K","4K"]]},"then":{"$upper":{"$trim":{"$ref":"request.resolution"}}},"else":"2K"}}}}` |
+| `create.body.images` | `{"$if":{"condition":{"$gt":[{"$len":{"$ref":"request.images"}},0]},"then":{"$map":{"from":{"$sortByOrder":{"$ref":"request.images"}},"as":"media","in":{"image_url":{"$ref":"media.value"}}}},"else":null}}` |
+| `create.body.response_format` | `"url"` |
+| `create.body.output_format` | `{"$omitEmpty":{"$lower":{"$trim":{"$ref":"request.providerOptions.minimax-image.output_format"}}}}` |
+| `create.body.output_compression` | `{"$if":{"condition":{"$ne":[{"$ref":"request.providerOptions.minimax-image.output_compression"},null]},"then":{"$toInt":{"$ref":"request.providerOptions.minimax-image.output_compression"}},"else":null}}` |
 
 ## Provider 扩展键
 
-- `providerOptions.minimax-image.body`
-- `providerOptions.minimax-image.extra_body`
-- `providerOptions.minimax-image.parameters`
+- `providerOptions.minimax-image.output_compression`
+- `providerOptions.minimax-image.output_format`
 
 动态模型或工作流允许使用文档声明的完整 `parameters/input/extra_body` 对象；该对象是协议本身的开放 schema，不会被宿主裁剪。
 
@@ -52,12 +60,14 @@
 
 | 映射位置 | 上游路径或转换表达式 |
 | --- | --- |
-| `response.status` | `"succeeded"` |
-| `response.images` | `{"$coalesce":[{"$ref":"response.data"},{"$ref":"response.output"},{"$ref":"response.url"}]}` |
+| `response.status` | `{"$if":{"condition":{"$gt":[{"$len":{"$filter":{"from":{"$ref":"response.data"},"as":"item","where":{"$or":[{"$ref":"item.url"},{"$ref":"item.b64_json"}]}}}},0]},"then":"succeeded","else":"failed"}}` |
+| `response.message` | `{"$coalesce":[{"$ref":"response.error.message"},{"$first":{"$map":{"from":{"$filter":{"from":{"$ref":"response.data"},"as":"item","where":{"$ref":"item.error"}}},"as":"item","in":{"$ref":"item.error.message"}}}},{"$if":{"condition":{"$eq":[{"$len":{"$filter":{"from":{"$ref":"response.data"},"as":"item","where":{"$or":[{"$ref":"item.url"},{"$ref":"item.b64_json"}]}}}},0]},"then":"MiniMax H3 Image 没有返回可用图片","else":null}}]}` |
+| `response.images` | `{"$map":{"from":{"$filter":{"from":{"$ref":"response.data"},"as":"item","where":{"$or":[{"$ref":"item.url"},{"$ref":"item.b64_json"}]}}},"as":"item","in":{"url":{"$omitEmpty":{"$ref":"item.url"}},"dataUrl":{"$omitEmpty":{"$ref":"item.b64_json"}},"output_format":{"$omitEmpty":{"$ref":"response.output_format"}}}}}` |
+| `response.usage` | `{"$ref":"response.usage"}` |
+| `response.resultEphemeral` | `true` |
 | `response.errorPaths[0]` | `"error.code"` |
-| `response.errorPaths[1]` | `"code"` |
+| `response.errorPaths[1]` | `"error.type"` |
 | `response.messagePaths[0]` | `"error.message"` |
-| `response.messagePaths[1]` | `"message"` |
 
 ## 响应与错误
 
@@ -65,7 +75,17 @@
 
 ## 兼容边界
 
-该协议的模型级字段变化快或依赖云资源配置。插件固定线协议入口和统一字段，完整厂商对象通过 providerOptions.minimax-image 的 parameters/input/extra_body 传入；model-specific image body。云签名型入口在未配置对应鉴权驱动时会明确失败，不会伪装成 Bearer 成功。
+适配 MiniMax 开放平台 H3 图片接口，模型为 MiniMax-H3-Image 与 MiniMax-H3-Image-Highspeed（参数和限制相同）。默认 Base URL 为国内站 https://api.minimax.cn，国际站可改为 https://api.minimax.io；API Key 需与站点对应。
+
+无参考图走 POST /v1/images/generations，有参考图走 POST /v1/images/edits（JSON，images[].image_url），参考图 1 到 16 张、按 order 保持顺序，支持公网 URL 或 data URI；请求体总大小上限 64 MiB。不支持 mask、透明背景和质量档位：mask 会在校验阶段明确拒绝，quality/background 不会发送。区域改色等局部修改只能通过提示词描述实现。
+
+比例输入发送 size=auto + aspect_ratio + area；「宽x高」像素输入只发送 size（总像素 655360 到 20000000，比例 1:3 到 3:1），不发送 aspect_ratio 与 area。area 未设置时固定发送 2K，避免落到上游默认的 4K。output_format、output_compression、disable_prompt_enhanced 与 aigc_watermark 只能通过本插件 providerOptions 命名空间设置，默认不发送（上游默认 jpeg、95、开启增强、无水印）；关闭 Prompt 增强时必须显式给出「宽x高」或具体比例。仍不支持 `stream` 与 `response_format=b64_json`。
+
+同步返回，response_format 固定为 url；图片 URL 不保证长期可用，已声明 resultEphemeral，由宿主立即下载持久化。data[] 中只有 error 的失败项会被跳过，至少一张成功即成功；全部失败时上游返回 402/422/500，按 HTTP 错误失败。usage 原样保留供核对，不改写本地计费规则。
+
+风险：上游最长处理 600 秒，而宿主请求超时固定为 5 分钟，4K 多图可能先超时；上游接口不幂等，客户端超时或断开后仍会完成生成并对成功图片扣费，重试会再次扣费。
+
+官方接口：[文生图](https://platform.minimax.io/docs/api-reference/image-generation-h3-generations)、[图片编辑](https://platform.minimax.io/docs/api-reference/image-generation-h3-edits)、[国内站图片生成指南](https://platform.minimax.cn/docs/guides/image-generation)。
 
 <!-- YINGCE_MANIFEST_CONTRACT_START -->
 ## Manifest 完整接口定义
@@ -76,10 +96,10 @@
 {
   "apiVersion": "yingce.plugin/v2",
   "id": "minimax-image",
-  "name": "MiniMax Image",
-  "version": "2.0.0",
+  "name": "MiniMax H3 Image",
+  "version": "2.2.0",
   "author": "MiniMax / 影策",
-  "description": "MiniMax Image 独立请求协议插件。",
+  "description": "MiniMax H3 Image 独立请求协议插件。",
   "documentation": "<当前插件的完整 documentation，由 README.md 与 docs/interface.md 拼接而成；为避免 JSON 递归，此处不重复展开正文。>",
   "permissions": [
     "generation.run",
@@ -99,7 +119,7 @@
     "providers": [
       {
         "id": "minimax-image",
-        "label": "MiniMax Image",
+        "label": "MiniMax H3 Image",
         "capabilities": [
           "image"
         ],
@@ -110,138 +130,2265 @@
           "creation",
           "agent"
         ],
-        "baseUrl": "https://api.minimax.io",
+        "baseUrl": "https://api.minimax.cn",
         "requiresPublicMediaUrls": false,
         "auth": {
           "type": "bearer",
           "field": "apiKey"
         },
+        "imageParameters": [
+          {
+            "name": "size",
+            "label": "画幅比例",
+            "type": "string",
+            "binding": "aspectRatio",
+            "encoding": "ratio",
+            "values": [
+              "1:1",
+              "4:3",
+              "3:4",
+              "16:9",
+              "9:16",
+              "3:2",
+              "2:3",
+              "21:9",
+              "3:1",
+              "1:3"
+            ],
+            "default": "1:1",
+            "pricing": true
+          },
+          {
+            "name": "imageResolution",
+            "label": "分辨率",
+            "type": "string",
+            "binding": "resolution",
+            "values": [
+              "1K",
+              "2K",
+              "4K"
+            ],
+            "default": "2K",
+            "pricing": true
+          },
+          {
+            "name": "count",
+            "label": "生成数量",
+            "type": "integer",
+            "binding": "imageCount",
+            "min": 1,
+            "max": 10,
+            "step": 1,
+            "default": 1
+          },
+          {
+            "name": "quality",
+            "label": "图片质量",
+            "type": "string",
+            "binding": "quality",
+            "enabled": false
+          },
+          {
+            "name": "transparentBackground",
+            "label": "透明背景",
+            "type": "boolean",
+            "binding": "transparentBackground",
+            "default": false,
+            "enabled": false
+          },
+          {
+            "name": "outputFormat",
+            "label": "输出格式",
+            "type": "string",
+            "binding": "providerOptions.minimax-image.output_format",
+            "values": [
+              "jpeg",
+              "png",
+              "webp"
+            ],
+            "default": "jpeg",
+            "enabled": false
+          },
+          {
+            "name": "outputCompression",
+            "label": "压缩质量",
+            "type": "integer",
+            "binding": "providerOptions.minimax-image.output_compression",
+            "min": 0,
+            "max": 100,
+            "step": 1,
+            "enabled": false
+          },
+          {
+            "name": "disablePromptEnhanced",
+            "label": "关闭 Prompt 增强",
+            "type": "boolean",
+            "binding": "providerOptions.minimax-image.disable_prompt_enhanced",
+            "default": false,
+            "enabled": false
+          },
+          {
+            "name": "aigcWatermark",
+            "label": "AIGC 水印",
+            "type": "boolean",
+            "binding": "providerOptions.minimax-image.aigc_watermark",
+            "default": false,
+            "enabled": false
+          }
+        ],
         "parameters": [
           {
             "name": "model",
             "type": "string",
             "required": true,
             "mapping": "model",
-            "description": "图片模型 ID。"
+            "description": "MiniMax-H3-Image 或 MiniMax-H3-Image-Highspeed。"
           },
           {
             "name": "prompt",
             "type": "string",
             "required": true,
             "mapping": "prompt",
-            "description": "图片提示词。"
+            "description": "图片提示词，去除首尾空白后不能为空，最长 32000 个字符。"
           },
           {
             "name": "images",
             "type": "media[]",
             "required": false,
-            "mapping": "provider image/reference fields",
-            "description": "参考图或编辑源图，role 由业务层确定。"
+            "mapping": "images[].image_url",
+            "description": "参考图，1 到 16 张，按 order 顺序下发；有参考图时改走 /v1/images/edits。不支持 mask。"
           },
           {
             "name": "imageCount",
             "type": "integer",
             "required": false,
-            "mapping": "n/sample_count",
-            "description": "输出数量。"
+            "mapping": "n",
+            "description": "输出数量，1 到 10，未设置时为 1。"
           },
           {
             "name": "aspectRatio",
             "type": "string",
             "required": false,
-            "mapping": "size/aspect_ratio",
-            "description": "比例或尺寸，语义按协议说明。"
+            "mapping": "aspect_ratio / size",
+            "description": "X:Y 比例（1 到 300 的整数，1:3 到 3:1）映射到 aspect_ratio，并固定 size=auto；宽x高像素尺寸映射到 size，不再发送 aspect_ratio 和 area。"
           },
           {
             "name": "resolution",
             "type": "string",
             "required": false,
-            "mapping": "resolution/imageSize",
-            "description": "分辨率档位。"
-          },
-          {
-            "name": "quality",
-            "type": "string",
-            "required": false,
-            "mapping": "quality",
-            "description": "质量档位。"
+            "mapping": "area",
+            "description": "分辨率档位 1K、2K、4K；未设置时为 2K，避免落到上游默认的 4K。"
           },
           {
             "name": "providerOptions",
             "type": "object",
             "required": false,
-            "mapping": "provider-specific fields",
-            "description": "插件命名空间内的厂商扩展字段。"
+            "mapping": "output_format / output_compression / disable_prompt_enhanced / aigc_watermark",
+            "description": "仅开放 providerOptions.minimax-image.output_format（jpeg/png/webp）、output_compression（0-100）、disable_prompt_enhanced 与 aigc_watermark。"
           }
         ],
-        "create": {
-          "method": "POST",
-          "path": "/v1/image_generation",
-          "contentType": "application/json",
-          "body": {
-            "$merge": [
-              {
-                "model": {
+        "validations": [
+          {
+            "assert": {
+              "$in": [
+                {
                   "$ref": "request.model"
                 },
-                "prompt": {
-                  "$ref": "request.prompt"
+                [
+                  "MiniMax-H3-Image",
+                  "MiniMax-H3-Image-Highspeed"
+                ]
+              ]
+            },
+            "message": "MiniMax H3 Image 仅支持 MiniMax-H3-Image 或 MiniMax-H3-Image-Highspeed"
+          },
+          {
+            "assert": {
+              "$and": [
+                {
+                  "$gt": [
+                    {
+                      "$len": {
+                        "$trim": {
+                          "$ref": "request.prompt"
+                        }
+                      }
+                    },
+                    0
+                  ]
                 },
-                "images": {
-                  "$omitEmpty": {
-                    "$map": {
+                {
+                  "$lte": [
+                    {
+                      "$len": {
+                        "$trim": {
+                          "$ref": "request.prompt"
+                        }
+                      }
+                    },
+                    32000
+                  ]
+                }
+              ]
+            },
+            "message": "MiniMax H3 Image 提示词不能为空且不能超过 32000 个字符"
+          },
+          {
+            "assert": {
+              "$lte": [
+                {
+                  "$len": {
+                    "$ref": "request.images"
+                  }
+                },
+                16
+              ]
+            },
+            "message": "MiniMax H3 Image 最多支持 16 张参考图"
+          },
+          {
+            "assert": {
+              "$eq": [
+                {
+                  "$len": {
+                    "$filter": {
                       "from": {
                         "$ref": "request.images"
                       },
                       "as": "media",
-                      "in": {
+                      "where": {
+                        "$eq": [
+                          {
+                            "$ref": "media.role"
+                          },
+                          "mask"
+                        ]
+                      }
+                    }
+                  }
+                },
+                0
+              ]
+            },
+            "message": "MiniMax H3 Image 不支持蒙版（mask）局部编辑，请改用提示词描述需要修改的区域"
+          },
+          {
+            "assert": {
+              "$or": [
+                {
+                  "$eq": [
+                    {
+                      "$ref": "request.imageCount"
+                    },
+                    null
+                  ]
+                },
+                {
+                  "$eq": [
+                    {
+                      "$ref": "request.imageCount"
+                    },
+                    0
+                  ]
+                },
+                {
+                  "$and": [
+                    {
+                      "$gte": [
+                        {
+                          "$ref": "request.imageCount"
+                        },
+                        1
+                      ]
+                    },
+                    {
+                      "$lte": [
+                        {
+                          "$ref": "request.imageCount"
+                        },
+                        10
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "message": "MiniMax H3 Image 生成数量必须为 1 到 10"
+          },
+          {
+            "assert": {
+              "$or": [
+                {
+                  "$in": [
+                    {
+                      "$lower": {
+                        "$trim": {
+                          "$ref": "request.aspectRatio"
+                        }
+                      }
+                    },
+                    [
+                      "",
+                      "auto"
+                    ]
+                  ]
+                },
+                {
+                  "$and": [
+                    {
+                      "$eq": [
+                        {
+                          "$len": {
+                            "$split": [
+                              {
+                                "$lower": {
+                                  "$trim": {
+                                    "$ref": "request.aspectRatio"
+                                  }
+                                }
+                              },
+                              ":"
+                            ]
+                          }
+                        },
+                        2
+                      ]
+                    },
+                    {
+                      "$gte": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  ":"
+                                ]
+                              },
+                              0
+                            ]
+                          }
+                        },
+                        1
+                      ]
+                    },
+                    {
+                      "$lte": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  ":"
+                                ]
+                              },
+                              0
+                            ]
+                          }
+                        },
+                        300
+                      ]
+                    },
+                    {
+                      "$gte": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  ":"
+                                ]
+                              },
+                              1
+                            ]
+                          }
+                        },
+                        1
+                      ]
+                    },
+                    {
+                      "$lte": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  ":"
+                                ]
+                              },
+                              1
+                            ]
+                          }
+                        },
+                        300
+                      ]
+                    },
+                    {
+                      "$eq": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  ":"
+                                ]
+                              },
+                              0
+                            ]
+                          }
+                        },
+                        {
+                          "$toInt": {
+                            "$toFloat": {
+                              "$at": [
+                                {
+                                  "$split": [
+                                    {
+                                      "$lower": {
+                                        "$trim": {
+                                          "$ref": "request.aspectRatio"
+                                        }
+                                      }
+                                    },
+                                    ":"
+                                  ]
+                                },
+                                0
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$eq": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  ":"
+                                ]
+                              },
+                              1
+                            ]
+                          }
+                        },
+                        {
+                          "$toInt": {
+                            "$toFloat": {
+                              "$at": [
+                                {
+                                  "$split": [
+                                    {
+                                      "$lower": {
+                                        "$trim": {
+                                          "$ref": "request.aspectRatio"
+                                        }
+                                      }
+                                    },
+                                    ":"
+                                  ]
+                                },
+                                1
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$and": [
+                        {
+                          "$lte": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      ":"
+                                    ]
+                                  },
+                                  0
+                                ]
+                              }
+                            },
+                            {
+                              "$multiply": [
+                                {
+                                  "$toFloat": {
+                                    "$at": [
+                                      {
+                                        "$split": [
+                                          {
+                                            "$lower": {
+                                              "$trim": {
+                                                "$ref": "request.aspectRatio"
+                                              }
+                                            }
+                                          },
+                                          ":"
+                                        ]
+                                      },
+                                      1
+                                    ]
+                                  }
+                                },
+                                3
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "$lte": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      ":"
+                                    ]
+                                  },
+                                  1
+                                ]
+                              }
+                            },
+                            {
+                              "$multiply": [
+                                {
+                                  "$toFloat": {
+                                    "$at": [
+                                      {
+                                        "$split": [
+                                          {
+                                            "$lower": {
+                                              "$trim": {
+                                                "$ref": "request.aspectRatio"
+                                              }
+                                            }
+                                          },
+                                          ":"
+                                        ]
+                                      },
+                                      0
+                                    ]
+                                  }
+                                },
+                                3
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "$and": [
+                    {
+                      "$and": [
+                        {
+                          "$eq": [
+                            {
+                              "$len": {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  "x"
+                                ]
+                              }
+                            },
+                            2
+                          ]
+                        },
+                        {
+                          "$gt": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  0
+                                ]
+                              }
+                            },
+                            0
+                          ]
+                        },
+                        {
+                          "$gt": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  1
+                                ]
+                              }
+                            },
+                            0
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "$eq": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  "x"
+                                ]
+                              },
+                              0
+                            ]
+                          }
+                        },
+                        {
+                          "$toInt": {
+                            "$toFloat": {
+                              "$at": [
+                                {
+                                  "$split": [
+                                    {
+                                      "$lower": {
+                                        "$trim": {
+                                          "$ref": "request.aspectRatio"
+                                        }
+                                      }
+                                    },
+                                    "x"
+                                  ]
+                                },
+                                0
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$eq": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  "x"
+                                ]
+                              },
+                              1
+                            ]
+                          }
+                        },
+                        {
+                          "$toInt": {
+                            "$toFloat": {
+                              "$at": [
+                                {
+                                  "$split": [
+                                    {
+                                      "$lower": {
+                                        "$trim": {
+                                          "$ref": "request.aspectRatio"
+                                        }
+                                      }
+                                    },
+                                    "x"
+                                  ]
+                                },
+                                1
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$gte": [
+                        {
+                          "$multiply": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  0
+                                ]
+                              }
+                            },
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  1
+                                ]
+                              }
+                            }
+                          ]
+                        },
+                        655360
+                      ]
+                    },
+                    {
+                      "$lte": [
+                        {
+                          "$multiply": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  0
+                                ]
+                              }
+                            },
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  1
+                                ]
+                              }
+                            }
+                          ]
+                        },
+                        20000000
+                      ]
+                    },
+                    {
+                      "$and": [
+                        {
+                          "$lte": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  0
+                                ]
+                              }
+                            },
+                            {
+                              "$multiply": [
+                                {
+                                  "$toFloat": {
+                                    "$at": [
+                                      {
+                                        "$split": [
+                                          {
+                                            "$lower": {
+                                              "$trim": {
+                                                "$ref": "request.aspectRatio"
+                                              }
+                                            }
+                                          },
+                                          "x"
+                                        ]
+                                      },
+                                      1
+                                    ]
+                                  }
+                                },
+                                3
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "$lte": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  1
+                                ]
+                              }
+                            },
+                            {
+                              "$multiply": [
+                                {
+                                  "$toFloat": {
+                                    "$at": [
+                                      {
+                                        "$split": [
+                                          {
+                                            "$lower": {
+                                              "$trim": {
+                                                "$ref": "request.aspectRatio"
+                                              }
+                                            }
+                                          },
+                                          "x"
+                                        ]
+                                      },
+                                      0
+                                    ]
+                                  }
+                                },
+                                3
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "message": "MiniMax H3 Image 比例须在 1:3 到 3:1 之间；像素尺寸须为「宽x高」整数，总像素 655360 到 20000000"
+          },
+          {
+            "assert": {
+              "$in": [
+                {
+                  "$upper": {
+                    "$trim": {
+                      "$ref": "request.resolution"
+                    }
+                  }
+                },
+                [
+                  "",
+                  "AUTO",
+                  "1K",
+                  "2K",
+                  "4K"
+                ]
+              ]
+            },
+            "message": "MiniMax H3 Image 分辨率仅支持 1K、2K、4K"
+          },
+          {
+            "assert": {
+              "$in": [
+                {
+                  "$coalesce": [
+                    {
+                      "$lower": {
+                        "$trim": {
+                          "$ref": "request.providerOptions.minimax-image.output_format"
+                        }
+                      }
+                    },
+                    "jpeg"
+                  ]
+                },
+                [
+                  "jpeg",
+                  "jpg",
+                  "png",
+                  "webp"
+                ]
+              ]
+            },
+            "message": "MiniMax H3 Image 输出格式仅支持 jpeg、png、webp"
+          },
+          {
+            "assert": {
+              "$or": [
+                {
+                  "$not": {
+                    "$toBool": {
+                      "$ref": "request.providerOptions.minimax-image.disable_prompt_enhanced"
+                    }
+                  }
+                },
+                {
+                  "$and": [
+                    {
+                      "$and": [
+                        {
+                          "$eq": [
+                            {
+                              "$len": {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  "x"
+                                ]
+                              }
+                            },
+                            2
+                          ]
+                        },
+                        {
+                          "$gt": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  0
+                                ]
+                              }
+                            },
+                            0
+                          ]
+                        },
+                        {
+                          "$gt": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  1
+                                ]
+                              }
+                            },
+                            0
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "$eq": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  "x"
+                                ]
+                              },
+                              0
+                            ]
+                          }
+                        },
+                        {
+                          "$toInt": {
+                            "$toFloat": {
+                              "$at": [
+                                {
+                                  "$split": [
+                                    {
+                                      "$lower": {
+                                        "$trim": {
+                                          "$ref": "request.aspectRatio"
+                                        }
+                                      }
+                                    },
+                                    "x"
+                                  ]
+                                },
+                                0
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$eq": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  "x"
+                                ]
+                              },
+                              1
+                            ]
+                          }
+                        },
+                        {
+                          "$toInt": {
+                            "$toFloat": {
+                              "$at": [
+                                {
+                                  "$split": [
+                                    {
+                                      "$lower": {
+                                        "$trim": {
+                                          "$ref": "request.aspectRatio"
+                                        }
+                                      }
+                                    },
+                                    "x"
+                                  ]
+                                },
+                                1
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$gte": [
+                        {
+                          "$multiply": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  0
+                                ]
+                              }
+                            },
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  1
+                                ]
+                              }
+                            }
+                          ]
+                        },
+                        655360
+                      ]
+                    },
+                    {
+                      "$lte": [
+                        {
+                          "$multiply": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  0
+                                ]
+                              }
+                            },
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  1
+                                ]
+                              }
+                            }
+                          ]
+                        },
+                        20000000
+                      ]
+                    },
+                    {
+                      "$and": [
+                        {
+                          "$lte": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  0
+                                ]
+                              }
+                            },
+                            {
+                              "$multiply": [
+                                {
+                                  "$toFloat": {
+                                    "$at": [
+                                      {
+                                        "$split": [
+                                          {
+                                            "$lower": {
+                                              "$trim": {
+                                                "$ref": "request.aspectRatio"
+                                              }
+                                            }
+                                          },
+                                          "x"
+                                        ]
+                                      },
+                                      1
+                                    ]
+                                  }
+                                },
+                                3
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "$lte": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  1
+                                ]
+                              }
+                            },
+                            {
+                              "$multiply": [
+                                {
+                                  "$toFloat": {
+                                    "$at": [
+                                      {
+                                        "$split": [
+                                          {
+                                            "$lower": {
+                                              "$trim": {
+                                                "$ref": "request.aspectRatio"
+                                              }
+                                            }
+                                          },
+                                          "x"
+                                        ]
+                                      },
+                                      0
+                                    ]
+                                  }
+                                },
+                                3
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "$and": [
+                    {
+                      "$eq": [
+                        {
+                          "$len": {
+                            "$split": [
+                              {
+                                "$lower": {
+                                  "$trim": {
+                                    "$ref": "request.aspectRatio"
+                                  }
+                                }
+                              },
+                              ":"
+                            ]
+                          }
+                        },
+                        2
+                      ]
+                    },
+                    {
+                      "$gte": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  ":"
+                                ]
+                              },
+                              0
+                            ]
+                          }
+                        },
+                        1
+                      ]
+                    },
+                    {
+                      "$lte": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  ":"
+                                ]
+                              },
+                              0
+                            ]
+                          }
+                        },
+                        300
+                      ]
+                    },
+                    {
+                      "$gte": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  ":"
+                                ]
+                              },
+                              1
+                            ]
+                          }
+                        },
+                        1
+                      ]
+                    },
+                    {
+                      "$lte": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  ":"
+                                ]
+                              },
+                              1
+                            ]
+                          }
+                        },
+                        300
+                      ]
+                    },
+                    {
+                      "$eq": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  ":"
+                                ]
+                              },
+                              0
+                            ]
+                          }
+                        },
+                        {
+                          "$toInt": {
+                            "$toFloat": {
+                              "$at": [
+                                {
+                                  "$split": [
+                                    {
+                                      "$lower": {
+                                        "$trim": {
+                                          "$ref": "request.aspectRatio"
+                                        }
+                                      }
+                                    },
+                                    ":"
+                                  ]
+                                },
+                                0
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$eq": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  ":"
+                                ]
+                              },
+                              1
+                            ]
+                          }
+                        },
+                        {
+                          "$toInt": {
+                            "$toFloat": {
+                              "$at": [
+                                {
+                                  "$split": [
+                                    {
+                                      "$lower": {
+                                        "$trim": {
+                                          "$ref": "request.aspectRatio"
+                                        }
+                                      }
+                                    },
+                                    ":"
+                                  ]
+                                },
+                                1
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$and": [
+                        {
+                          "$lte": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      ":"
+                                    ]
+                                  },
+                                  0
+                                ]
+                              }
+                            },
+                            {
+                              "$multiply": [
+                                {
+                                  "$toFloat": {
+                                    "$at": [
+                                      {
+                                        "$split": [
+                                          {
+                                            "$lower": {
+                                              "$trim": {
+                                                "$ref": "request.aspectRatio"
+                                              }
+                                            }
+                                          },
+                                          ":"
+                                        ]
+                                      },
+                                      1
+                                    ]
+                                  }
+                                },
+                                3
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "$lte": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      ":"
+                                    ]
+                                  },
+                                  1
+                                ]
+                              }
+                            },
+                            {
+                              "$multiply": [
+                                {
+                                  "$toFloat": {
+                                    "$at": [
+                                      {
+                                        "$split": [
+                                          {
+                                            "$lower": {
+                                              "$trim": {
+                                                "$ref": "request.aspectRatio"
+                                              }
+                                            }
+                                          },
+                                          ":"
+                                        ]
+                                      },
+                                      0
+                                    ]
+                                  }
+                                },
+                                3
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "message": "关闭 Prompt 增强时必须指定「宽x高」像素尺寸或具体 X:Y 比例"
+          }
+        ],
+        "create": {
+          "method": "POST",
+          "path": "/v1/images/generations",
+          "pathTemplate": {
+            "$if": {
+              "condition": {
+                "$gt": [
+                  {
+                    "$len": {
+                      "$ref": "request.images"
+                    }
+                  },
+                  0
+                ]
+              },
+              "then": "/v1/images/edits",
+              "else": "/v1/images/generations"
+            }
+          },
+          "contentType": "application/json",
+          "body": {
+            "model": {
+              "$ref": "request.model"
+            },
+            "prompt": {
+              "$ref": "request.prompt"
+            },
+            "n": {
+              "$if": {
+                "condition": {
+                  "$gt": [
+                    {
+                      "$ref": "request.imageCount"
+                    },
+                    0
+                  ]
+                },
+                "then": {
+                  "$ref": "request.imageCount"
+                },
+                "else": 1
+              }
+            },
+            "size": {
+              "$if": {
+                "condition": {
+                  "$and": [
+                    {
+                      "$eq": [
+                        {
+                          "$len": {
+                            "$split": [
+                              {
+                                "$lower": {
+                                  "$trim": {
+                                    "$ref": "request.aspectRatio"
+                                  }
+                                }
+                              },
+                              "x"
+                            ]
+                          }
+                        },
+                        2
+                      ]
+                    },
+                    {
+                      "$gt": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  "x"
+                                ]
+                              },
+                              0
+                            ]
+                          }
+                        },
+                        0
+                      ]
+                    },
+                    {
+                      "$gt": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  "x"
+                                ]
+                              },
+                              1
+                            ]
+                          }
+                        },
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "then": {
+                  "$lower": {
+                    "$trim": {
+                      "$ref": "request.aspectRatio"
+                    }
+                  }
+                },
+                "else": "auto"
+              }
+            },
+            "aspect_ratio": {
+              "$if": {
+                "condition": {
+                  "$or": [
+                    {
+                      "$and": [
+                        {
+                          "$eq": [
+                            {
+                              "$len": {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  "x"
+                                ]
+                              }
+                            },
+                            2
+                          ]
+                        },
+                        {
+                          "$gt": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  0
+                                ]
+                              }
+                            },
+                            0
+                          ]
+                        },
+                        {
+                          "$gt": [
+                            {
+                              "$toFloat": {
+                                "$at": [
+                                  {
+                                    "$split": [
+                                      {
+                                        "$lower": {
+                                          "$trim": {
+                                            "$ref": "request.aspectRatio"
+                                          }
+                                        }
+                                      },
+                                      "x"
+                                    ]
+                                  },
+                                  1
+                                ]
+                              }
+                            },
+                            0
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "$in": [
+                        {
+                          "$lower": {
+                            "$trim": {
+                              "$ref": "request.aspectRatio"
+                            }
+                          }
+                        },
+                        [
+                          "",
+                          "auto"
+                        ]
+                      ]
+                    }
+                  ]
+                },
+                "then": null,
+                "else": {
+                  "$lower": {
+                    "$trim": {
+                      "$ref": "request.aspectRatio"
+                    }
+                  }
+                }
+              }
+            },
+            "area": {
+              "$if": {
+                "condition": {
+                  "$and": [
+                    {
+                      "$eq": [
+                        {
+                          "$len": {
+                            "$split": [
+                              {
+                                "$lower": {
+                                  "$trim": {
+                                    "$ref": "request.aspectRatio"
+                                  }
+                                }
+                              },
+                              "x"
+                            ]
+                          }
+                        },
+                        2
+                      ]
+                    },
+                    {
+                      "$gt": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  "x"
+                                ]
+                              },
+                              0
+                            ]
+                          }
+                        },
+                        0
+                      ]
+                    },
+                    {
+                      "$gt": [
+                        {
+                          "$toFloat": {
+                            "$at": [
+                              {
+                                "$split": [
+                                  {
+                                    "$lower": {
+                                      "$trim": {
+                                        "$ref": "request.aspectRatio"
+                                      }
+                                    }
+                                  },
+                                  "x"
+                                ]
+                              },
+                              1
+                            ]
+                          }
+                        },
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "then": null,
+                "else": {
+                  "$if": {
+                    "condition": {
+                      "$in": [
+                        {
+                          "$upper": {
+                            "$trim": {
+                              "$ref": "request.resolution"
+                            }
+                          }
+                        },
+                        [
+                          "1K",
+                          "2K",
+                          "4K"
+                        ]
+                      ]
+                    },
+                    "then": {
+                      "$upper": {
+                        "$trim": {
+                          "$ref": "request.resolution"
+                        }
+                      }
+                    },
+                    "else": "2K"
+                  }
+                }
+              }
+            },
+            "images": {
+              "$if": {
+                "condition": {
+                  "$gt": [
+                    {
+                      "$len": {
+                        "$ref": "request.images"
+                      }
+                    },
+                    0
+                  ]
+                },
+                "then": {
+                  "$map": {
+                    "from": {
+                      "$sortByOrder": {
+                        "$ref": "request.images"
+                      }
+                    },
+                    "as": "media",
+                    "in": {
+                      "image_url": {
                         "$ref": "media.value"
                       }
                     }
                   }
                 },
-                "parameters": {
-                  "$omitEmpty": {
-                    "$ref": "request.providerOptions.minimax-image.parameters"
+                "else": null
+              }
+            },
+            "response_format": "url",
+            "output_format": {
+              "$omitEmpty": {
+                "$lower": {
+                  "$trim": {
+                    "$ref": "request.providerOptions.minimax-image.output_format"
+                  }
+                }
+              }
+            },
+            "output_compression": {
+              "$if": {
+                "condition": {
+                  "$ne": [
+                    {
+                      "$ref": "request.providerOptions.minimax-image.output_compression"
+                    },
+                    null
+                  ]
+                },
+                "then": {
+                  "$toInt": {
+                    "$ref": "request.providerOptions.minimax-image.output_compression"
+                  }
+                },
+                "else": null
+              }
+            },
+            "quality": null,
+            "background": null,
+            "disable_prompt_enhanced": {
+              "$if": {
+                "condition": {
+                  "$ne": [
+                    {
+                      "$ref": "request.providerOptions.minimax-image.disable_prompt_enhanced"
+                    },
+                    null
+                  ]
+                },
+                "then": {
+                  "$toBool": {
+                    "$ref": "request.providerOptions.minimax-image.disable_prompt_enhanced"
+                  }
+                },
+                "else": null
+              }
+            },
+            "aigc_watermark": {
+              "$if": {
+                "condition": {
+                  "$ne": [
+                    {
+                      "$ref": "request.providerOptions.minimax-image.aigc_watermark"
+                    },
+                    null
+                  ]
+                },
+                "then": {
+                  "$toBool": {
+                    "$ref": "request.providerOptions.minimax-image.aigc_watermark"
+                  }
+                },
+                "else": null
+              }
+            }
+          }
+        },
+        "response": {
+          "status": {
+            "$if": {
+              "condition": {
+                "$gt": [
+                  {
+                    "$len": {
+                      "$filter": {
+                        "from": {
+                          "$ref": "response.data"
+                        },
+                        "as": "item",
+                        "where": {
+                          "$or": [
+                            {
+                              "$ref": "item.url"
+                            },
+                            {
+                              "$ref": "item.b64_json"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  0
+                ]
+              },
+              "then": "succeeded",
+              "else": "failed"
+            }
+          },
+          "message": {
+            "$coalesce": [
+              {
+                "$ref": "response.error.message"
+              },
+              {
+                "$first": {
+                  "$map": {
+                    "from": {
+                      "$filter": {
+                        "from": {
+                          "$ref": "response.data"
+                        },
+                        "as": "item",
+                        "where": {
+                          "$ref": "item.error"
+                        }
+                      }
+                    },
+                    "as": "item",
+                    "in": {
+                      "$ref": "item.error.message"
+                    }
                   }
                 }
               },
               {
-                "$coalesce": [
-                  {
-                    "$ref": "request.providerOptions.minimax-image.body"
+                "$if": {
+                  "condition": {
+                    "$eq": [
+                      {
+                        "$len": {
+                          "$filter": {
+                            "from": {
+                              "$ref": "response.data"
+                            },
+                            "as": "item",
+                            "where": {
+                              "$or": [
+                                {
+                                  "$ref": "item.url"
+                                },
+                                {
+                                  "$ref": "item.b64_json"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      0
+                    ]
                   },
-                  {
-                    "$ref": "request.providerOptions.minimax-image.extra_body"
-                  },
-                  {}
-                ]
-              }
-            ]
-          }
-        },
-        "response": {
-          "status": "succeeded",
-          "images": {
-            "$coalesce": [
-              {
-                "$ref": "response.data"
-              },
-              {
-                "$ref": "response.output"
-              },
-              {
-                "$ref": "response.url"
+                  "then": "MiniMax H3 Image 没有返回可用图片",
+                  "else": null
+                }
               }
             ]
           },
+          "images": {
+            "$map": {
+              "from": {
+                "$filter": {
+                  "from": {
+                    "$ref": "response.data"
+                  },
+                  "as": "item",
+                  "where": {
+                    "$or": [
+                      {
+                        "$ref": "item.url"
+                      },
+                      {
+                        "$ref": "item.b64_json"
+                      }
+                    ]
+                  }
+                }
+              },
+              "as": "item",
+              "in": {
+                "url": {
+                  "$omitEmpty": {
+                    "$ref": "item.url"
+                  }
+                },
+                "dataUrl": {
+                  "$omitEmpty": {
+                    "$ref": "item.b64_json"
+                  }
+                },
+                "output_format": {
+                  "$omitEmpty": {
+                    "$ref": "response.output_format"
+                  }
+                }
+              }
+            }
+          },
+          "usage": {
+            "$ref": "response.usage"
+          },
+          "resultEphemeral": true,
           "errorPaths": [
             "error.code",
-            "code"
+            "error.type"
           ],
           "messagePaths": [
-            "error.message",
-            "message"
+            "error.message"
           ]
         }
       }

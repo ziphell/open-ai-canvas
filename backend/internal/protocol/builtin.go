@@ -395,7 +395,7 @@ func novitaVideosAdapter() Adapter {
 }
 
 func miniMaxVideosAdapter() Adapter {
-	info := metadata("minimax-video", "MiniMax 视频", "MiniMax", CapabilityVideo, "POST /v2/video_generation", "GET /v2/query/video_generation/{task_id}", "application/json")
+	info := metadata("minimax-video", "MiniMax H3 视频", "MiniMax", CapabilityVideo, "POST /v2/video_generation", "GET /v2/query/video_generation/{task_id}", "application/json")
 	info.Parameters = videoParams()
 	return videoAdapter(info, func(r GenerationRequest) (RequestSpec, error) {
 		content := []any{map[string]any{"type": "text", "text": r.Prompt}}
@@ -668,7 +668,7 @@ func parseAudioResponse(payload map[string]any) (CreateResult, error) {
 // 不能各自维护一份 failed/cancelled 列表，否则同一份响应会被任务和账单判成不同终态。
 func NormalizeStatus(raw string) Status {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "queued", "pending", "created", "submitted", "in_queue", "task_status_queued":
+	case "queued", "pending", "created", "submitted", "in_queue", "task_status_queued", "preparing", "queueing":
 		return StatusPending
 	case "running", "processing", "in_progress", "executing", "task_status_running", "task_status_processing":
 		return StatusProcessing

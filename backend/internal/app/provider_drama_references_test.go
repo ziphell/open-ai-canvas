@@ -55,7 +55,6 @@ func TestProviderDramaReferenceOfficialPayloads(t *testing.T) {
 		{protocol: "agnes-video", model: "agnes-video-2.5"},
 		{protocol: "km-kemei-video"},
 		{protocol: "dashscope-minimax-video", model: "MiniMax/MiniMax-H3", resolution: "768P"},
-		{protocol: "minimax-video", model: "MiniMax-H3"},
 		{protocol: "metaso-h3", model: "MiniMax-H3"},
 		{protocol: "volcengine-jimeng-video"},
 		{protocol: "wenew-h3-video", model: "h3_video", resolution: "768p"},
@@ -119,6 +118,27 @@ func TestProviderDramaReferenceOfficialPayloads(t *testing.T) {
 				t.Fatalf("non-prompt payload changed: before=%s after=%s", before, after)
 			}
 		})
+	}
+}
+
+// 官方 minimax-video 明确禁止首尾帧与多模态参考混用；短剧续接段若同时带上一段尾帧和角色参考图，
+// 必须在此处失败，由上层选择 metaso-h3 或调整参考策略。
+func TestProviderDramaMinimaxVideoRejectsMixedReferences(t *testing.T) {
+	input := dramaReferenceProviderInput("minimax-video", []providerMedia{
+		{ID: "first-frame", Role: "first_frame", URL: "https://media.example/frame.png"},
+		{ID: "hero", URL: "https://media.example/hero.png"},
+	}, dramaReferenceBinding{"参考图1", "hero"})
+	input.Config.Model = "MiniMax-H3"
+	input.Config.VQuality = "768P"
+	input.Metadata["videoEditOperation"] = "image_to_video"
+	input.Metadata["videoStartFrameNodeId"] = "first-frame"
+	adapter, ok := loadOfficialFallbackRegistry().Resolve("minimax-video")
+	if !ok {
+		t.Fatal("missing official adapter minimax-video")
+	}
+	_, err := adapter.BuildCreate(context.Background(), protocol.RequestContext{Request: protocolRequestFromInput(input)})
+	if err == nil || !strings.Contains(err.Error(), "不能混用") {
+		t.Fatalf("mixed references error = %v", err)
 	}
 }
 

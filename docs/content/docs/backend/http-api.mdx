@@ -1134,12 +1134,12 @@ Agent 已不再注入、召回或写入下列经验条目，记忆设置页只�
 
 ## 服务商目录 API
 
-均需管理员权限，返回统一信封。目录来自 `https://ai.yingce.tv/v1/catalog.json`（静态 JSON），`CANVAS_PROVIDER_CATALOG_DISABLED=1` 时关闭。
+均需管理员权限，返回统一信封。目录默认使用随应用内嵌的 `backend/internal/providercatalog/catalog.json`（由 `scripts/provider-catalog/catalog.json` 同步），编译进后端二进制，运行时不读取也不写入数据目录缓存；只有设置 `CANVAS_PROVIDER_CATALOG_URL` 时才从该地址拉取并落盘缓存，`CANVAS_PROVIDER_CATALOG_DISABLED=1` 时关闭。修改目录后需同步内嵌副本并重新构建服务端；远程模式下可在管理端刷新目录。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/admin/provider-catalog` | 返回推广期内（`startsAt ≤ now < endsAt`）的服务商，按 `rank` 排序；`source` 为 `live/cache/unavailable/disabled`；成本已按 1 元 = 1 积分换算为微积分；不支持的协议标记 `supported=false` |
-| POST | `/admin/provider-catalog/refresh` | 强制重新拉取，失败时沿用上次快照 |
+| POST | `/admin/provider-catalog/refresh` | 远程模式强制重新拉取，失败时沿用上次快照；内嵌模式直接返回内置目录 |
 | POST | `/admin/provider-catalog/:id/verify` | `{ apiKey }`，请求 `GET {baseUrl}/models`，返回 `upstreamModelCount`、`availableModels`、`missingModels`，不落库 |
 | POST | `/admin/provider-catalog/:id/install` | `{ name, apiKey, markupPercent, models: [{ modelKey, markupPercent? }], enabled }`，一次事务创建渠道、模型和规格档，返回 `{ channel }` |
 

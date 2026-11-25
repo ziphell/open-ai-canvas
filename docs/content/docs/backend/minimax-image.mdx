@@ -1,24 +1,24 @@
 ---
-title: MiniMax H3 图片
+title: MiniMax 图片
 description: MiniMax H3 Image 图片协议的渠道配置、参数映射、参考图编辑与失败语义
 ---
 
-# MiniMax H3 图片
+# MiniMax 图片
 
-`minimax-h3-image` 是独立声明式协议插件，接入 MiniMax 开放平台的 `MiniMax-H3-Image` 与 `MiniMax-H3-Image-Highspeed`。它使用 `/v1/images/generations` 与 `/v1/images/edits`，与旧 `minimax-image`（`/v1/image_generation`，`image-01`）是不同请求合同；两个插件并存，已配置的旧渠道不受影响，不按模型名称自动切换协议。
+`minimax-image` 是独立声明式协议插件，接入 MiniMax 开放平台的 `MiniMax-H3-Image` 与 `MiniMax-H3-Image-Highspeed`。它使用 `/v1/images/generations` 与 `/v1/images/edits`；旧的 `/v1/image_generation` 插件已删除，`minimax-image` 现在直接指向 H3 图片协议，不再按模型名称切换。
 
 ## 渠道配置
 
 | 配置 | 值 |
 | --- | --- |
-| 协议 | MiniMax H3 Image（`minimax-h3-image`） |
+| 协议 | MiniMax H3 Image（`minimax-image`） |
 | Base URL | 国内站 `https://api.minimax.cn`（默认）；国际站 `https://api.minimax.io` |
 | API Key | 与所选站点对应的 MiniMax API Key，按 Bearer 发送 |
 | 模型 ID | `MiniMax-H3-Image`、`MiniMax-H3-Image-Highspeed` |
 
-插件源码位于 `plugin-packages/minimax-h3-image/`，运行时从随应用分发的 `minimax-h3-image.yingce-plugin` 自动安装。更新包后重启后端；管理员停用的插件不会被更新过程自动启用。
+插件源码位于 `plugin-packages/minimax-image/`，运行时从随应用分发的 `minimax-image.yingce-plugin` 自动安装。更新包后重启后端；管理员停用的插件不会被更新过程自动启用。
 
-插件声明了图片参数合同（比例、1K/2K/4K 分辨率默认 2K、1–10 张、质量与透明背景停用、输出格式与压缩质量默认停用）。宿主尚未为该协议内置默认能力，新建渠道模型后请在「能力与参数」中按上述范围启用分辨率、关闭质量与透明背景、将生成数量上限设为 10，并关闭蒙版。
+插件声明了图片参数合同（比例、1K/2K/4K 分辨率默认 2K、1–10 张、质量与透明背景停用、输出格式、压缩质量、关闭 Prompt 增强与 AIGC 水印默认停用）。宿主尚未为该协议内置默认能力，新建渠道模型后请在「能力与参数」中按上述范围启用分辨率、关闭质量与透明背景、将生成数量上限设为 10，并关闭蒙版。
 
 ## 请求映射
 
@@ -29,9 +29,9 @@ description: MiniMax H3 Image 图片协议的渠道配置、参数映射、参�
 - 分辨率：`1K`、`2K`、`4K` 映射为 `area`，请求时规范为大写；未设置时发送 `2K`，避免落到上游默认的 `4K`。
 - 数量：`n`，1–10，未设置时为 1。
 - 参考图：1–16 张，按显式 `order` 映射为 `images[].image_url`，支持公网 URL 或 `data:image/...;base64,` Data URI；请求体总大小上限 64 MiB。
-- `response_format` 固定为 `url`。`output_format`（jpeg/png/webp）与 `output_compression`（0–100）只能通过 `providerOptions.minimax-h3-image` 设置，默认不发送。
+- `response_format` 固定为 `url`。`output_format`（jpeg/png/webp）、`output_compression`（0–100）、`disable_prompt_enhanced` 与 `aigc_watermark` 只能通过 `providerOptions.minimax-image` 设置，默认不发送。
 
-不支持：蒙版（`mask` 角色在校验阶段明确拒绝）、透明背景、质量档位、流式输出和 `disable_prompt_enhanced`。`quality`、`background` 在模板中显式占位但不发送，防止宿主按 OpenAI 规则补全。区域改色等局部修改只能通过提示词描述。
+不支持：蒙版（`mask` 角色在校验阶段明确拒绝）、透明背景、质量档位、流式输出和 `response_format=b64_json`。`quality`、`background` 在模板中显式占位但不发送，防止宿主按 OpenAI 规则补全。关闭 Prompt 增强（`disable_prompt_enhanced=true`）时必须显式给出「宽x高」像素尺寸或具体 `X:Y` 比例，否则本地校验直接失败。区域改色等局部修改只能通过提示词描述。
 
 ## 响应与失败
 

@@ -58,6 +58,7 @@ type ManifestResponse struct {
 	// 每个对象可携带 data（Base64 音频片段）、code/message 和 usage。
 	StreamedJSONAudio bool `json:"streamedJsonAudio,omitempty"`
 	TaskID            any  `json:"taskId,omitempty"`
+	ResultID          any  `json:"resultId,omitempty"`
 	Status            any  `json:"status,omitempty"`
 	Message           any  `json:"message,omitempty"`
 	// Stage 映射上游可读的排队/生成阶段文案，宿主只用于任务进度展示。

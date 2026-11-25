@@ -11,7 +11,7 @@ import (
 // 防止宿主的 OpenAI 补全逻辑把 quality/background 或像素 size 混进请求。
 func minimaxH3Adapter(t *testing.T) Adapter {
 	t.Helper()
-	return officialPackageAdapter(t, "minimax-h3-image.yingce-plugin", "minimax-h3-image")
+	return officialPackageAdapter(t, "minimax-image.yingce-plugin", "minimax-image")
 }
 
 func minimaxH3Body(t *testing.T, request GenerationRequest) (RequestSpec, map[string]any) {
@@ -164,7 +164,7 @@ func TestMiniMaxH3ImageRejectsUnsupportedInputs(t *testing.T) {
 		{name: "无法识别的尺寸", mutate: func(r *GenerationRequest) { r.AspectRatio = "wide" }, message: "1:3 到 3:1"},
 		{name: "不支持的分辨率", mutate: func(r *GenerationRequest) { r.Resolution = "8K" }, message: "1K、2K、4K"},
 		{name: "不支持的输出格式", mutate: func(r *GenerationRequest) {
-			r.ProviderOptions = map[string]map[string]any{"minimax-h3-image": {"output_format": "gif"}}
+			r.ProviderOptions = map[string]map[string]any{"minimax-image": {"output_format": "gif"}}
 		}, message: "jpeg、png、webp"},
 	}
 	adapter := minimaxH3Adapter(t)
@@ -277,7 +277,7 @@ func TestMiniMaxH3ImageParameterContract(t *testing.T) {
 		t.Fatalf("GPT Image 模板参数应能映射到 H3 命名空间: %v", err)
 	}
 	for _, p := range resolved {
-		if p.Name == "outputFormat" && p.Binding != "providerOptions.minimax-h3-image.output_format" {
+		if p.Name == "outputFormat" && p.Binding != "providerOptions.minimax-image.output_format" {
 			t.Fatalf("outputFormat binding = %q, 必须使用插件自己的绑定", p.Binding)
 		}
 	}

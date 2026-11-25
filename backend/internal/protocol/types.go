@@ -114,10 +114,13 @@ type RequestContext struct {
 }
 
 type PollContext struct {
-	BaseURL  string
-	Model    string
-	Request  GenerationRequest
-	TaskID   string
+	BaseURL string
+	Model   string
+	Request GenerationRequest
+	TaskID  string
+	// ResultID 是从轮询响应中提取的上游结果标识（如文件 ID），
+	// 只用于独立 result 操作，不能替代轮询用的 TaskID。
+	ResultID string
 	Metadata map[string]any
 }
 
@@ -141,10 +144,11 @@ type RequestFilePart struct {
 }
 
 type CreateResult struct {
-	TaskID  string  `json:"taskId,omitempty"`
-	Status  Status  `json:"status"`
-	Result  *Result `json:"result,omitempty"`
-	Message string  `json:"message,omitempty"`
+	TaskID   string  `json:"taskId,omitempty"`
+	ResultID string  `json:"resultId,omitempty"`
+	Status   Status  `json:"status"`
+	Result   *Result `json:"result,omitempty"`
+	Message  string  `json:"message,omitempty"`
 	// Stage 是上游给出的可读排队/生成阶段（如“候车 · 前面 3 条”），只用于展示。
 	Stage string `json:"stage,omitempty"`
 	// QueueAhead 是排在本任务前面的条数；-1 表示上游没有给出。
@@ -153,6 +157,7 @@ type CreateResult struct {
 
 type PollResult struct {
 	TaskID     string  `json:"taskId,omitempty"`
+	ResultID   string  `json:"resultId,omitempty"`
 	Status     Status  `json:"status"`
 	Result     *Result `json:"result,omitempty"`
 	Message    string  `json:"message,omitempty"`

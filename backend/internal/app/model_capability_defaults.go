@@ -239,7 +239,8 @@ func DefaultModelCapabilityConfigForModel(protocol string, modelName string) *Mo
 		video.Ratios = []string{"16:9", "9:16", "1:1"}
 		video.Resolutions = []string{"1080p"}
 		video.DefaultResolution = "1080p"
-	case model.ChannelInterfaceMiniMaxVideo, model.ChannelInterfaceType("metaso-h3"):
+	case model.ChannelInterfaceMiniMaxVideo:
+		// MiniMax H3 原生 V2：/v2/video_generation + /v2/query/video_generation/{taskId}。
 		video.Operations = append(video.Operations, "reference_to_video")
 		video.References.MaxImages = 9
 		video.References.MaxImageBytes = 30 * 1024 * 1024
@@ -249,7 +250,32 @@ func DefaultModelCapabilityConfigForModel(protocol string, modelName string) *Mo
 		video.References.MaxAudios = 3
 		video.References.MaxAudioBytes = 15 * 1024 * 1024
 		video.References.MaxAudioDuration = 15
-		video.Duration = VideoDurationConfig{Selection: "enum", Values: []int{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30}, Default: 5}
+		video.Duration = VideoDurationConfig{Selection: "range", Min: 4, Max: 15, Step: 1, Default: 5}
+		video.Ratios = []string{"adaptive", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"}
+		video.DefaultRatio = "16:9"
+		video.Resolutions = []string{"768P", "2K"}
+		video.DefaultResolution = "768P"
+		video.GenerateAudio = VideoBooleanConfig{Supported: true, Default: true}
+		video.Watermark = VideoBooleanConfig{Supported: true, Default: false}
+		// H3 支持 768P/2K；Highspeed、Lite、Max 只支持 480P/768P，Max 最短 5 秒。
+		switch strings.ToLower(strings.TrimSpace(modelName)) {
+		case "minimax-h3-max":
+			video.Duration.Min = 5
+			video.Resolutions = []string{"480P", "768P"}
+		case "minimax-h3-highspeed", "minimax-h3-lite":
+			video.Resolutions = []string{"480P", "768P"}
+		}
+	case model.ChannelInterfaceType("metaso-h3"):
+		video.Operations = append(video.Operations, "reference_to_video")
+		video.References.MaxImages = 9
+		video.References.MaxImageBytes = 30 * 1024 * 1024
+		video.References.MaxVideos = 3
+		video.References.MaxVideoBytes = 50 * 1024 * 1024
+		video.References.MaxVideoDuration = 15
+		video.References.MaxAudios = 3
+		video.References.MaxAudioBytes = 15 * 1024 * 1024
+		video.References.MaxAudioDuration = 15
+		video.Duration = VideoDurationConfig{Selection: "range", Min: 4, Max: 30, Step: 1, Default: 5}
 		video.Ratios = []string{"adaptive", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"}
 		video.DefaultRatio = "16:9"
 		video.Resolutions = []string{"768P", "2K"}

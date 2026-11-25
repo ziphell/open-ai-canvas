@@ -864,8 +864,8 @@ add({
   response: { status: "succeeded", images: coalesce(ref("response.data"), ref("response.images")), errorPaths: ["error.code"], messagePaths: ["error.message", "message"] }
 });
 
-// MiniMax H3 Image 使用 OpenAI 风格的 /v1/images/generations 与 /v1/images/edits，
-// 与旧 minimax-image（/v1/image_generation）是不同线协议，独立成包以免影响已配置的旧渠道。
+// MiniMax H3 Image 使用 OpenAI 风格的 /v1/images/generations 与 /v1/images/edits；
+// 旧 minimax-image（/v1/image_generation）已删除，本包直接使用 minimax-image 这一历史 provider ID。
 const minimaxH3Models = ["MiniMax-H3-Image", "MiniMax-H3-Image-Highspeed"];
 const minimaxH3Areas = ["1K", "2K", "4K"];
 const minimaxH3Aspect = lower(trim(ref("request.aspectRatio")));
@@ -889,11 +889,11 @@ const minimaxH3ValidRatio = and(
   minimaxH3IsInteger(minimaxH3RatioWidth), minimaxH3IsInteger(minimaxH3RatioHeight), minimaxH3WithinRatio(minimaxH3RatioWidth, minimaxH3RatioHeight)
 );
 const minimaxH3Resolution = { $upper: trim(ref("request.resolution")) };
-const minimaxH3OptionPath = "request.providerOptions.minimax-h3-image";
+const minimaxH3OptionPath = "request.providerOptions.minimax-image";
 const minimaxH3SuccessItems = filter(ref("response.data"), "item", { $or: [ref("item.url"), ref("item.b64_json")] });
 
 add({
-  id: "minimax-h3-image", providerId: "minimax-h3-image", name: "MiniMax H3 Image", vendor: "MiniMax", capability: "image",
+  id: "minimax-image", providerId: "minimax-image", name: "MiniMax H3 Image", vendor: "MiniMax", capability: "image",
   baseUrl: "https://api.minimax.cn", auth: bearer, requiresPublicMediaUrls: false,
   imageParameters: [
     { name: "size", label: "画幅比例", type: "string", binding: "aspectRatio", encoding: "ratio", values: ["1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3", "21:9", "3:1", "1:3"], default: "1:1", pricing: true },
@@ -902,8 +902,10 @@ add({
     { name: "quality", label: "图片质量", type: "string", binding: "quality", enabled: false },
     { name: "transparentBackground", label: "透明背景", type: "boolean", binding: "transparentBackground", default: false, enabled: false },
     // 渠道套用 GPT Image 能力模板时会带上 outputFormat/outputCompression；这里声明本插件自己的安全映射，默认停用。
-    { name: "outputFormat", label: "输出格式", type: "string", binding: "providerOptions.minimax-h3-image.output_format", values: ["jpeg", "png", "webp"], default: "jpeg", enabled: false },
-    { name: "outputCompression", label: "压缩质量", type: "integer", binding: "providerOptions.minimax-h3-image.output_compression", min: 0, max: 100, step: 1, enabled: false }
+    { name: "outputFormat", label: "输出格式", type: "string", binding: "providerOptions.minimax-image.output_format", values: ["jpeg", "png", "webp"], default: "jpeg", enabled: false },
+    { name: "outputCompression", label: "压缩质量", type: "integer", binding: "providerOptions.minimax-image.output_compression", min: 0, max: 100, step: 1, enabled: false },
+    { name: "disablePromptEnhanced", label: "关闭 Prompt 增强", type: "boolean", binding: "providerOptions.minimax-image.disable_prompt_enhanced", default: false, enabled: false },
+    { name: "aigcWatermark", label: "AIGC 水印", type: "boolean", binding: "providerOptions.minimax-image.aigc_watermark", default: false, enabled: false }
   ],
   params: [
     ["model", "string", true, "model", "MiniMax-H3-Image 或 MiniMax-H3-Image-Highspeed。"],
@@ -912,7 +914,7 @@ add({
     ["imageCount", "integer", false, "n", "输出数量，1 到 10，未设置时为 1。"],
     ["aspectRatio", "string", false, "aspect_ratio / size", "X:Y 比例（1 到 300 的整数，1:3 到 3:1）映射到 aspect_ratio，并固定 size=auto；宽x高像素尺寸映射到 size，不再发送 aspect_ratio 和 area。"],
     ["resolution", "string", false, "area", "分辨率档位 1K、2K、4K；未设置时为 2K，避免落到上游默认的 4K。"],
-    ["providerOptions", "object", false, "output_format / output_compression", "仅开放 providerOptions.minimax-h3-image.output_format（jpeg/png/webp）与 output_compression（0-100）。"]
+    ["providerOptions", "object", false, "output_format / output_compression / disable_prompt_enhanced / aigc_watermark", "仅开放 providerOptions.minimax-image.output_format（jpeg/png/webp）、output_compression（0-100）、disable_prompt_enhanced 与 aigc_watermark。"]
   ],
   validations: [
     { assert: { $in: [ref("request.model"), minimaxH3Models] }, message: "MiniMax H3 Image 仅支持 MiniMax-H3-Image 或 MiniMax-H3-Image-Highspeed" },
@@ -922,7 +924,11 @@ add({
     { assert: { $or: [eq(ref("request.imageCount"), null), eq(ref("request.imageCount"), 0), and(gte(ref("request.imageCount"), 1), lte(ref("request.imageCount"), 10))] }, message: "MiniMax H3 Image 生成数量必须为 1 到 10" },
     { assert: { $or: [{ $in: [minimaxH3Aspect, ["", "auto"]] }, minimaxH3ValidRatio, minimaxH3ValidPixelSize] }, message: "MiniMax H3 Image 比例须在 1:3 到 3:1 之间；像素尺寸须为「宽x高」整数，总像素 655360 到 20000000" },
     { assert: { $in: [minimaxH3Resolution, ["", "AUTO", ...minimaxH3Areas]] }, message: "MiniMax H3 Image 分辨率仅支持 1K、2K、4K" },
-    { assert: { $in: [coalesce(lower(trim(ref(`${minimaxH3OptionPath}.output_format`))), "jpeg"), ["jpeg", "jpg", "png", "webp"]] }, message: "MiniMax H3 Image 输出格式仅支持 jpeg、png、webp" }
+    { assert: { $in: [coalesce(lower(trim(ref(`${minimaxH3OptionPath}.output_format`))), "jpeg"), ["jpeg", "jpg", "png", "webp"]] }, message: "MiniMax H3 Image 输出格式仅支持 jpeg、png、webp" },
+    {
+      assert: { $or: [{ $not: { $toBool: ref(`${minimaxH3OptionPath}.disable_prompt_enhanced`) } }, minimaxH3ValidPixelSize, minimaxH3ValidRatio] },
+      message: "关闭 Prompt 增强时必须指定「宽x高」像素尺寸或具体 X:Y 比例"
+    }
   ],
   create: {
     method: "POST",
@@ -942,6 +948,8 @@ add({
       response_format: "url",
       output_format: omit(lower(trim(ref(`${minimaxH3OptionPath}.output_format`)))),
       output_compression: conditional({ $ne: [ref(`${minimaxH3OptionPath}.output_compression`), null] }, toInt(ref(`${minimaxH3OptionPath}.output_compression`))),
+      disable_prompt_enhanced: conditional({ $ne: [ref(`${minimaxH3OptionPath}.disable_prompt_enhanced`), null] }, { $toBool: ref(`${minimaxH3OptionPath}.disable_prompt_enhanced`) }),
+      aigc_watermark: conditional({ $ne: [ref(`${minimaxH3OptionPath}.aigc_watermark`), null] }, { $toBool: ref(`${minimaxH3OptionPath}.aigc_watermark`) }),
       // 显式占位但不发送：阻止宿主按 OpenAI 规则补 quality/background，H3 不支持这两个字段。
       quality: null,
       background: null
@@ -961,7 +969,7 @@ add({
     errorPaths: ["error.code", "error.type"],
     messagePaths: ["error.message"]
   },
-  notes: `适配 MiniMax 开放平台 H3 图片接口，模型为 MiniMax-H3-Image 与 MiniMax-H3-Image-Highspeed（参数和限制相同）。默认 Base URL 为国内站 https://api.minimax.cn，国际站可改为 https://api.minimax.io；API Key 需与站点对应。\n\n无参考图走 POST /v1/images/generations，有参考图走 POST /v1/images/edits（JSON，images[].image_url），参考图 1 到 16 张、按 order 保持顺序，支持公网 URL 或 data URI；请求体总大小上限 64 MiB。不支持 mask、透明背景和质量档位：mask 会在校验阶段明确拒绝，quality/background 不会发送。区域改色等局部修改只能通过提示词描述实现。\n\n比例输入发送 size=auto + aspect_ratio + area；「宽x高」像素输入只发送 size（总像素 655360 到 20000000，比例 1:3 到 3:1），不发送 aspect_ratio 与 area。area 未设置时固定发送 2K，避免落到上游默认的 4K。output_format 与 output_compression 只能通过本插件 providerOptions 命名空间设置，默认不发送（上游默认 jpeg、95）。\n\n同步返回，response_format 固定为 url；图片 URL 不保证长期可用，已声明 resultEphemeral，由宿主立即下载持久化。data[] 中只有 error 的失败项会被跳过，至少一张成功即成功；全部失败时上游返回 402/422/500，按 HTTP 错误失败。usage 原样保留供核对，不改写本地计费规则。\n\n风险：上游最长处理 600 秒，而宿主请求超时固定为 5 分钟，4K 多图可能先超时；上游接口不幂等，客户端超时或断开后仍会完成生成并对成功图片扣费，重试会再次扣费。\n\n官方接口：[文生图](https://platform.minimax.io/docs/api-reference/image-generation-h3-generations)、[图片编辑](https://platform.minimax.io/docs/api-reference/image-generation-h3-edits)、[国内站图片生成指南](https://platform.minimax.cn/docs/guides/image-generation)。`
+  notes: `适配 MiniMax 开放平台 H3 图片接口，模型为 MiniMax-H3-Image 与 MiniMax-H3-Image-Highspeed（参数和限制相同）。默认 Base URL 为国内站 https://api.minimax.cn，国际站可改为 https://api.minimax.io；API Key 需与站点对应。\n\n无参考图走 POST /v1/images/generations，有参考图走 POST /v1/images/edits（JSON，images[].image_url），参考图 1 到 16 张、按 order 保持顺序，支持公网 URL 或 data URI；请求体总大小上限 64 MiB。不支持 mask、透明背景和质量档位：mask 会在校验阶段明确拒绝，quality/background 不会发送。区域改色等局部修改只能通过提示词描述实现。\n\n比例输入发送 size=auto + aspect_ratio + area；「宽x高」像素输入只发送 size（总像素 655360 到 20000000，比例 1:3 到 3:1），不发送 aspect_ratio 与 area。area 未设置时固定发送 2K，避免落到上游默认的 4K。output_format、output_compression、disable_prompt_enhanced 与 aigc_watermark 只能通过本插件 providerOptions 命名空间设置，默认不发送（上游默认 jpeg、95、开启增强、无水印）；关闭 Prompt 增强时必须显式给出「宽x高」或具体比例。仍不支持「stream」与「response_format=b64_json」。\n\n同步返回，response_format 固定为 url；图片 URL 不保证长期可用，已声明 resultEphemeral，由宿主立即下载持久化。data[] 中只有 error 的失败项会被跳过，至少一张成功即成功；全部失败时上游返回 402/422/500，按 HTTP 错误失败。usage 原样保留供核对，不改写本地计费规则。\n\n风险：上游最长处理 600 秒，而宿主请求超时固定为 5 分钟，4K 多图可能先超时；上游接口不幂等，客户端超时或断开后仍会完成生成并对成功图片扣费，重试会再次扣费。\n\n官方接口：[文生图](https://platform.minimax.io/docs/api-reference/image-generation-h3-generations)、[图片编辑](https://platform.minimax.io/docs/api-reference/image-generation-h3-edits)、[国内站图片生成指南](https://platform.minimax.cn/docs/guides/image-generation)。`
 });
 
 const minimaxInputs = coalesce({ $concatArrays: [
@@ -1245,7 +1253,6 @@ add({
 
 for (const [id, name, vendor, capability, baseUrl, createPath, pollPath, requestShape] of [
   ["vertex-imagen", "Vertex Imagen", "Google Cloud", "image", "https://{location}-aiplatform.googleapis.com", "/v1/projects/{{request.providerOptions.vertex-imagen.project}}/locations/{{request.providerOptions.vertex-imagen.location}}/publishers/google/models/{{model}}:predict", null, "instances+parameters"],
-  ["minimax-image", "MiniMax Image", "MiniMax", "image", "https://api.minimax.io", "/v1/image_generation", null, "model-specific image body"],
   ["kling-image", "Kling Image", "Kuaishou", "image", "https://api.klingai.com", "/v1/images/generations", "/v1/images/generations/{{taskId}}", "task JSON"],
   ["zhipu-cogview", "智谱 CogView", "Zhipu AI", "image", "https://open.bigmodel.cn/api/paas", "/v4/images/generations", null, "OpenAI-like image JSON"],
   ["bfl-flux", "Black Forest Labs FLUX", "Black Forest Labs", "image", "https://api.bfl.ai", "/v1/{{model}}", "/v1/get_result", "async model schema"],

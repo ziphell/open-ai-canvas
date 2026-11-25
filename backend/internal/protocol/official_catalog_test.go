@@ -227,7 +227,7 @@ func TestOfficialUberLLMChatProfile(t *testing.T) {
 }
 
 func TestOfficialMiniMaxH3ImageProfile(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", "plugin-packages", "minimax-h3-image.yingce-plugin"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "plugin-packages", "minimax-image.yingce-plugin"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,20 +235,16 @@ func TestOfficialMiniMaxH3ImageProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pkg.Manifest.Metadata.ID != "minimax-h3-image" || len(pkg.Manifest.Contributes.Providers) != 1 {
+	if pkg.Manifest.Metadata.ID != "minimax-image" || len(pkg.Manifest.Contributes.Providers) != 1 {
 		t.Fatalf("MiniMax H3 Image manifest = %#v", pkg.Manifest.Metadata)
 	}
 	provider := pkg.Manifest.Contributes.Providers[0]
-	// 独立 provider ID，与旧 minimax-image（/v1/image_generation）和 openai-image 共存。
-	if provider.ID != "minimax-h3-image" || provider.BaseURL != "https://api.minimax.cn" || provider.Auth.Type != "bearer" || provider.Auth.Field != "apiKey" || provider.RequiresPublicMediaURLs {
+	// 旧的 /v1/image_generation 插件已删除，minimax-image 直接指向 H3 图片协议。
+	if provider.ID != "minimax-image" || provider.BaseURL != "https://api.minimax.cn" || provider.Auth.Type != "bearer" || provider.Auth.Field != "apiKey" || provider.RequiresPublicMediaURLs {
 		t.Fatalf("MiniMax H3 Image provider metadata = %#v", provider)
 	}
-	legacy := officialPackageAdapter(t, "minimax-image.yingce-plugin", "minimax-image")
-	if legacy.Metadata().Create != "POST /v1/image_generation" {
-		t.Fatalf("legacy minimax-image create = %q, 旧协议必须保持不变", legacy.Metadata().Create)
-	}
 
-	adapter := officialPackageAdapter(t, "minimax-h3-image.yingce-plugin", "minimax-h3-image")
+	adapter := officialPackageAdapter(t, "minimax-image.yingce-plugin", "minimax-image")
 	for _, model := range []string{"MiniMax-H3-Image", "MiniMax-H3-Image-Highspeed"} {
 		spec, err := adapter.BuildCreate(context.Background(), RequestContext{Request: GenerationRequest{Model: model, Prompt: "hello", AspectRatio: "1:1"}})
 		if err != nil {
@@ -380,7 +376,7 @@ func TestOfficialVideoProfilesPreserveExplicitMediaRoles(t *testing.T) {
 		assert      func(t *testing.T, spec RequestSpec)
 	}{
 		{
-			packageName: "minimax-hailuo-video-v2.yingce-plugin", providerID: "minimax-video", model: "MiniMax-H3", resolution: "1080P",
+			packageName: "minimax-video.yingce-plugin", providerID: "minimax-video", model: "MiniMax-H3", resolution: "768P",
 			assert: func(t *testing.T, spec RequestSpec) {
 				body := manifestTestBody(t, spec)
 				content, _ := body["content"].([]any)
@@ -389,7 +385,7 @@ func TestOfficialVideoProfilesPreserveExplicitMediaRoles(t *testing.T) {
 				}
 				first, _ := content[1].(map[string]any)
 				last, _ := content[2].(map[string]any)
-				if first["role"] != "first_frame" || last["role"] != "last_frame" || body["ratio"] != "adaptive" || body["resolution"] != "1080P" {
+				if first["role"] != "first_frame" || last["role"] != "last_frame" || body["ratio"] != "adaptive" || body["resolution"] != "768P" {
 					t.Fatalf("MiniMax role payload = %#v", body)
 				}
 			},

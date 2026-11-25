@@ -112,7 +112,7 @@ func attachProtocolUsage(output map[string]interface{}, mode string, result *pro
 // finishProtocolAdapterResult 优先消费 create/poll 已返回的内联或 URL 结果，只有插件明确声明独立结果端点时才下载。
 // 空响应或下载失败必须向上失败，不能生成伪素材；application/octet-stream 仅表示传输层未知类型，
 // 不会把未知内容伪装成具体图片、视频或音频 MIME。
-func finishProtocolAdapterResult(ctx context.Context, input canvasGenerationInput, adapter protocol.Adapter, request protocol.GenerationRequest, taskID string, result *protocol.Result, pollPolicy videoPollPolicy) (map[string]interface{}, error) {
+func finishProtocolAdapterResult(ctx context.Context, input canvasGenerationInput, adapter protocol.Adapter, request protocol.GenerationRequest, taskID string, resultID string, result *protocol.Result, pollPolicy videoPollPolicy) (map[string]interface{}, error) {
 	if protocolResultHasOutput(input.Mode, result) {
 		if err := recordProtocolImageUsage(ctx, input, request, result); err != nil {
 			return nil, err
@@ -123,7 +123,7 @@ func finishProtocolAdapterResult(ctx context.Context, input canvasGenerationInpu
 	if !ok {
 		return finishProtocolResult(ctx, input.Config, input.Mode, taskID, result, pollPolicy)
 	}
-	spec, err := resultAdapter.BuildResult(ctx, protocol.PollContext{BaseURL: input.Config.BaseURL, Model: request.Model, Request: request, TaskID: taskID})
+	spec, err := resultAdapter.BuildResult(ctx, protocol.PollContext{BaseURL: input.Config.BaseURL, Model: request.Model, Request: request, TaskID: taskID, ResultID: resultID})
 	if err != nil {
 		return nil, err
 	}

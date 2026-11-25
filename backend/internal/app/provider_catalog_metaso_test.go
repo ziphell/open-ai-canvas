@@ -13,11 +13,22 @@ func TestMetasoCatalogBuild(t *testing.T) {
 		t.Fatal(err)
 	}
 	catalog, warnings, err := providercatalog.Parse(body, providercatalog.DefaultLogoBase)
-	if err != nil || len(warnings) > 0 || len(catalog.Providers) != 1 {
+	if err != nil || len(warnings) > 0 {
 		t.Fatalf("parse: %v, %v", err, warnings)
 	}
+	var provider providercatalog.Provider
+	found := false
+	for _, item := range catalog.Providers {
+		if item.ID == "metaso" {
+			provider, found = item, true
+			break
+		}
+	}
+	if !found || len(provider.Models) == 0 {
+		t.Fatalf("metaso provider missing: %#v", catalog.Providers)
+	}
 	svc, _ := newChannelModelTestService(t)
-	entry := catalog.Providers[0].Models[0]
+	entry := provider.Models[0]
 	item, tiers, err := svc.buildCatalogChannelModel(&model.ModelChannel{ID: "test"}, entry, 3000, 0)
 	if err != nil {
 		t.Fatal(err)

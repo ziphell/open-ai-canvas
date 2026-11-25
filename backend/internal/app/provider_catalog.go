@@ -1,4 +1,4 @@
-// 服务商目录：读取 ai.yingce.tv 托管的推荐服务商，验证管理员 Key，并一键创建
+// 服务商目录：读取仓库维护的推荐服务商目录，验证管理员 Key，并一键创建
 // 系统渠道 + 推荐模型 + 规格档（成本与加价售价）。
 //
 // 目录只提供模板；Base URL、协议、成本一律从服务端快照重新读取，不信任浏览器传值。
@@ -118,7 +118,7 @@ func (s *Service) AdminProviderCatalog(ctx context.Context, actor *model.User, r
 	}
 	view := &ProviderCatalogView{Source: snapshot.State, Tags: []providercatalog.Tag{}, Providers: []ProviderCatalogItem{}}
 	if snapshot.State == providercatalog.SourceUnavailable {
-		view.Notice = "无法访问 ai.yingce.tv 服务商目录，请确认远程目录已部署且 HTTPS 可用。可继续使用自定义配置。"
+		view.Notice = "无法加载服务商目录，请检查内置目录文件或已配置的远程目录地址。可继续使用自定义配置。"
 	} else if snapshot.State == providercatalog.SourceCache {
 		view.Notice = "远程目录暂不可用，正在使用本地缓存。"
 	}

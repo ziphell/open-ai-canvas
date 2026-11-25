@@ -25,22 +25,25 @@ export async function createMiniMaxVideoTask(
     const videoUrls = await Promise.all(videoReferences.slice(0, 3).map((video) => resolveMiniMaxMediaUrl(video, "参考视频")));
     const audioUrls = await Promise.all(audioReferences.slice(0, 3).map((audio) => resolveMiniMaxMediaUrl(audio, "参考音频")));
     const content: Array<Record<string, unknown>> = [{ type: "text", text: prompt.trim() }];
-    const imagePlan = resolveVideoImageReferences(references.slice(0, 9), options, { videoCount: videoUrls.length, audioCount: audioUrls.length });
+    const imagePlan = resolveVideoImageReferences(references.slice(0, 9), options, { videoCount: videoUrls.length, audioCount: audioUrls.length, inferFrames: false });
     const frameMode = imagePlan.some(({ role }) => role === "first_frame" || role === "last_frame");
+    const hasReferenceMedia = videoUrls.length > 0 || audioUrls.length > 0 || imagePlan.some(({ role }) => role === "reference_image");
+    if (frameMode && hasReferenceMedia) throw new Error("MiniMax 图生视频（首帧/尾帧）与多模态参考不能混用，请只保留首尾帧或改用参考生视频");
     imageUrls.forEach((url, index) => {
-        const role = imagePlan[index]?.role || "reference_image";
-        if (frameMode && role === "reference_image") throw new Error("MiniMax 首尾帧模式不能混合未标记的参考图");
-        content.push({ type: "image_url", image_url: { url }, role });
+        content.push({ type: "image_url", image_url: { url }, role: imagePlan[index]?.role || "reference_image" });
     });
     videoUrls.forEach((url) => content.push({ type: "video_url", video_url: { url }, role: "reference_video" }));
     audioUrls.forEach((url) => content.push({ type: "audio_url", audio_url: { url }, role: "reference_audio" }));
+    const modelName = modelOptionName(model);
+    const hasMedia = content.length > 1;
     const payload = {
-        model: modelOptionName(model),
+        model: modelName,
         content,
-        resolution: normalizeMiniMaxResolution(config.vquality),
-        duration: normalizeMiniMaxDuration(config.videoSeconds),
-        ratio: normalizeMiniMaxRatio(config.size, frameMode),
+        resolution: normalizeMiniMaxResolution(config.vquality, modelName),
+        duration: normalizeMiniMaxDuration(config.videoSeconds, modelName),
+        ratio: normalizeMiniMaxRatio(config.size, { frameMode, hasMedia, isLite: /minimax-h3-lite$/i.test(modelName.trim()) }),
         aigc_watermark: boolConfig(config.videoWatermark, false),
+        generate_audio: boolConfig(config.videoGenerateAudio, true),
     };
     try {
         const created = await deps.transport.post<MiniMaxVideoCreateResponse>(miniMaxVideoUrl(config, "/video_generation"), payload, options);
@@ -77,22 +80,30 @@ function miniMaxVideoUrl(config: ResolvedAiConfig, path: string) {
     return /\/v2$/i.test(base) ? `${base}${path}` : `${base}/v2${path}`;
 }
 
-function normalizeMiniMaxResolution(value: string) {
+function normalizeMiniMaxResolution(value: string, model: string) {
     const normalized = value.trim().toLowerCase();
-    return ["2k", "4k", "high", "1080", "1080p", "1440p", "2160p"].includes(normalized) ? "2K" : "768P";
+    if (model.trim().toLowerCase() === "minimax-h3") {
+        return ["2k", "4k", "high", "1080", "1080p", "1440p", "2160p"].includes(normalized) ? "2K" : "768P";
+    }
+    return ["480", "480p"].includes(normalized) ? "480P" : "768P";
 }
 
-function normalizeMiniMaxDuration(value: string) {
+function normalizeMiniMaxDuration(value: string, model: string) {
     const seconds = Math.floor(Number(value) || 5);
-    return Math.max(4, Math.min(30, seconds));
+    const min = /minimax-h3-max$/i.test(model.trim()) ? 5 : 4;
+    return Math.max(min, Math.min(15, seconds));
 }
 
-function normalizeMiniMaxRatio(value: string, frameMode: boolean) {
-    if (frameMode) return "adaptive";
-    return ["adaptive", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"].includes(value) ? value : "16:9";
+function normalizeMiniMaxRatio(value: string, mode: { frameMode: boolean; hasMedia: boolean; isLite: boolean }) {
+    const concrete = ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"];
+    if (mode.frameMode) return "adaptive";
+    if (!mode.hasMedia) return concrete.includes(value) ? value : "16:9";
+    if (concrete.includes(value)) return value;
+    if (value === "adaptive" && !mode.isLite) return "adaptive";
+    return mode.isLite ? "16:9" : "adaptive";
 }
 
-async function resolveMiniMaxImageUrl(image: ReferenceImage) {
+export async function resolveMiniMaxImageUrl(image: ReferenceImage) {
     const directUrl = image.url || image.dataUrl;
     if (isPublicMediaUrl(directUrl) || directUrl.startsWith("data:")) return directUrl;
     const dataUrl = await imageToDataUrl(image);
