@@ -102,6 +102,18 @@ if (process.platform !== 'linux' || process.arch !== 'x64') {
   fail(`该交付包只支持在 linux-x64 上构建，当前主机是 ${process.platform}-${process.arch}`)
 }
 if (!existsSync(join(ROOT, 'VERSION'))) fail('请在仓库根目录执行')
+
+// 版本与 package.json 的 packageManager 对齐：Bun 自己不读这个字段，用错版本也只会在产物里悄悄体现。
+const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { packageManager?: string }
+const requiredBun = /^bun@(\d+\.\d+\.\d+)/.exec(pkg.packageManager ?? '')?.[1]
+if (requiredBun && process.env.CANVAS_SKIP_BUN_CHECK !== '1' && Bun.version !== requiredBun) {
+  fail(
+    `需要 Bun ${requiredBun}（package.json 的 packageManager），当前是 ${Bun.version}：${process.execPath}\n` +
+    `  用仓库外的构建脚本（如 ~/.local/bin/build-open-ai-canvas）或先切换 Bun 版本；` +
+    `确认要用当前版本时设 CANVAS_SKIP_BUN_CHECK=1。`,
+  )
+}
+
 const goPath = requireExecutable('go')
 const nodePath = realpathSync(requireExecutable('node'))
 requireExecutable('tar')
@@ -111,7 +123,7 @@ if (nodeBinary.format !== 'elf' || nodeBinary.arch !== 'x64') {
 }
 console.log(`  ✓ go ${goPath}`)
 console.log(`  ✓ node ${nodePath}`)
-console.log(`  ✓ bun ${process.execPath}`)
+console.log(`  ✓ bun ${Bun.version} ${process.execPath}`)
 console.log(`  ✓ 版本 ${VERSION}`)
 
 const buildCommit = git(['rev-parse', '--short', 'HEAD']) || 'unknown'
