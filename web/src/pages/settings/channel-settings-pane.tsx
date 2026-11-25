@@ -41,7 +41,12 @@ export function ChannelSettingsPane({ onOpenModels, onOpenRunningHub }: ChannelS
     const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
     const [newChannelId, setNewChannelId] = useState<string | null>(null);
     const userChannels = config.channels.filter((channel) => channel.scope !== "system");
-    const runningHubReady = Boolean(config.runningHub.enabled && config.runningHub.baseUrl.trim() && config.runningHub.apiKey.trim() && config.runningHub.workflowId.trim());
+    const runningHubReady = Boolean(
+        config.runningHub.enabled &&
+            config.runningHub.baseUrl.trim() &&
+            (config.runningHub.connection === "comfyui" || config.runningHub.apiKey.trim()) &&
+            config.runningHub.workflowId.trim(),
+    );
 
     const updateChannels = (channels: ModelChannel[], baseConfig = config) => {
         replaceConfig(withChannels(baseConfig, channels));
@@ -200,7 +205,7 @@ export function ChannelSettingsPane({ onOpenModels, onOpenRunningHub }: ChannelS
                     {onOpenRunningHub ? (
                         <WorkflowChannelEntry
                             icon={<Workflow className="size-4" />}
-                            title="RunningHub"
+                            title={config.runningHub.connection === "comfyui" ? "ComfyUI" : "RunningHub"}
                             description={t("account.settings.channels.runningHubDescription")}
                             status={runningHubReady ? t("account.settings.channels.workflowsConfigured", { count: config.runningHub.workflows.length }) : config.runningHub.enabled ? t("account.settings.channels.workflowPending") : t("account.settings.channels.disabled")}
                             ready={runningHubReady}

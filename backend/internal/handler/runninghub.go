@@ -40,4 +40,29 @@ func RegisterRunningHubRoutes(r *gin.RouterGroup, svc *service.Service) {
 	}
 	r.POST("/runninghub/workflow-info", func(c *gin.Context) { fetch(c, false) })
 	r.POST("/runninghub/app-info", func(c *gin.Context) { fetch(c, true) })
+
+	// 自建 ComfyUI 只解析用户在设置页提交的 API 格式工作流，不访问上游。
+	r.POST("/comfyui/workflow-info", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		if err := svc.RequireWorkflowPluginForUser(user.ID, "comfyui-workflow-image"); err != nil {
+			failService(c, err)
+			return
+		}
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4<<20)
+		var req service.ComfyUIWorkflowImportRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			fail(c, http.StatusBadRequest, err)
+			return
+		}
+		result, err := svc.ImportComfyUIWorkflow(c.Request.Context(), req)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, result)
+	})
 }

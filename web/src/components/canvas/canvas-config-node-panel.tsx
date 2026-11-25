@@ -104,6 +104,7 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
     const simpleMode = workspaceMode === "simple";
     const resolvedProvider = resolveCanvasWorkflowProvider(node.metadata);
     const workflowProvider = resolvedProvider;
+    const workflowProviderLabel = globalConfig.runningHub.connection === "comfyui" ? "ComfyUI" : "RunningHub";
     const workflowCapability: RunningHubCapability = mode === "video" ? "video" : mode === "audio" ? "audio" : "image";
     const requirements: ModelRequirements = {
         capability: mode,
@@ -166,12 +167,13 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
         workflowProvider,
     ]);
     const runningHubEntries = globalConfig.runningHub.workflows
-        // 正常情况下只显示当前模式的条目；旧画布已引用的错配条目保留在列表中，
-        // 这样用户可以看到并重新选择，而不是出现“选项消失”的死路。
+        // 自建 ComfyUI 没有 AI App；其余情况只显示当前模式的条目，旧画布已引用的
+        // 错配条目保留在列表中，避免出现“选项消失”的死路。
         .filter(
             (item) =>
-                normalizeRunningHubCapability(item.capability, defaultWorkflowCapability) === workflowCapability ||
-                (item.workflowId.trim() === node.metadata?.runningHubWorkflowId?.trim() && (!node.metadata?.runningHubWorkflowKind || runningHubWorkflowKind(item) === node.metadata.runningHubWorkflowKind)),
+                (globalConfig.runningHub.connection !== "comfyui" || runningHubWorkflowKind(item) === "workflow") &&
+                (normalizeRunningHubCapability(item.capability, defaultWorkflowCapability) === workflowCapability ||
+                    (item.workflowId.trim() === node.metadata?.runningHubWorkflowId?.trim() && (!node.metadata?.runningHubWorkflowKind || runningHubWorkflowKind(item) === node.metadata.runningHubWorkflowKind))),
         )
         .map((item) => ({
             label: item.title || item.workflowId,
@@ -199,13 +201,15 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
             : "") ||
         (workflowProvider === "runninghub"
             ? !workflowProviderPluginEnabled(runtimeStatuses, "runninghub")
-                ? "RunningHub 工作流插件未启用"
+                ? "工作流插件未启用"
                 : !globalConfig.runningHub.enabled
-                  ? "请先在设置中启用 RunningHub"
+                  ? "请先在设置中启用工作流应用"
                   : !node.metadata?.runningHubWorkflowId
-                    ? `请选择${capabilityLabel(workflowCapability)}工作流或 App`
+                    ? globalConfig.runningHub.connection === "comfyui"
+                        ? `请选择${capabilityLabel(workflowCapability)} ComfyUI 工作流`
+                        : `请选择${capabilityLabel(workflowCapability)}工作流或 App`
                     : !selectedRunningHubWorkflow
-                      ? "当前画布引用的 RunningHub 条目已不存在，请重新选择"
+                      ? `当前画布引用的 ${workflowProviderLabel} 条目已不存在，请重新选择`
                       : selectedRunningHubCapability !== workflowCapability
                         ? `当前条目用途为${capabilityLabel(selectedRunningHubCapability || "image")}，请切换画布模式或重新选择条目`
                         : undefined
@@ -317,7 +321,7 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
                             size="small"
                             className="canvas-config-provider min-w-0 flex-1"
                             value={workflowProvider}
-                            options={[{ label: "模型", value: "model" }, ...(workflowProviderPluginEnabled(runtimeStatuses, "runninghub") ? [{ label: "RunningHub", value: "runninghub" }] : [])]}
+                            options={[{ label: "模型", value: "model" }, ...(workflowProviderPluginEnabled(runtimeStatuses, "runninghub") ? [{ label: workflowProviderLabel, value: "runninghub" }] : [])]}
                             onChange={(value) => {
                                 const nextProvider = value as "model" | "runninghub";
                                 if (nextProvider === "model") {
@@ -325,7 +329,7 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
                                     return;
                                 }
                                 if (nextProvider === "runninghub") {
-                                    onConfigChange(node.id, { workflowProvider: "runninghub", workflowTitle: "RunningHub 工作流", workflowParameters: {} });
+                                    onConfigChange(node.id, { workflowProvider: "runninghub", workflowTitle: `${workflowProviderLabel} 工作流`, workflowParameters: {} });
                                 }
                             }}
                         />
@@ -336,7 +340,7 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
                                 className="canvas-compact-control !h-9 w-full"
                                 value={selectedRunningHubWorkflow ? runningHubWorkflowEntryKey(selectedRunningHubWorkflow) : undefined}
                                 title={selectedRunningHubWorkflow ? `${selectedRunningHubWorkflow.kind === "app" ? "App" : "工作流"} · ${selectedRunningHubWorkflow.title || selectedRunningHubWorkflow.workflowId}` : undefined}
-                                placeholder={`选择${capabilityLabel(workflowCapability)}工作流或 App`}
+                                placeholder={globalConfig.runningHub.connection === "comfyui" ? `选择${capabilityLabel(workflowCapability)} ComfyUI 工作流` : `选择${capabilityLabel(workflowCapability)}工作流或 App`}
                                 showSearch
                                 options={runningHubOptions}
                                 optionFilterProp="label"

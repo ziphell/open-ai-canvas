@@ -286,7 +286,7 @@ export const koKR: Messages = {
         sections: {
             profile: { label: "개인 정보", description: "아바타, 비밀번호, 이메일" },
             channels: { label: "개인 채널", description: "모델 서비스와 개인 워크플로" },
-            runninghub: { label: "RunningHub 워크플로", description: "개인 채널의 클라우드 워크플로" },
+            runninghub: { label: "워크플로 앱", description: "RunningHub 클라우드와 자체 호스팅 ComfyUI 설정" },
             models: { label: "모델 선택", description: "분야별 기본 모델" },
             preferences: { label: "환경설정", description: "외관, 언어, 알림과 생성 기본값" },
             prompts: { label: "프롬프트 설정", description: "작업별 템플릿 맞춤 설정" },

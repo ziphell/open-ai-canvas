@@ -24,12 +24,25 @@ import (
 )
 
 func isRunningHubInterface(value string) bool {
-	pluginID, ok := workflowPluginIDForInterface(strings.ToLower(strings.TrimSpace(value)))
-	return ok && pluginID == WorkflowPluginRunningHub
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "runninghub-workflow-image", "runninghub-workflow-video", "runninghub-workflow-audio":
+		return true
+	default:
+		return false
+	}
+}
+
+func isComfyUIInterface(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "comfyui-workflow-image", "comfyui-workflow-video", "comfyui-workflow-audio":
+		return true
+	default:
+		return false
+	}
 }
 
 func isWorkflowProviderInterface(value string) bool {
-	return isRunningHubInterface(value)
+	return isRunningHubInterface(value) || isComfyUIInterface(value)
 }
 
 func validateWorkflowProviderConfig(mode string, config providerConfig) error {
@@ -52,17 +65,29 @@ func validateWorkflowProviderConfig(mode string, config providerConfig) error {
 		}
 		return nil
 	}
+	if isComfyUIInterface(config.InterfaceType) {
+		if strings.TrimSpace(config.BaseURL) == "" {
+			return errors.New("自建 ComfyUI 缺少 Base URL")
+		}
+		if _, err := ValidateOutboundURL(comfyUIRootURL(config.BaseURL)); err != nil {
+			return err
+		}
+		if len(config.WorkflowJSON) == 0 {
+			return errors.New("自建 ComfyUI 缺少已导入的工作流 JSON")
+		}
+		return nil
+	}
 	return errors.New("未知工作流协议")
 }
 
 func workflowInterfaceSupportsMode(interfaceType string, mode string) bool {
 	switch mode {
 	case "image":
-		return interfaceType == string(model.ChannelInterfaceRunningHubImage)
+		return interfaceType == string(model.ChannelInterfaceRunningHubImage) || interfaceType == string(model.ChannelInterfaceComfyUIImage)
 	case "video":
-		return interfaceType == string(model.ChannelInterfaceRunningHubVideo)
+		return interfaceType == string(model.ChannelInterfaceRunningHubVideo) || interfaceType == string(model.ChannelInterfaceComfyUIVideo)
 	case "audio":
-		return interfaceType == string(model.ChannelInterfaceRunningHubAudio)
+		return interfaceType == string(model.ChannelInterfaceRunningHubAudio) || interfaceType == string(model.ChannelInterfaceComfyUIAudio)
 	default:
 		return false
 	}
@@ -71,6 +96,9 @@ func workflowInterfaceSupportsMode(interfaceType string, mode string) bool {
 func (s *Service) runWorkflowProviderTask(ctx context.Context, input canvasGenerationInput) (map[string]interface{}, error) {
 	if isRunningHubInterface(input.Config.InterfaceType) {
 		return s.runRunningHubWorkflow(ctx, input)
+	}
+	if isComfyUIInterface(input.Config.InterfaceType) {
+		return s.runComfyUIWorkflow(ctx, input)
 	}
 	return nil, errors.New("未知工作流协议")
 }

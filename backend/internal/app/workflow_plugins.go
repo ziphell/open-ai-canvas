@@ -17,7 +17,7 @@ const (
 // governed by the plugin runtime rather than by individual UI consumers.
 func bundledWorkflowPluginManifests() []protocol.Manifest {
 	return []protocol.Manifest{
-		workflowPluginManifest(WorkflowPluginRunningHub, "RunningHub 工作流", "在画布中拉取并执行 RunningHub Workflow 与 App。"),
+		workflowPluginManifest(WorkflowPluginRunningHub, "RunningHub / ComfyUI 工作流", "在画布中执行 RunningHub Workflow、AI App，或用户自建 ComfyUI 的导入工作流。"),
 	}
 }
 
@@ -53,8 +53,11 @@ func workflowPluginManifest(id, name, description string) protocol.Manifest {
 }
 
 func workflowPluginIDForInterface(value string) (string, bool) {
+	// RunningHub 与自建 ComfyUI 共用同一个工作流应用插件：用户只启用一次，
+	// 具体连接方式由渠道配置决定。
 	switch value {
-	case "runninghub-workflow-image", "runninghub-workflow-video", "runninghub-workflow-audio":
+	case "runninghub-workflow-image", "runninghub-workflow-video", "runninghub-workflow-audio",
+		"comfyui-workflow-image", "comfyui-workflow-video", "comfyui-workflow-audio":
 		return WorkflowPluginRunningHub, true
 	default:
 		return "", false
@@ -98,9 +101,6 @@ func (s *Service) RequireWorkflowPluginForInterface(interfaceType string) error 
 	}
 	status, exists := s.WorkflowPluginStatuses()[pluginID]
 	if !exists || status != "enabled" {
-		if pluginID == WorkflowPluginRunningHub {
-			return Forbidden("RunningHub 工作流插件未启用")
-		}
 		return Forbidden("工作流插件未启用")
 	}
 	return nil
@@ -112,9 +112,6 @@ func (s *Service) RequireWorkflowPluginForUser(userID string, interfaceType stri
 		return Forbidden("未知工作流插件")
 	}
 	if err := s.RequirePluginForUser(userID, pluginID); err != nil {
-		if pluginID == WorkflowPluginRunningHub {
-			return Forbidden("RunningHub 工作流插件未启用")
-		}
 		return Forbidden("工作流插件未启用")
 	}
 	return nil

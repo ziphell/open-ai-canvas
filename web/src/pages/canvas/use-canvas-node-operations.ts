@@ -145,7 +145,9 @@ export function useCanvasNodeOperations({
             message.error(translate("canvasPage.connection.runningHubDisabled"));
             return;
         }
-        const workflowTitle = type === CanvasNodeType.Config && selectedWorkflowProvider === "runninghub" ? translate("canvasPage.connection.runningHubWorkflow") : undefined;
+        const workflowTitle = type === CanvasNodeType.Config && selectedWorkflowProvider === "runninghub"
+            ? translate(effectiveConfig.runningHub.connection === "comfyui" ? "canvasPage.connection.comfyUIWorkflow" : "canvasPage.connection.runningHubWorkflow")
+            : undefined;
         const metadata: CanvasNodeMetadata | undefined = type === CanvasNodeType.Drawing
             ? { drawingEngine: defaultDrawingEngine }
             : type === CanvasNodeType.Config

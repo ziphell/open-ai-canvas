@@ -25,20 +25,20 @@ function workflowContributions(providerId: string, label: string) {
 
 const runningHubManifest: PluginManifest = {
         id: RUNNINGHUB_PLUGIN_ID,
-        name: "RunningHub 工作流",
-        version: "1.0.0",
+        name: "RunningHub / ComfyUI 工作流",
+        version: "1.1.0",
         publishedAt: "2026-08-25",
-        updatedAt: "2026-08-25",
+        updatedAt: "2026-11-25",
         apiVersion: PLUGIN_API_VERSION,
-        description: "在画布中拉取并执行 RunningHub Workflow 与 App，按工作流字段生成图片、视频和音频。",
+        description: "在画布中执行 RunningHub Workflow、AI App，或导入自建 ComfyUI 的 API 格式工作流，按工作流字段生成图片、视频和音频。",
         documentation:
-            "# RunningHub 工作流\n\n该插件把 RunningHub 的 Workflow / App 接入画布工作流节点。API Key、工作流参数和字段映射仍由宿主安全保存并提交，插件本身不接触密钥。\n\n在插件设置中可以打开完整的 RunningHub 配置页，拉取工作流、编辑字段映射并测试请求。",
+            "# RunningHub / ComfyUI 工作流\n\n该插件把 RunningHub 的 Workflow / App 和自建 ComfyUI 接入画布工作流节点。API Key、工作流参数和字段映射仍由宿主安全保存并提交，插件本身不接触密钥。\n\n在插件设置中可以拉取 RunningHub 工作流，或一次性导入 ComfyUI 的 API 格式 JSON，编辑字段映射并测试请求。自建 ComfyUI 的内网地址需要部署者通过 CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS 精确放行。",
         author: "内置工作流",
         surfaces: ["node", "settings"],
         permissions: ["generation.run", "external.open"],
         trusted: true,
         runtime: { backend: "trusted-backend", web: "trusted-backend" },
-        contributes: { workflows: workflowContributions(RUNNINGHUB_PLUGIN_ID, "RunningHub") },
+        contributes: { workflows: workflowContributions(RUNNINGHUB_PLUGIN_ID, "RunningHub / ComfyUI") },
 };
 
 registerPlugin({ manifest: runningHubManifest } satisfies RegisteredPlugin);

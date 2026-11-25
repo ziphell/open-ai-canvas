@@ -35,6 +35,8 @@ export type ChannelInterfaceType = ModelProtocol;
 export type ChannelHeader = { name: string; value: string };
 export type RunningHubCapability = "image" | "video" | "audio";
 export type RunningHubWorkflowKind = "workflow" | "app";
+/** 工作流应用的接入方式：RunningHub 云，或用户自建的 ComfyUI 服务。 */
+export type WorkflowProviderConnection = "runninghub" | "comfyui";
 export type RunningHubWorkflow = {
     kind?: RunningHubWorkflowKind;
     capability?: RunningHubCapability;
@@ -49,6 +51,7 @@ export type RunningHubWorkflow = {
 };
 
 export type RunningHubConfig = {
+    connection: WorkflowProviderConnection;
     enabled: boolean;
     baseUrl: string;
     apiKey: string;
@@ -195,7 +198,7 @@ export const defaultConfig: AiConfig = {
     apiFormat: "openai",
     // 创作端模型目录只能来自后台公开逻辑模型和用户自定义渠道，不能内置供应商模型。
     channels: [],
-    runningHub: { enabled: false, baseUrl: "https://www.runninghub.cn", apiKey: "", walletApiKey: "", uploadApiKey: "", useWallet: false, capability: "image", selectedKind: "workflow", workflowId: "", workflows: [] },
+    runningHub: { connection: "runninghub", enabled: false, baseUrl: "https://www.runninghub.cn", apiKey: "", walletApiKey: "", uploadApiKey: "", useWallet: false, capability: "image", selectedKind: "workflow", workflowId: "", workflows: [] },
     taskWorkflowProvider: "model",
     model: "",
     imageModel: "",
@@ -359,8 +362,10 @@ export function configuredModelMatchesCapability(config: AiConfig, model: string
 
 function isAiConfigReady(config: AiConfig, model: string) {
     if (config.taskWorkflowProvider === "runninghub") {
-        const key = config.runningHub.apiKey;
-        return Boolean(config.runningHub.enabled && config.runningHub.baseUrl.trim() && key.trim() && config.runningHub.workflowId.trim());
+        const workflow = config.runningHub;
+        // 自建 ComfyUI 默认无鉴权；只有用户套了带鉴权的反向代理时才需要 Key。
+        const keyReady = workflow.connection === "comfyui" || Boolean(workflow.apiKey.trim());
+        return Boolean(workflow.enabled && workflow.baseUrl.trim() && keyReady && workflow.workflowId.trim());
     }
     const channel = resolveModelChannel(config, model);
     return Boolean(model.trim() && channel.baseUrl.trim() && channel.apiKey.trim());
@@ -430,6 +435,7 @@ export function normalizeConfigSnapshot(snapshot: ConfigStoreSnapshot | undefine
         : [];
     const runningHubWorkflowID = String(persistedRunningHub?.workflowId || "").trim();
     const runningHubSelectedKind = persistedRunningHub?.selectedKind ? normalizeRunningHubWorkflowKind(persistedRunningHub.selectedKind) : normalizeRunningHubWorkflowKind(runningHubWorkflows.find((item) => item.workflowId === runningHubWorkflowID)?.kind);
+    const runningHubConnection = persistedRunningHub?.connection === "comfyui" ? ("comfyui" as const) : ("runninghub" as const);
     const config = {
         ...defaultConfig,
         ...persistedConfig,
@@ -437,9 +443,11 @@ export function normalizeConfigSnapshot(snapshot: ConfigStoreSnapshot | undefine
         runningHub: {
             ...defaultConfig.runningHub,
             ...(persistedRunningHub || {}),
+            connection: runningHubConnection,
             capability: runningHubCapability,
-            selectedKind: runningHubSelectedKind,
-            workflowId: runningHubWorkflowID,
+            // 自建 ComfyUI 没有 AI App，旧配置里的 App 选择不能继续沿用。
+            selectedKind: runningHubConnection === "comfyui" ? "workflow" : runningHubSelectedKind,
+            workflowId: runningHubConnection === "comfyui" && runningHubSelectedKind === "app" ? "" : runningHubWorkflowID,
             workflows: runningHubWorkflows,
         },
     };

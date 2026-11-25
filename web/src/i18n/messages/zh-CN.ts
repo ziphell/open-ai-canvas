@@ -286,7 +286,7 @@ export const zhCN = {
         sections: {
             profile: { label: "个人信息", description: "头像、密码与邮箱" },
             channels: { label: "个人渠道", description: "模型服务与个人工作流" },
-            runninghub: { label: "RunningHub 工作流", description: "个人渠道的云端工作流配置" },
+            runninghub: { label: "工作流应用", description: "RunningHub 云端与自建 ComfyUI 的工作流配置" },
             models: { label: "模型选择", description: "按领域选择默认模型" },
             preferences: { label: "偏好设置", description: "外观、语言、通知与生成默认值" },
             prompts: { label: "提示词偏好", description: "按任务定制平台模板" },

@@ -5688,3 +5688,22 @@ SQLite 与 HTTP recorder 已验证；PostgreSQL 16／17、前端构建及浏览�
 后台编辑渠道可分别设置参考图片、音频、视频的发送方式（协议默认、URL、Base64）；模型「能力与参数」可覆盖，优先级为模型、渠道、协议。模型选择「协议默认」可取消渠道强制值。未设置时不改变现有行为。此项是输入素材传输设置，与生成结果 response_format 无关。
 
 URL 使用归属校验后的资源访问地址，本地存储也可签发厂商访问链接；Base64 使用上传文件实际内容。需要 multipart 文件的协议请保持默认，助手识图保留实际像素路径。要求公网 URL 的协议不允许强制 Base64，不会自动重提生成。请由管理员按供应商支持情况设置并验证图片、视频、音频任务；本次不主动提交计费生成请求。
+
+## 待验证：MiniMax 图片/视频协议对齐官方文档
+
+- 已实现：`minimax-image` 新增 `disable_prompt_enhanced` 与 `aigc_watermark`（`providerOptions.minimax-image` 命名空间，默认停用）；关闭 Prompt 增强时要求显式「宽x高」像素尺寸或具体比例。
+- 已实现：`minimax-video` 改用 H3 原生 V2 协议（`/v2/video_generation`），按官方文档支持 `MiniMax-H3`、`MiniMax-H3-Highspeed`、`MiniMax-H3-Lite`、`MiniMax-H3-Max`；时长 4–15 秒（Max 为 5–15 秒），分辨率按模型限制，文生视频禁止 `adaptive`，首尾帧与多模态参考互斥，Max 支持 `extra.prompt_expansion_mode`。旧的 `/v1/video_generation` 插件已删除。
+- 已实现：`minimax-video` 的前端请求只在显式首帧/尾帧节点存在时发送 `first_frame`/`last_frame`；没有显式帧节点时，任意数量图片（包括 1 张）都按 `reference_image` 发送，不再按图片数量推断首尾帧。
+- 已实现：服务商目录的秘塔 MiniMax-H3 改用 `metaso-h3` 协议，保留 4–30 秒与首尾帧混用；目录 `connection.baseUrl` 改为 `https://metaso.cn`，Key 校验路径随之变化。
+- 已实现：服务商目录已用 `https://ai.yingce.tv/v1/catalog.json` 的在线内容回填 `scripts/provider-catalog/catalog.json`（5 个服务商）并内嵌到后端；默认不请求网络，只有设置 `CANVAS_PROVIDER_CATALOG_URL` 时才拉取远程目录。秘塔项改用 `metaso-h3` 并保留 4–30 秒。
+- [ ] 待真实 API Key 联调：`minimax-video` 的 H3 新限制、`minimax-image` 的 `disable_prompt_enhanced` / `aigc_watermark` 线协议，以及秘塔 `https://metaso.cn/v1/models` Key 校验。
+- [ ] 短剧续接在 `minimax-video` 下会因首帧与参考图混用被拒绝；需业务确认改用 `metaso-h3` 或调整参考策略。目录已切换到 `metaso-h3`，不受该限制。
+- [ ] 前端能力配置仅影响新建/重新保存的模型；已有渠道模型若仍保存 4–30 秒或 2K，需要管理员重新保存能力后才能与协议校验一致。
+
+## 待验证：自建 ComfyUI 工作流
+
+- 已实现：工作流应用新增「自建 ComfyUI」接入方式，与 RunningHub 共用同一个插件、字段映射和画布执行链路。设置页粘贴或导入 ComfyUI「Save (API Format)」导出的 JSON，后端解析节点和字段并保存为条目；生成时调用 `/upload/image`、`/prompt`、`/history/{prompt_id}` 和 `/view`，不需要积分 API Key。
+- 已实现：ComfyUI 字段按原始 JSON 类型写入（数值、布尔、枚举和媒体文件名），不会复用 RunningHub 的字符串 `nodeInfoList`；鉴权口令可选，仅用于带 Bearer 鉴权的反向代理；结果下载与 `/view` 同源复用同一口令。
+- 自动回归：后端假 ComfyUI 服务覆盖素材上传、提交、轮询和输出下载，另有字段类型、链接输入、输出过滤与错误信息专项；前端覆盖 ComfyUI 接口类型生成、无需 Key 和旧 App 选择清理；前端类型检查通过。
+- [ ] 真实自建 ComfyUI 验收：部署者先通过 `CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS` 放行地址，再在设置导入文生图、图生视频和多图工作流；验证输出节点、蒙版、随机种子、视频节点产物和带鉴权反代的下载。
+- [ ] 核对未放行内网地址时的错误提示、ComfyUI 400 `node_errors` 的可读信息、任务重试与进程重启后的 `prompt_id` 恢复。

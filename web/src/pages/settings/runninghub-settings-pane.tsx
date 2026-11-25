@@ -10,6 +10,7 @@ import { translate } from "@/i18n";
 import { WorkflowFieldMappingEditor } from "@/components/workflow-field-mapping-editor";
 import { WorkflowGraphEditor } from "@/components/workflow-graph-editor";
 import { WorkflowTestWorkbench } from "@/components/workflow-test-workbench";
+import { importComfyUIWorkflow } from "@/services/api/comfyui";
 import { fetchRunningHubApp, fetchRunningHubWorkflow } from "@/services/api/runninghub";
 import {
     normalizeRunningHubCapability,
@@ -61,6 +62,8 @@ export function RunningHubSettingsPane() {
     const config = useConfigStore((state) => state.config);
     const updateConfig = useConfigStore((state) => state.updateConfig);
     const runningHub = config.runningHub;
+    const comfyUI = runningHub.connection === "comfyui";
+    const selectableWorkflows = useMemo(() => (comfyUI ? runningHub.workflows.filter((item) => workflowKind(item) === "workflow") : runningHub.workflows), [comfyUI, runningHub.workflows]);
     const selected = runningHub.workflows.find((item) => item.workflowId.trim() === runningHub.workflowId.trim() && workflowKind(item) === runningHub.selectedKind);
     const selectedKey = selected ? workflowEntryKey(selected) : undefined;
     const [draftId, setDraftId] = useState(selected?.workflowId || "");
@@ -112,6 +115,38 @@ export function RunningHubSettingsPane() {
 
     const fetchWorkflow = async () => {
         const id = draftId.trim();
+        if (comfyUI) {
+            if (!workflowText.trim()) return message.warning(t("account.settings.runninghub.comfyJsonRequired"));
+            setFetching(true);
+            try {
+                const workflowId = id || `comfyui-${Date.now()}`;
+                const result = await importComfyUIWorkflow({
+                    workflowJson: workflowText,
+                    workflowId,
+                    title: title.trim(),
+                    capability,
+                });
+                const existing = runningHub.workflows.find((workflow) => workflowEntryKey(workflow) === `workflow:${workflowId}`);
+                const item: RunningHubWorkflow = {
+                    ...result,
+                    kind: "workflow",
+                    workflowId,
+                    title: result.title || title.trim() || workflowId,
+                    fields: existing ? mergeWorkflowFieldMappings(existing.fields, result.fields, capability) : normalizeWorkflowFieldMappings(result.fields, capability),
+                    workflowJson: result.workflowJson || {},
+                };
+                persistWorkflow(item, capability);
+                setDraftId(workflowId);
+                setWorkflowText(item.workflowJson ? JSON.stringify(item.workflowJson, null, 2) : "");
+                setTitle(item.title || "");
+                message.success(t("account.settings.runninghub.comfyImported", { name: item.title }));
+            } catch (error) {
+                message.error(error instanceof Error ? t("account.settings.runninghub.fetchFailedWith", { error: error.message }) : t("account.settings.runninghub.fetchFailed"));
+            } finally {
+                setFetching(false);
+            }
+            return;
+        }
         if (!id) return message.warning(kind === "app" ? t("account.settings.runninghub.webappIdRequired") : t("account.settings.runninghub.workflowIdRequired"));
         if (!runningHub.apiKey.trim()) return message.warning(t("account.settings.runninghub.apiKeyRequired"));
         setFetching(true);
@@ -190,7 +225,23 @@ export function RunningHubSettingsPane() {
         setCapability(nextCapability);
     };
 
+    const changeConnection = (next: "runninghub" | "comfyui") => {
+        if (next === runningHub.connection) return;
+        const localBase = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(runningHub.baseUrl.trim());
+        setKind("workflow");
+        setDraftId("");
+        setWorkflowText("");
+        setTitle("");
+        update({
+            connection: next,
+            baseUrl: next === "comfyui" ? (localBase ? runningHub.baseUrl : "http://127.0.0.1:8188") : localBase ? "https://www.runninghub.cn" : runningHub.baseUrl,
+            selectedKind: "workflow",
+            workflowId: "",
+        });
+    };
+
     const changeKind = (nextKind: RunningHubWorkflowKind) => {
+        if (comfyUI) return;
         setKind(nextKind);
         setDraftId("");
         setWorkflowText("");
@@ -200,6 +251,8 @@ export function RunningHubSettingsPane() {
 
     const updateWorkflowJson = (value: string) => {
         if (kind === "app") return;
+        // 自建 ComfyUI 的 JSON 由“导入”按钮统一解析并保存，输入框失焦时不再隐式写入。
+        if (comfyUI) return;
         if (!selected || !draftMatchesSelected) return message.warning(t("account.settings.runninghub.selectFirst"));
         try {
             const parsed = value.trim() ? JSON.parse(value) : {};
@@ -230,26 +283,47 @@ export function RunningHubSettingsPane() {
                 <Switch checked={runningHub.enabled} checkedChildren={t("account.layout.oss.switchOn")} unCheckedChildren={t("account.layout.oss.switchOff")} onChange={(enabled) => update({ enabled })} />
             </div>
             <div className="settings-section grid gap-3 lg:grid-cols-12">
-                <Form.Item label="Base URL" className="mb-0 lg:col-span-6">
+                <Form.Item label={t("account.settings.runninghub.connection")} className="mb-0 lg:col-span-12" extra={comfyUI ? t("account.settings.runninghub.comfyConnectionHint") : undefined}>
+                    <SegmentedControl
+                        block
+                        value={runningHub.connection}
+                        options={[
+                            { label: t("account.settings.runninghub.connectionRunningHub"), value: "runninghub" },
+                            { label: t("account.settings.runninghub.connectionComfyUI"), value: "comfyui" },
+                        ]}
+                        onChange={(value) => changeConnection(value as "runninghub" | "comfyui")}
+                    />
+                </Form.Item>
+                <Form.Item label="Base URL" className="mb-0 lg:col-span-6" extra={comfyUI ? t("account.settings.runninghub.comfyBaseUrlHint") : undefined}>
                     <AutoComplete
                         className="w-full"
                         value={runningHub.baseUrl}
-                        options={[
-                            { label: t("account.settings.runninghub.siteCn", { url: "https://www.runninghub.cn" }), value: "https://www.runninghub.cn" },
-                            { label: t("account.settings.runninghub.siteGlobal", { url: "https://www.runninghub.ai" }), value: "https://www.runninghub.ai" },
-                        ]}
+                        options={
+                            comfyUI
+                                ? [{ label: "http://127.0.0.1:8188", value: "http://127.0.0.1:8188" }]
+                                : [
+                                      { label: t("account.settings.runninghub.siteCn", { url: "https://www.runninghub.cn" }), value: "https://www.runninghub.cn" },
+                                      { label: t("account.settings.runninghub.siteGlobal", { url: "https://www.runninghub.ai" }), value: "https://www.runninghub.ai" },
+                                  ]
+                        }
                         onChange={(baseUrl) => update({ baseUrl })}
                         onBlur={() => update({ baseUrl: runningHub.baseUrl.trim().replace(/\/+$/, "") })}
                     >
-                        <Input placeholder={t("account.settings.runninghub.baseUrlPlaceholder")} />
+                        <Input placeholder={comfyUI ? "http://127.0.0.1:8188" : t("account.settings.runninghub.baseUrlPlaceholder")} />
                     </AutoComplete>
                 </Form.Item>
-                <Form.Item label={t("account.settings.runninghub.apiKey")} className="mb-0 lg:col-span-6" extra={t("account.settings.runninghub.apiKeyHint")}>
+                <Form.Item
+                    label={comfyUI ? t("account.settings.runninghub.comfyApiKey") : t("account.settings.runninghub.apiKey")}
+                    className="mb-0 lg:col-span-6"
+                    extra={comfyUI ? t("account.settings.runninghub.comfyApiKeyHint") : t("account.settings.runninghub.apiKeyHint")}
+                >
                     <Input.Password autoComplete="new-password" value={runningHub.apiKey} onChange={(event) => update({ apiKey: event.target.value })} />
                 </Form.Item>
-                <Form.Item label={t("account.settings.runninghub.uploadKey")} className="mb-0 lg:col-span-6" extra={t("account.settings.runninghub.uploadKeyHint")}>
-                    <Input.Password autoComplete="new-password" value={runningHub.uploadApiKey || ""} onChange={(event) => update({ uploadApiKey: event.target.value })} />
-                </Form.Item>
+                {comfyUI ? null : (
+                    <Form.Item label={t("account.settings.runninghub.uploadKey")} className="mb-0 lg:col-span-6" extra={t("account.settings.runninghub.uploadKeyHint")}>
+                        <Input.Password autoComplete="new-password" value={runningHub.uploadApiKey || ""} onChange={(event) => update({ uploadApiKey: event.target.value })} />
+                    </Form.Item>
+                )}
                 <Form.Item label={t("account.settings.runninghub.capability")} className="mb-0 lg:col-span-6">
                     <Select className="w-full" value={capability} options={capabilityOptions} onChange={(value) => updateCapability(value as RunningHubCapability)} />
                 </Form.Item>
@@ -258,7 +332,7 @@ export function RunningHubSettingsPane() {
                         className="w-full"
                         allowClear
                         value={selectedKey}
-                        options={runningHub.workflows.map((item) => ({
+                        options={selectableWorkflows.map((item) => ({
                             label: `${workflowKind(item) === "app" ? "App" : "Workflow"} · ${item.title || item.workflowId} · ${capabilityLabel(workflowCapability(item, runningHub.capability))}`,
                             value: workflowEntryKey(item),
                         }))}
@@ -266,19 +340,21 @@ export function RunningHubSettingsPane() {
                         onChange={selectWorkflow}
                     />
                 </Form.Item>
-                <Form.Item label={t("account.settings.runninghub.kind")} className="mb-0 lg:col-span-3">
-                    <SegmentedControl
-                        block
-                        value={kind}
-                        options={[
-                            { label: "Workflow", value: "workflow" },
-                            { label: "App", value: "app" },
-                        ]}
-                        onChange={(value) => changeKind(value as RunningHubWorkflowKind)}
-                    />
-                </Form.Item>
-                <Form.Item label={kind === "app" ? "webappId" : "workflowId"} className="mb-0 lg:col-span-3">
-                    <Input value={draftId} placeholder={kind === "app" ? "RunningHub webappId" : "RunningHub workflowId"} onChange={(event) => setDraftId(event.target.value)} />
+                {comfyUI ? null : (
+                    <Form.Item label={t("account.settings.runninghub.kind")} className="mb-0 lg:col-span-3">
+                        <SegmentedControl
+                            block
+                            value={kind}
+                            options={[
+                                { label: "Workflow", value: "workflow" },
+                                { label: "App", value: "app" },
+                            ]}
+                            onChange={(value) => changeKind(value as RunningHubWorkflowKind)}
+                        />
+                    </Form.Item>
+                )}
+                <Form.Item label={comfyUI ? t("account.settings.runninghub.comfyEntryId") : kind === "app" ? "webappId" : "workflowId"} className={comfyUI ? "mb-0 lg:col-span-6" : "mb-0 lg:col-span-3"}>
+                    <Input value={draftId} placeholder={comfyUI ? t("account.settings.runninghub.comfyEntryIdPlaceholder") : kind === "app" ? "RunningHub webappId" : "RunningHub workflowId"} onChange={(event) => setDraftId(event.target.value)} />
                 </Form.Item>
                 <Form.Item label={t("account.settings.runninghub.title")} className="mb-0 lg:col-span-6">
                     <Input value={title} placeholder={t("account.settings.diagnostics.optional")} onChange={(event) => setTitle(event.target.value)} onBlur={updateTitle} />
@@ -286,7 +362,7 @@ export function RunningHubSettingsPane() {
                 <Form.Item label={t("account.settings.runninghub.actions")} className="workflow-entry-actions-field mb-0 lg:col-span-6">
                     <div className="workflow-entry-actions">
                         <Button type="primary" icon={<RefreshCw className="size-4" />} loading={fetching} onClick={() => void fetchWorkflow()}>
-                            {t("account.settings.runninghub.fetch")}
+                            {comfyUI ? t("account.settings.runninghub.comfyImport") : t("account.settings.runninghub.fetch")}
                         </Button>
                         <Popconfirm
                             title={t("account.settings.runninghub.deleteTitle")}
@@ -320,17 +396,17 @@ export function RunningHubSettingsPane() {
                                 fields={selected?.fields || []}
                                 disabled={!selected || !draftMatchesSelected}
                                 onChange={updateWorkflowFields}
-                                emptyDescription={t("account.settings.runninghub.graphEmpty")}
+                                emptyDescription={comfyUI ? t("account.settings.runninghub.comfyGraphEmpty") : t("account.settings.runninghub.graphEmpty")}
                             />
                         </div>
-                        <details className="workflow-json-details lg:col-span-12">
+                        <details className="workflow-json-details lg:col-span-12" open={comfyUI}>
                             <summary>{t("account.settings.runninghub.jsonSummary")}</summary>
-                            <Form.Item className="mb-0 mt-3" extra={t("account.settings.runninghub.jsonHint")}>
+                            <Form.Item className="mb-0 mt-3" extra={comfyUI ? t("account.settings.runninghub.comfyJsonHint") : t("account.settings.runninghub.jsonHint")}>
                                 <Input.TextArea
                                     rows={12}
                                     value={workflowText}
                                     spellCheck={false}
-                                    placeholder={'{"3":{"class_type":"...","inputs":{}}}'}
+                                    placeholder={comfyUI ? t("account.settings.runninghub.comfyJsonPlaceholder") : '{"3":{"class_type":"...","inputs":{}}}'}
                                     onChange={(event) => setWorkflowText(event.target.value)}
                                     onBlur={() => updateWorkflowJson(workflowText)}
                                 />
@@ -353,9 +429,15 @@ export function RunningHubSettingsPane() {
                             title={selected?.title || title || draftId}
                             capability={selected ? workflowCapability(selected, capability) : capability}
                             fields={selected?.fields || []}
-                            disabled={!selected || !draftMatchesSelected || !runningHub.baseUrl.trim() || !runningHub.apiKey.trim()}
+                            disabled={!selected || !draftMatchesSelected || !runningHub.baseUrl.trim() || (!comfyUI && !runningHub.apiKey.trim())}
                             disabledReason={
-                                !selected || !draftMatchesSelected ? t("account.settings.runninghub.testNeedEntry") : !runningHub.baseUrl.trim() ? t("account.settings.runninghub.testNeedBaseUrl") : t("account.settings.runninghub.apiKeyRequired")
+                                !selected || !draftMatchesSelected
+                                    ? t("account.settings.runninghub.testNeedEntry")
+                                    : !runningHub.baseUrl.trim()
+                                      ? t("account.settings.runninghub.testNeedBaseUrl")
+                                      : comfyUI
+                                        ? t("account.settings.runninghub.testNeedEntry")
+                                        : t("account.settings.runninghub.apiKeyRequired")
                             }
                         />
                     </div>

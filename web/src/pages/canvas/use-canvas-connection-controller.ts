@@ -64,10 +64,12 @@ const NODE_STATUS_IDLE = "idle" as const;
 
 function selectRunningHubWorkflow(config: AiConfig) {
     const capability = normalizeRunningHubCapability(config.runningHub.capability);
-    return config.runningHub.workflows.find((item) => item.workflowId.trim() === config.runningHub.workflowId.trim()
+    // 自建 ComfyUI 没有 AI App，回退选择时不能落到 App 条目上。
+    const workflows = config.runningHub.connection === "comfyui" ? config.runningHub.workflows.filter((item) => (item.kind === "app" ? "app" : "workflow") === "workflow") : config.runningHub.workflows;
+    return workflows.find((item) => item.workflowId.trim() === config.runningHub.workflowId.trim()
         && (item.kind === "app" ? "app" : "workflow") === config.runningHub.selectedKind)
-        || config.runningHub.workflows.find((item) => normalizeRunningHubCapability(item.capability, capability) === capability)
-        || config.runningHub.workflows[0];
+        || workflows.find((item) => normalizeRunningHubCapability(item.capability, capability) === capability)
+        || workflows[0];
 }
 
 export function useCanvasConnectionController({
@@ -294,7 +296,7 @@ export function useCanvasConnectionController({
                 workflowProvider: selectedWorkflowProvider || "model",
                 status: NODE_STATUS_IDLE,
                 ...(selectedWorkflowProvider === "runninghub" ? {
-                    workflowTitle: translate("canvasPage.connection.runningHubWorkflow"),
+                    workflowTitle: translate(config.runningHub.connection === "comfyui" ? "canvasPage.connection.comfyUIWorkflow" : "canvasPage.connection.runningHubWorkflow"),
                     ...(runningHubWorkflow ? { runningHubWorkflowId: runningHubWorkflow.workflowId, runningHubWorkflowKind: runningHubWorkflow.kind === "app" ? "app" as const : "workflow" as const } : {}),
                 } : {})
               }

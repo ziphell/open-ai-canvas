@@ -460,13 +460,14 @@ export function backendProviderConfig(config: AiConfig, mode: BackendGenerationM
 }
 
 function workflowProviderConfig(config: AiConfig, requestConfig: ReturnType<typeof resolveModelRequestConfig>, workflow: GenerationWorkflowExecution) {
-    const runningHubActive = workflow.provider === "runninghub";
+    // 自建 ComfyUI 的 Key 是可选的鉴权口令；RunningHub 的积分 Key 由工作流执行前校验。
+    const runningHubActive = !workflow.interfaceType.startsWith("comfyui-workflow-");
     return {
         channelId: "",
         apiFormat: requestConfig.apiFormat,
         interfaceType: workflow.interfaceType,
         baseUrl: config.runningHub.baseUrl,
-        apiKey: runningHubActive ? config.runningHub.apiKey : "",
+        apiKey: config.runningHub.apiKey,
         // 工作流是独立 Provider，不能继承普通模型渠道的密钥和自定义头。
         secretKey: "",
         headers: [],

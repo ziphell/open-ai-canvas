@@ -145,11 +145,19 @@ func (s *Service) downloadWorkflowOutputs(ctx context.Context, urls []string) (m
 	return s.downloadWorkflowOutputsWithPolicy(ctx, urls, "", nil)
 }
 
+func (s *Service) downloadWorkflowOutputsFor(ctx context.Context, providerName string, config providerConfig, urls []string) (map[string]interface{}, error) {
+	return s.downloadWorkflowOutputsWithPolicyFor(ctx, providerName, &config, urls, "", nil)
+}
+
 func (s *Service) downloadWorkflowVideoOutputs(ctx context.Context, urls []string, taskID string, policy videoPollPolicy) (map[string]interface{}, error) {
 	return s.downloadWorkflowOutputsWithPolicy(ctx, urls, taskID, &policy)
 }
 
 func (s *Service) downloadWorkflowOutputsWithPolicy(ctx context.Context, urls []string, taskID string, policy *videoPollPolicy) (map[string]interface{}, error) {
+	return s.downloadWorkflowOutputsWithPolicyFor(ctx, "RunningHub", nil, urls, taskID, policy)
+}
+
+func (s *Service) downloadWorkflowOutputsWithPolicyFor(ctx context.Context, providerName string, authConfig *providerConfig, urls []string, taskID string, policy *videoPollPolicy) (map[string]interface{}, error) {
 	images := make([]map[string]interface{}, 0)
 	var video, audio map[string]interface{}
 	for _, rawURL := range urls {
@@ -175,18 +183,23 @@ func (s *Service) downloadWorkflowOutputsWithPolicy(ctx context.Context, urls []
 		if !isPublicMediaURL(rawURL) {
 			continue
 		}
+		download := func(ctx context.Context) ([]byte, string, error) {
+			if authConfig != nil {
+				// 自建 ComfyUI 的 /view 与 Base URL 同源；带鉴权的反向代理需要同一凭据。
+				return getComfyUIAuthorizedBinary(withProviderRequestKind(ctx, "download"), *authConfig, rawURL)
+			}
+			return getExternalBinary(withProviderRequestKind(ctx, "download"), rawURL)
+		}
 		var data []byte
 		var mimeType string
 		var err error
 		if policy == nil {
-			data, mimeType, err = getExternalBinary(withProviderRequestKind(ctx, "download"), rawURL)
+			data, mimeType, err = download(ctx)
 		} else {
-			data, mimeType, err = runVideoDownload(ctx, taskID, *policy, func(ctx context.Context) ([]byte, string, error) {
-				return getExternalBinary(withProviderRequestKind(ctx, "download"), rawURL)
-			})
+			data, mimeType, err = runVideoDownload(ctx, taskID, *policy, download)
 		}
 		if err != nil {
-			return nil, fmt.Errorf("下载 RunningHub 产物失败：%w", err)
+			return nil, fmt.Errorf("下载 %s 产物失败：%w", providerName, err)
 		}
 		mimeType = runningHubOutputMimeType(rawURL, mimeType)
 		item := workflowOutputValue(mimeType, data)
@@ -216,7 +229,7 @@ func (s *Service) downloadWorkflowOutputsWithPolicy(ctx context.Context, urls []
 		result["audio"] = audio
 	}
 	if len(images) == 0 && video == nil && audio == nil {
-		return nil, errors.New("RunningHub 返回的产物类型不受支持")
+		return nil, fmt.Errorf("%s 返回的产物类型不受支持", providerName)
 	}
 	return result, nil
 }
