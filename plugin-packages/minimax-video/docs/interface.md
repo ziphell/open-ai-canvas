@@ -27,9 +27,7 @@
 | `ratio` | string | 否 | `request.aspectRatio` | 文生视频不能使用 `adaptive`，未提供时按 `16:9` 发送；首尾帧恒为 `adaptive`；多模态参考默认 `adaptive`，Lite 需显式指定具体比例。 |
 | `aigc_watermark` | boolean | 否 | `request.watermark` | 是否带 AIGC 水印，默认关闭。 |
 | `generate_audio` | boolean | 否 | `request.generateAudio` | 是否生成音频；渠道能力默认开启，显式关闭时发送 `false`。 |
-| `seed` | integer | 否 | `providerOptions.minimax-video.seed` | 随机种子。 |
-| `prompt_optimizer` | boolean | 否 | `providerOptions.minimax-video.prompt_optimizer` | 提示词优化开关。 |
-| `extra.prompt_expansion_mode` | string | 否 | `providerOptions.minimax-video.prompt_expansion_mode` | 仅 `MiniMax-H3-Max` 支持，其他模型传入直接失败。 |
+| `extra.prompt_expansion_mode` | enum | 否 | `providerOptions.minimax-video.prompt_expansion_mode` | 仅官方 `MiniMax-H3-Max` 支持，`disabled` / `balanced` / `quality`，默认 `balanced`；未设置时不发送 `extra`。其他中转渠道不保证支持提示词扩写。 |
 
 ## 强校验
 
@@ -40,6 +38,7 @@
 - 文生视频不能使用 `adaptive`，未提供比例时按 `16:9` 发送；首尾帧请求强制 `adaptive`。
 - duration 超出 4-15 秒直接失败；`MiniMax-H3-Max` 不接受 4 秒。
 - 分辨率按模型限制：H3 仅 768P、2K；Highspeed、Lite、Max 仅 480P、768P。
+- `extra.prompt_expansion_mode` 只能由 `MiniMax-H3-Max` 使用，且只接受 `disabled`、`balanced`、`quality`；未传时跟随官方默认 `balanced`，不额外发送 `extra`。
 
 ## 中转兼容边界
 
@@ -66,7 +65,7 @@
   "apiVersion": "yingce.plugin/v2",
   "id": "minimax-video",
   "name": "MiniMax H3 Video",
-  "version": "2.2.0",
+  "version": "2.2.2",
   "author": "MiniMax / 影策",
   "description": "MiniMax H3 视频生成协议，保留首帧、尾帧、参考图、视频和音频角色语义。",
   "documentation": "<当前插件的完整 documentation，由 README.md 与 docs/interface.md 拼接而成；为避免 JSON 递归，此处不重复展开正文。>",
@@ -184,22 +183,15 @@
             "description": "映射 request.generateAudio；渠道能力默认开启。"
           },
           {
-            "name": "seed",
-            "type": "integer",
-            "mapping": "seed",
-            "description": "providerOptions.minimax-video.seed。"
-          },
-          {
-            "name": "prompt_optimizer",
-            "type": "boolean",
-            "mapping": "prompt_optimizer",
-            "description": "providerOptions.minimax-video.prompt_optimizer。"
-          },
-          {
             "name": "promptExpansionMode",
             "type": "string",
             "mapping": "extra.prompt_expansion_mode",
-            "description": "providerOptions.minimax-video.prompt_expansion_mode，仅 MiniMax-H3-Max 支持。"
+            "values": [
+              "disabled",
+              "balanced",
+              "quality"
+            ],
+            "description": "providerOptions.minimax-video.prompt_expansion_mode；官方 MiniMax-H3-Max 的提示词扩写模式，disabled/balanced/quality，默认 balanced，未设置时不发送 extra。其他中转渠道不保证支持。"
           }
         ],
         "validations": [
@@ -691,30 +683,51 @@
           },
           {
             "assert": {
-              "$or": [
-                {
-                  "$eq": [
+              "$if": {
+                "condition": {
+                  "$ne": [
                     {
                       "$ref": "request.providerOptions.minimax-video.prompt_expansion_mode"
                     },
                     null
                   ]
                 },
-                {
-                  "$eq": [
+                "then": {
+                  "$and": [
                     {
-                      "$lower": {
-                        "$trim": {
-                          "$ref": "request.model"
-                        }
-                      }
+                      "$in": [
+                        {
+                          "$lower": {
+                            "$trim": {
+                              "$ref": "request.providerOptions.minimax-video.prompt_expansion_mode"
+                            }
+                          }
+                        },
+                        [
+                          "disabled",
+                          "balanced",
+                          "quality"
+                        ]
+                      ]
                     },
-                    "minimax-h3-max"
+                    {
+                      "$eq": [
+                        {
+                          "$lower": {
+                            "$trim": {
+                              "$ref": "request.model"
+                            }
+                          }
+                        },
+                        "minimax-h3-max"
+                      ]
+                    }
                   ]
-                }
-              ]
+                },
+                "else": true
+              }
             },
-            "message": "prompt_expansion_mode 仅 MiniMax-H3-Max 支持"
+            "message": "prompt_expansion_mode 仅 MiniMax-H3-Max 支持，且只能是 disabled、balanced 或 quality"
           }
         ],
         "create": {
@@ -933,16 +946,6 @@
             "generate_audio": {
               "$ref": "request.generateAudio"
             },
-            "seed": {
-              "$omitEmpty": {
-                "$ref": "request.providerOptions.minimax-video.seed"
-              }
-            },
-            "prompt_optimizer": {
-              "$omitEmpty": {
-                "$ref": "request.providerOptions.minimax-video.prompt_optimizer"
-              }
-            },
             "extra": {
               "$if": {
                 "condition": {
@@ -971,7 +974,11 @@
                 },
                 "then": {
                   "prompt_expansion_mode": {
-                    "$ref": "request.providerOptions.minimax-video.prompt_expansion_mode"
+                    "$lower": {
+                      "$trim": {
+                        "$ref": "request.providerOptions.minimax-video.prompt_expansion_mode"
+                      }
+                    }
                   }
                 },
                 "else": null

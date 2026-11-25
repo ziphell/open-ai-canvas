@@ -28,7 +28,7 @@ Content-Type: application/json
 
 {{PARAMETERS}}
 
-每张图片构造为 `content` 中的 `image_url` item。`extra` 可覆盖 `model`、`prompt`、`duration`、`content`、`resolution`、`aspect_ratio`。`generate_audio` 映射统一音频开关，渠道能力默认开启；`MiniMax-H3-Max` 可通过 `providerOptions.minimax-video.prompt_expansion_mode` 发送 `extra.prompt_expansion_mode`。参考视频、参考音频和水印由对应字段按需发送，其中 `callback_url` 当前不发送。
+每张图片构造为 `content` 中的 `image_url` item。`extra` 可覆盖 `model`、`prompt`、`duration`、`content`、`resolution`、`aspect_ratio`。`generate_audio` 映射统一音频开关，渠道能力默认开启。官方 `MiniMax-H3-Max` 可通过 `providerOptions.minimax-video.prompt_expansion_mode` 发送 `extra.prompt_expansion_mode`（`disabled`/`balanced`/`quality`，默认 `balanced`，未设置时不发送 `extra`）；其他中转渠道不保证支持提示词扩写。参考视频、参考音频和水印由对应字段按需发送，其中 `callback_url` 当前不发送。
 
 ## 创建任务示例
 

@@ -5692,7 +5692,7 @@ URL 使用归属校验后的资源访问地址，本地存储也可签发厂商�
 ## 待验证：MiniMax 图片/视频协议对齐官方文档
 
 - 已实现：`minimax-image` 新增 `disable_prompt_enhanced` 与 `aigc_watermark`（`providerOptions.minimax-image` 命名空间，默认停用）；关闭 Prompt 增强时要求显式「宽x高」像素尺寸或具体比例。
-- 已实现：`minimax-video` 改用 H3 原生 V2 协议（`/v2/video_generation`），按官方文档支持 `MiniMax-H3`、`MiniMax-H3-Highspeed`、`MiniMax-H3-Lite`、`MiniMax-H3-Max`；时长 4–15 秒（Max 为 5–15 秒），分辨率按模型限制，文生视频禁止 `adaptive`，首尾帧与多模态参考互斥，Max 支持 `extra.prompt_expansion_mode`。旧的 `/v1/video_generation` 插件已删除。
+- 已实现：`minimax-video` 改用 H3 原生 V2 协议（`/v2/video_generation`），按官方文档支持 `MiniMax-H3`、`MiniMax-H3-Highspeed`、`MiniMax-H3-Lite`、`MiniMax-H3-Max`；时长 4–15 秒（Max 为 5–15 秒），分辨率按模型限制，文生视频禁止 `adaptive`，首尾帧与多模态参考互斥。`MiniMax-H3-Max` 支持官方 `prompt_expansion_mode`（`disabled`/`balanced`/`quality`，默认 `balanced`，仅官方渠道保证）。旧的 `/v1/video_generation` 插件已删除。
 - 已实现：`minimax-video` 的前端请求只在显式首帧/尾帧节点存在时发送 `first_frame`/`last_frame`；没有显式帧节点时，任意数量图片（包括 1 张）都按 `reference_image` 发送，不再按图片数量推断首尾帧。
 - 已实现：服务商目录的秘塔 MiniMax-H3 改用 `metaso-h3` 协议，保留 4–30 秒与首尾帧混用；目录 `connection.baseUrl` 改为 `https://metaso.cn`，Key 校验路径随之变化。
 - 已实现：服务商目录已用 `https://ai.yingce.tv/v1/catalog.json` 的在线内容回填 `scripts/provider-catalog/catalog.json`（5 个服务商）并内嵌到后端；默认不请求网络，只有设置 `CANVAS_PROVIDER_CATALOG_URL` 时才拉取远程目录。秘塔项改用 `metaso-h3` 并保留 4–30 秒。

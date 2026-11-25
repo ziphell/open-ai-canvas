@@ -84,7 +84,7 @@ func TestMiniMaxVideoRejectsUndocumentedCombinations(t *testing.T) {
 	}
 }
 
-func TestMiniMaxVideoAudioAndMaxExtension(t *testing.T) {
+func TestMiniMaxVideoAudioAndWatermark(t *testing.T) {
 	adapter := officialPackageAdapter(t, "minimax-video.yingce-plugin", "minimax-video")
 	spec, err := adapter.BuildCreate(context.Background(), RequestContext{Request: GenerationRequest{Model: "MiniMax-H3-Max", Prompt: "test", AspectRatio: "16:9", Duration: 5, Resolution: "768P", GenerateAudio: true}})
 	if err != nil {
@@ -94,24 +94,43 @@ func TestMiniMaxVideoAudioAndMaxExtension(t *testing.T) {
 	if body["generate_audio"] != true || body["aigc_watermark"] != false {
 		t.Fatalf("flags = %#v, want generate_audio=true and aigc_watermark=false", body)
 	}
+}
 
-	spec, err = adapter.BuildCreate(context.Background(), RequestContext{Request: GenerationRequest{
-		Model: "MiniMax-H3-Max", Prompt: "test", AspectRatio: "16:9", Duration: 5, Resolution: "768P",
-		ProviderOptions: map[string]map[string]any{"minimax-video": {"prompt_expansion_mode": "balanced"}},
-	}})
+func TestMiniMaxVideoPromptExpansionMode(t *testing.T) {
+	adapter := officialPackageAdapter(t, "minimax-video.yingce-plugin", "minimax-video")
+	build := func(model string, options map[string]any) (map[string]any, error) {
+		request := GenerationRequest{Model: model, Prompt: "test", AspectRatio: "16:9", Duration: 5, Resolution: "768P"}
+		if options != nil {
+			request.ProviderOptions = map[string]map[string]any{"minimax-video": options}
+		}
+		spec, err := adapter.BuildCreate(context.Background(), RequestContext{Request: request})
+		if err != nil {
+			return nil, err
+		}
+		return manifestTestBody(t, spec), nil
+	}
+
+	body, err := build("MiniMax-H3-Max", map[string]any{"prompt_expansion_mode": " QUALITY "})
 	if err != nil {
 		t.Fatal(err)
 	}
-	extra, ok := manifestTestBody(t, spec)["extra"].(map[string]any)
-	if !ok || extra["prompt_expansion_mode"] != "balanced" {
-		t.Fatalf("extra = %#v, want prompt_expansion_mode", extra)
+	extra, _ := body["extra"].(map[string]any)
+	if extra["prompt_expansion_mode"] != "quality" {
+		t.Fatalf("extra = %#v, want prompt_expansion_mode=quality", body["extra"])
 	}
 
-	_, err = adapter.BuildCreate(context.Background(), RequestContext{Request: GenerationRequest{
-		Model: "MiniMax-H3", Prompt: "test", AspectRatio: "16:9", Duration: 5, Resolution: "768P",
-		ProviderOptions: map[string]map[string]any{"minimax-video": {"prompt_expansion_mode": "balanced"}},
-	}})
-	if err == nil || !strings.Contains(err.Error(), "仅 MiniMax-H3-Max 支持") {
+	body, err = build("MiniMax-H3-Max", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if extra, ok := body["extra"]; ok && extra != nil {
+		t.Fatalf("extra = %#v, want omitted when prompt_expansion_mode is not set", extra)
+	}
+
+	if _, err := build("MiniMax-H3-Max", map[string]any{"prompt_expansion_mode": "balance"}); err == nil || !strings.Contains(err.Error(), "disabled、balanced 或 quality") {
+		t.Fatalf("invalid prompt_expansion_mode error = %v", err)
+	}
+	if _, err := build("MiniMax-H3", map[string]any{"prompt_expansion_mode": "balanced"}); err == nil || !strings.Contains(err.Error(), "仅 MiniMax-H3-Max 支持") {
 		t.Fatalf("non-max prompt_expansion_mode error = %v", err)
 	}
 }

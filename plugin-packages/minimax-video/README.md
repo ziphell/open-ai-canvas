@@ -13,7 +13,7 @@
 - `generateAudio` 映射为 `generate_audio`；渠道能力默认开启，显式关闭时发送 `false`。
 - prompt 只放入 text block，不再同时发送顶层 prompt。
 - 首帧、尾帧和 reference image 依据 role 转换，不按 `0/1` 猜测。
-- `MiniMax-H3-Max` 可通过 `providerOptions.minimax-video.prompt_expansion_mode` 传入 `extra.prompt_expansion_mode`。
+- 官方 `MiniMax-H3-Max` 可通过 `providerOptions.minimax-video.prompt_expansion_mode` 传入 `extra.prompt_expansion_mode`：`disabled`、`balanced`、`quality`，默认 `balanced`；未设置时不发送 `extra`。其他中转渠道不保证支持提示词扩写。
 - 当前仍不发送 `callback_url`；创建响应按 `response_format=task` 解析，查询兼容 `task` 与平铺结构。
 
 完整字段见 [docs/interface.md](docs/interface.md)。
