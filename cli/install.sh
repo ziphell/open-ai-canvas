@@ -14,13 +14,13 @@ usage() {
 
 参数：
   --prefix <dir>          安装目录，默认 ~/.local/bin（Windows 为 ~/bin）
-  --version <版本号>      版本目录，默认 latest
+  --version <版本号>      指定版本目录，默认读取发布目录的 version.json
   --update-path           把安装目录写入 shell 启动文件
   --dry-run               只打印将下载的版本、来源和目标，不下载
 
 环境变量：
   YINGCE_CLI_BASE_URL     发布目录，默认 https://yingce.tv/cli
-  YINGCE_CLI_VERSION      版本目录，默认 latest
+  YINGCE_CLI_VERSION      指定版本目录；默认 latest
   YINGCE_CLI_INSTALL_DIR  安装目录
 EOF
 }
@@ -128,10 +128,20 @@ sha256() {
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
-base="${BASE_URL%/}/${VERSION}"
+source_base="${BASE_URL%/}"
+resolved="$VERSION"
+if [ "$VERSION" = "latest" ]; then
+  download "${source_base}/version.json" "${tmp_dir}/version.json"
+  resolved="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "${tmp_dir}/version.json" | head -n 1)"
+  if [ -z "$resolved" ]; then
+    echo "version.json 缺少 version 字段，拒绝安装" >&2
+    exit 1
+  fi
+fi
+base="${source_base}/${resolved}"
 
 if [ "$DRY_RUN" -eq 1 ]; then
-  echo "dry-run: ${PROGRAM} ${VERSION} (${os_name}/${arch_name})"
+  echo "dry-run: ${PROGRAM} ${resolved} (${os_name}/${arch_name})"
   echo "  来源：${base}/${binary}"
   echo "  校验：${base}/SHA256SUMS 中的 ${binary}"
   echo "  目标：${target}"

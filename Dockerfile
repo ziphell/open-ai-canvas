@@ -1,5 +1,15 @@
 # syntax=docker/dockerfile:1.7
 
+# 交叉编译 CLI，并把安装包嵌入前端静态目录；CLI 发版随 web 镜像走，不需要额外发布服务器。
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS cli-build
+
+RUN apk add --no-cache bash
+WORKDIR /app/cli
+COPY cli /app/cli
+ARG BUILD_COMMIT=unknown
+ENV YINGCE_CLI_COMMIT=${BUILD_COMMIT}
+RUN bash release.sh --skip-tests --output /out/cli
+
 # 构建 Vite 前端产物。
 FROM --platform=$BUILDPLATFORM oven/bun:1.3.9 AS web-build
 
@@ -11,6 +21,7 @@ COPY CHANGELOG.md /app/CHANGELOG.md
 COPY README.md /app/README.md
 COPY assets /app/assets
 COPY web ./
+COPY --from=cli-build /out/cli /app/web/public/cli
 COPY backend/internal/ecommerceagent/platform_knowledge.json /app/backend/internal/ecommerceagent/platform_knowledge.json
 COPY backend/internal/app/appearance_theme_packs.json /app/backend/internal/app/appearance_theme_packs.json
 ARG VITE_TLDRAW_LICENSE_KEY

@@ -17,13 +17,14 @@ description: 当前项目已实现功能的手工验证清单与未确认边界
 
 ## CLI 发布
 
-- 已实现：`cli/release.sh <版本号>` 本地执行 gofmt、vet、测试，交叉编译 darwin/linux/windows × amd64/arm64，注入版本与提交号，生成 `SHA256SUMS`、`version.json`、`SKILL.md`、`install.sh`，并刷新 `dist/latest`。
-- 已实现：设置 `YINGCE_CLI_PUBLISH_TARGET=user@host:/srv/yingce/cli`（或 `--target`）后通过 rsync 发布 `/cli/<版本号>/`、`/cli/latest/` 和根 `install.sh`；未设置时只生成文件并打印上传命令。发布与升级链路不依赖 GitHub、GitHub Actions 或 GitHub Release。
-- 已实现：`install.sh` 默认从 `/cli/latest/` 读取，`--version` 读取 `/cli/<版本号>/`；支持 `--dry-run`，Windows 默认安装到 `~/bin`，SHA256 不符时停止且不写入目标。
-- 自动回归：6 个目标交叉编译成功，注入版本可在 `yingce version --json` 读出；本地 HTTP 目录验证 `--dry-run`、latest 安装、固定版本安装，以及篡改二进制时校验失败且不落盘；两个脚本通过 `bash -n`。
-- [ ] 运行 `cli/release.sh 0.1.0` 并发布到真实目录，确认 `/cli/latest/`、`/cli/0.1.0/`、根 `install.sh` 与各平台二进制一致。
+- 已实现：CLI 安装包进入前端构建流程。Docker 的 `cli-build` 阶段按 `cli/VERSION` 交叉编译 darwin/linux/windows × amd64/arm64，产物注入 `web/public/cli/`，随 Vite 构建进入 web 镜像，由 nginx `/cli/` 直接提供；发布和升级不依赖 GitHub。
+- 已实现：发布目录为 `/cli/version.json`（版本指针）、`/cli/install.sh`、`/cli/<版本号>/`（二进制、`SHA256SUMS`、`version.json`、`SKILL.md`、`install.sh`）；不再复制 `latest` 目录，避免二进制重复占用体积。
+- 已实现：`cli/release.sh` 可在本地执行 gofmt、vet、测试并生成同样的目录，支持 `--output` 和 `--skip-tests`；设置 `YINGCE_CLI_PUBLISH_TARGET` 或 `--target` 时可通过 rsync 直接发布到 web 静态根。
+- 已实现：`install.sh` 默认读取 `/cli/version.json` 解析最新版本，`--version` 直接读取 `/cli/<版本号>/`；支持 `--dry-run`，Windows 默认安装到 `~/bin`，SHA256 不符时停止且不写入目标；`nginx.conf` 对 `/cli/` 缺失文件返回 404，不回退 SPA。
+- 自动回归：`release.sh` 全流程通过，6 个目标编译成功，根 `version.json`、版本目录与 `SHA256SUMS` 一致；本地 HTTP 目录验证 `--dry-run`、最新版安装、固定版本安装，以及篡改二进制时校验失败且不落盘。
+- [ ] 构建 web 镜像并启动容器，确认 `web-data` 卷内出现 `cli/version.json`、`cli/0.1.0/` 和 `cli/install.sh`，`curl https://<host>/cli/version.json` 可读。
 - [ ] 在干净的 macOS 与 Windows（Git Bash）实机执行 `curl | bash`，确认安装目录、PATH 提示、macOS quarantine 清理和 `yingce version` 输出。
-- [ ] 升级一次：发布新版本后重跑安装脚本，确认 `latest` 覆盖安装、固定版本安装仍可回退。
+- [ ] 升级一次：提升 `cli/VERSION` 并重新部署 web 镜像，确认默认安装拿到新版本、旧版本目录仍可回退；确认镜像体积增量符合预期。
 
 ## 技能体系拆分：公共目录与用户技能实例
 

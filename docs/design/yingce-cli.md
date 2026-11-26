@@ -80,7 +80,7 @@ curl -fsSL https://<host>/cli/install.sh | bash
 安装脚本必须：
 
 - 识别 `darwin/linux/windows` × `amd64/arm64`。
-- 从自有发布目录读取 `/cli/<版本号>/` 或 `/cli/latest/` 下的二进制和 `SHA256SUMS`；同一目录附带 `SKILL.md`、`version.json` 和 `install.sh`。
+- 先读取 `/cli/version.json` 得到当前版本，再从 `/cli/<版本号>/` 下载二进制和 `SHA256SUMS`；同一目录附带 `SKILL.md`、`version.json` 和 `install.sh`。
 - 校验 SHA256，**失败即停**；不接受只告警继续。
 - 默认安装到 `~/.local/bin`，Windows 为 `~/bin`。
 - 不自动修改 shell 启动文件；打印 PATH 指引，用户显式传 `--update-path` 才写入。
@@ -98,13 +98,13 @@ curl -fsSL https://<host>/cli/install.sh | bash
 
 ### 3.3 发布
 
-发布和升级只依赖自有域名，不依赖 GitHub、GitHub Actions 或 GitHub Release。
+CLI 安装包进入前端构建流程，由 web 静态目录提供；发布和升级不依赖 GitHub、GitHub Actions 或 GitHub Release。
 
-- 发布目录：`/cli/<版本号>/` 保存完整文件，`/cli/latest/` 保存最新版本副本，`/cli/install.sh` 是稳定安装入口。
-- `cli/release.sh <版本号>` 在本地执行 gofmt、vet、测试，交叉编译 6 个平台，生成 `SHA256SUMS`、`version.json`、`SKILL.md`、`install.sh`，并刷新 `dist/latest`。
-- 设置 `YINGCE_CLI_PUBLISH_TARGET=user@host:/srv/yingce/cli`（或传 `--target`）后，脚本用 rsync 发布版本目录、`latest` 和根 `install.sh`；未设置时只生成文件并打印上传命令。
-- 版本号与提交号通过 `-ldflags` 注入 `commands.Version` / `commands.Commit`；本地构建保持 `0.1.0-dev`。
-- 升级链路只访问 `https://yingce.tv/cli/latest/`，固定版本访问 `https://yingce.tv/cli/<版本号>/`。
+- 版本号写在 `cli/VERSION`。版本号与提交号通过 `-ldflags` 注入 `commands.Version` / `commands.Commit`。
+- Docker 的 `cli-build` 阶段交叉编译 6 个平台，产物注入 `web/public/cli/`，随 Vite 构建进入 web 镜像；`nginx.conf` 用 `/cli/` 直接提供静态文件。
+- 发布目录：`/cli/version.json` 是版本指针，`/cli/install.sh` 是稳定安装入口，`/cli/<版本号>/` 保存该版本全部文件；不复制 `latest` 目录，避免二进制重复占用体积。
+- `canvas-web-entrypoint.sh` 把镜像内的 `/cli/` 同步进 `web-data` 卷；web 容器升级后旧版本目录保留，固定版本安装仍可回退。
+- 需要只更新 CLI、不重建 web 镜像时，可运行 `cli/release.sh` 生成产物并通过 rsync 发布到 web 静态根；用法见脚本帮助。
 
 ## 4. 认证
 

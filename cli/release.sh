@@ -2,31 +2,41 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DIST="$ROOT/dist"
+DIST="${YINGCE_CLI_OUTPUT_DIR:-$ROOT/dist}"
 VERSION=""
 TARGET="${YINGCE_CLI_PUBLISH_TARGET:-}"
 RUN_TESTS=1
 
 usage() {
   cat <<'EOF'
-用法：release.sh <版本号> [--target <rsync目标>] [--skip-tests]
+用法：release.sh [版本号] [--output <目录>] [--target <rsync目标>] [--skip-tests]
+
+版本号缺省时读取 cli/VERSION。
 
 示例：
-  ./release.sh 0.1.0
-  YINGCE_CLI_PUBLISH_TARGET=user@host:/srv/yingce/cli ./release.sh 0.1.0
+  ./release.sh
+  ./release.sh 0.1.1
+  ./release.sh --output /out/cli --skip-tests
+  YINGCE_CLI_PUBLISH_TARGET=user@host:/srv/yingce/cli ./release.sh
 
-发布目录结构：
-  <target>/<版本号>/   本次版本的全部文件
-  <target>/latest/     指向最新版本的文件副本
-  <target>/install.sh  稳定安装入口
+输出结构：
+  <output>/version.json   最新版本指针，安装脚本默认读取
+  <output>/install.sh     稳定安装入口
+  <output>/<版本号>/      二进制、SHA256SUMS、version.json、SKILL.md、install.sh
 
 环境变量：
-  YINGCE_CLI_PUBLISH_TARGET   rsync 目标；留空只生成文件，不发布
+  YINGCE_CLI_OUTPUT_DIR       输出目录，默认 cli/dist
+  YINGCE_CLI_PUBLISH_TARGET   rsync 目标；留空只生成文件
+  YINGCE_CLI_COMMIT           提交号；缺省读取 git，容器构建时显式传入
 EOF
 }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --output)
+      DIST="${2:?缺少 --output 的值}"
+      shift 2
+      ;;
     --target)
       TARGET="${2:?缺少 --target 的值}"
       shift 2
@@ -56,6 +66,9 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ -z "$VERSION" ]; then
+  VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION" 2>/dev/null || true)"
+fi
+if [ -z "$VERSION" ]; then
   usage
   exit 2
 fi
@@ -79,7 +92,7 @@ if [ "$RUN_TESTS" -eq 1 ]; then
   go test -count=1 ./...
 fi
 
-COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+COMMIT="${YINGCE_CLI_COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo unknown)}"
 BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 CONTRACT="$(go run ./cmd/yingce version --json | sed -n 's/.*"contract":"\([^"]*\)".*/\1/p')"
 if [ -z "$CONTRACT" ]; then
@@ -125,17 +138,15 @@ EOF
   fi
 )
 
-# latest 是最新版本的文件副本，安装脚本默认读取这里；升级不依赖任何代码托管平台。
-rm -rf "$DIST/latest"
-mkdir -p "$DIST/latest"
-cp "$OUT"/* "$DIST/latest/"
+# 根目录只放版本指针和安装入口；二进制只保留在各版本目录，避免重复占用体积。
+cp "$OUT/version.json" "$DIST/version.json"
 cp install.sh "$DIST/install.sh"
 
 echo
 echo "已生成 $OUT"
 cat "$OUT/SHA256SUMS"
 echo
-echo "默认安装：curl -fsSL https://yingce.tv/cli/install.sh | bash"
+echo "安装：curl -fsSL https://yingce.tv/cli/install.sh | bash"
 echo "固定版本：curl -fsSL https://yingce.tv/cli/install.sh | bash -s -- --version $VERSION"
 
 if [ -n "$TARGET" ]; then
@@ -146,13 +157,13 @@ if [ -n "$TARGET" ]; then
   echo
   echo "发布到 $TARGET"
   rsync -av --delete "$OUT/" "$TARGET/$VERSION/"
-  rsync -av --delete "$DIST/latest/" "$TARGET/latest/"
+  rsync -av "$DIST/version.json" "$TARGET/version.json"
   rsync -av "$DIST/install.sh" "$TARGET/install.sh"
   echo "已发布 $VERSION"
 else
   echo
   echo "未设置发布目标，只生成了本地文件。上传示例："
   echo "  rsync -av --delete dist/$VERSION/ <user>@<host>:/srv/yingce/cli/$VERSION/"
-  echo "  rsync -av --delete dist/latest/ <user>@<host>:/srv/yingce/cli/latest/"
+  echo "  rsync -av dist/version.json <user>@<host>:/srv/yingce/cli/version.json"
   echo "  rsync -av dist/install.sh <user>@<host>:/srv/yingce/cli/install.sh"
 fi

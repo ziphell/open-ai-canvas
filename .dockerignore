@@ -18,6 +18,7 @@ backend/cmd/server/server
 .local
 web/.next
 web/dist
+web/public/cli
 web/node_modules
 dist
 backend/agent-runtime/pi/node_modules

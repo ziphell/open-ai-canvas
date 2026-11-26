@@ -65,6 +65,8 @@ data/
 /.local/docker-compose.postgres.yml
 coverage/
 dist/
+# CLI 安装包由构建流程生成，不提交二进制。
+web/public/cli/
 *.log
 *.tsbuildinfo
 *.db
