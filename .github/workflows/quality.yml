@@ -210,40 +210,6 @@ jobs:
           cache-from: type=gha,scope=payment-smoke
           cache-to: type=gha,mode=max,scope=payment-smoke
 
-  cli:
-    name: CLI checks
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: cli
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: cli/go.mod
-          # CLI 只有标准库，没有 go.sum，关闭依赖缓存避免 setup-go 找不到缓存文件。
-          cache: false
-      - name: Check formatting
-        shell: bash
-        run: |
-          unformatted="$(gofmt -l .)"
-          if [ -n "$unformatted" ]; then
-            printf '%s\n' "$unformatted"
-            echo "::error::Go files require gofmt. Run gofmt -w on the files listed above."
-            exit 1
-          fi
-      - name: Vet
-        run: go vet ./...
-      - name: Run tests
-        run: go test -count=1 ./...
-      - name: Cross-compile release targets
-        shell: bash
-        run: |
-          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
-            GOOS="${target%/*}" GOARCH="${target#*/}" CGO_ENABLED=0 go build -o /dev/null ./cmd/yingce
-          done
-
   web:
     name: Web checks
     runs-on: ubuntu-latest

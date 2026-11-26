@@ -10,17 +10,17 @@ DRY_RUN=0
 
 usage() {
   cat <<'EOF'
-用法：install.sh [--prefix <dir>] [--version <tag>] [--update-path] [--dry-run]
+用法：install.sh [--prefix <dir>] [--version <版本号>] [--update-path] [--dry-run]
 
 参数：
   --prefix <dir>          安装目录，默认 ~/.local/bin（Windows 为 ~/bin）
-  --version <tag>         版本标签，默认 latest
+  --version <版本号>      版本目录，默认 latest
   --update-path           把安装目录写入 shell 启动文件
   --dry-run               只打印将下载的版本、来源和目标，不下载
 
 环境变量：
-  YINGCE_CLI_BASE_URL     二进制发布目录，默认 https://yingce.tv/cli
-  YINGCE_CLI_VERSION      版本标签，默认 latest
+  YINGCE_CLI_BASE_URL     发布目录，默认 https://yingce.tv/cli
+  YINGCE_CLI_VERSION      版本目录，默认 latest
   YINGCE_CLI_INSTALL_DIR  安装目录
 EOF
 }
@@ -128,10 +128,7 @@ sha256() {
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
-base="${BASE_URL%/}"
-if [ "$VERSION" != "latest" ]; then
-  base="${base}/${VERSION}"
-fi
+base="${BASE_URL%/}/${VERSION}"
 
 if [ "$DRY_RUN" -eq 1 ]; then
   echo "dry-run: ${PROGRAM} ${VERSION} (${os_name}/${arch_name})"

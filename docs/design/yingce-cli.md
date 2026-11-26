@@ -80,7 +80,7 @@ curl -fsSL https://<host>/cli/install.sh | bash
 安装脚本必须：
 
 - 识别 `darwin/linux/windows` × `amd64/arm64`。
-- 从同一 Release 下载与校验二进制和 `SHA256SUMS`；Release 同时附带 `SKILL.md`、`version.json` 和 `install.sh` 供镜像与工具使用。
+- 从自有发布目录读取 `/cli/<版本号>/` 或 `/cli/latest/` 下的二进制和 `SHA256SUMS`；同一目录附带 `SKILL.md`、`version.json` 和 `install.sh`。
 - 校验 SHA256，**失败即停**；不接受只告警继续。
 - 默认安装到 `~/.local/bin`，Windows 为 `~/bin`。
 - 不自动修改 shell 启动文件；打印 PATH 指引，用户显式传 `--update-path` 才写入。
@@ -98,11 +98,13 @@ curl -fsSL https://<host>/cli/install.sh | bash
 
 ### 3.3 发布
 
-- 标签形如 `cli-v0.1.0`，与应用版本的 `v*` 标签互不影响；CLI Release 不标记为仓库 Latest。
-- `.github/workflows/publish-cli.yml` 在标签推送后校验、交叉编译 6 个平台，生成 `SHA256SUMS`、`version.json`、`SKILL.md`、`install.sh` 并创建 GitHub Release。
+发布和升级只依赖自有域名，不依赖 GitHub、GitHub Actions 或 GitHub Release。
+
+- 发布目录：`/cli/<版本号>/` 保存完整文件，`/cli/latest/` 保存最新版本副本，`/cli/install.sh` 是稳定安装入口。
+- `cli/release.sh <版本号>` 在本地执行 gofmt、vet、测试，交叉编译 6 个平台，生成 `SHA256SUMS`、`version.json`、`SKILL.md`、`install.sh`，并刷新 `dist/latest`。
+- 设置 `YINGCE_CLI_PUBLISH_TARGET=user@host:/srv/yingce/cli`（或传 `--target`）后，脚本用 rsync 发布版本目录、`latest` 和根 `install.sh`；未设置时只生成文件并打印上传命令。
 - 版本号与提交号通过 `-ldflags` 注入 `commands.Version` / `commands.Commit`；本地构建保持 `0.1.0-dev`。
-- 手动触发同一工作流只产出构建产物，不创建 Release；PR 由 `quality.yml` 的 CLI 检查覆盖 gofmt、vet、测试和 6 平台编译。
-- 从 Release 安装：`YINGCE_CLI_BASE_URL=https://github.com/<owner>/<repo>/releases/download YINGCE_CLI_VERSION=cli-v0.1.0 bash install.sh`。
+- 升级链路只访问 `https://yingce.tv/cli/latest/`，固定版本访问 `https://yingce.tv/cli/<版本号>/`。
 
 ## 4. 认证
 

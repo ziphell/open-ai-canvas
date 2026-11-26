@@ -15,14 +15,15 @@ description: 当前项目已实现功能的手工验证清单与未确认边界
 - [ ] 用撤销后的令牌执行一次 CLI 请求，确认返回 401 且不自动重登；确认设置页刷新后状态与最后使用时间正确。
 - [ ] 在浏览器验收令牌页的明暗主题、窄屏、空态、加载失败与服务端停用态。
 
-## CLI 发布流水线
+## CLI 发布
 
-- 已实现：`.github/workflows/publish-cli.yml` 在 `cli-v*` 标签上校验、交叉编译 darwin/linux/windows × amd64/arm64，注入版本与提交号，生成 `SHA256SUMS`、`version.json`、`SKILL.md`、`install.sh` 并创建 GitHub Release；CLI Release 不标记为仓库 Latest。手动触发只产出构建产物。
-- 已实现：`quality.yml` 增加 CLI 检查（gofmt、vet、测试和 6 平台编译）；`install.sh` 支持 `--dry-run`，Windows 默认安装到 `~/bin`，SHA256 不符时停止且不写入目标。
-- 自动回归：6 个目标交叉编译成功，注入版本可在 `yingce version --json` 读出；本地 HTTP 镜像验证 `--dry-run`、正常安装、按标签目录安装，以及篡改二进制时校验失败且不落盘；工作流 YAML 与提取出的 shell 脚本语法检查通过。
-- [ ] 推送 `cli-v0.1.0` 标签，确认 Release 资产齐全、`SHA256SUMS` 与各平台二进制一致、Release 不是 Latest，且文档中的 GitHub 直装命令可用。
+- 已实现：`cli/release.sh <版本号>` 本地执行 gofmt、vet、测试，交叉编译 darwin/linux/windows × amd64/arm64，注入版本与提交号，生成 `SHA256SUMS`、`version.json`、`SKILL.md`、`install.sh`，并刷新 `dist/latest`。
+- 已实现：设置 `YINGCE_CLI_PUBLISH_TARGET=user@host:/srv/yingce/cli`（或 `--target`）后通过 rsync 发布 `/cli/<版本号>/`、`/cli/latest/` 和根 `install.sh`；未设置时只生成文件并打印上传命令。发布与升级链路不依赖 GitHub、GitHub Actions 或 GitHub Release。
+- 已实现：`install.sh` 默认从 `/cli/latest/` 读取，`--version` 读取 `/cli/<版本号>/`；支持 `--dry-run`，Windows 默认安装到 `~/bin`，SHA256 不符时停止且不写入目标。
+- 自动回归：6 个目标交叉编译成功，注入版本可在 `yingce version --json` 读出；本地 HTTP 目录验证 `--dry-run`、latest 安装、固定版本安装，以及篡改二进制时校验失败且不落盘；两个脚本通过 `bash -n`。
+- [ ] 运行 `cli/release.sh 0.1.0` 并发布到真实目录，确认 `/cli/latest/`、`/cli/0.1.0/`、根 `install.sh` 与各平台二进制一致。
 - [ ] 在干净的 macOS 与 Windows（Git Bash）实机执行 `curl | bash`，确认安装目录、PATH 提示、macOS quarantine 清理和 `yingce version` 输出。
-- [ ] 让 `https://yingce.tv/cli` 镜像同步 Release 资产后，用默认地址完成一次安装与升级。
+- [ ] 升级一次：发布新版本后重跑安装脚本，确认 `latest` 覆盖安装、固定版本安装仍可回退。
 
 ## 技能体系拆分：公共目录与用户技能实例
 
