@@ -45,6 +45,20 @@ func (s *Service) CreateTask(userID string, req CreateTaskRequest) (*model.Task,
 	if err != nil {
 		return nil, err
 	}
+	// 幂等重放要早于权限、模型和容量检查：只要键和请求一致，就返回已有任务，
+	// 不因目录或权限后来变化而让客户端误以为需要重新生成。
+	// 前端自管的文本持久化任务走独立创建路径，不在这里占用幂等键。
+	var idempotency *model.TaskIdempotency
+	var replayTask *model.Task
+	if !isTextReplayTaskRequest(normalizedInput) {
+		idempotency, replayTask, err = s.prepareTaskIdempotency(userID, taskType, req, prompt, normalizedInput)
+		if err != nil {
+			return nil, err
+		}
+		if replayTask != nil {
+			return replayTask, nil
+		}
+	}
 	if err := s.requireTaskGenerationFeatures(userID, req.ProjectID, taskType, req.Operation, req.workbenchKind, normalizedInput); err != nil {
 		return nil, err
 	}
@@ -187,6 +201,9 @@ func (s *Service) CreateTask(userID string, req CreateTaskRequest) (*model.Task,
 		task.GenerationID = req.admission.GenerationID
 		task.ApprovalID = req.admission.ApprovalID
 	}
+	if idempotency != nil {
+		idempotency.TaskID = task.ID
+	}
 	if routed != nil {
 		task.LogicalModelID = routed.LogicalModel.ID
 		task.LogicalModelRevisionID = routed.Revision.ID
@@ -214,7 +231,7 @@ func (s *Service) CreateTask(userID string, req CreateTaskRequest) (*model.Task,
 		task.Stage = "Agent 控制面载体"
 		task.Progress = 0
 		task.InputJSON = string(inputJSON)
-		if err := s.createTaskWithinStorageQuota(&task, nil, policy); err != nil {
+		if err := s.createTaskWithinStorageQuota(&task, nil, policy, idempotency); err != nil {
 			return nil, err
 		}
 		return taskForOutput(task), nil
@@ -256,7 +273,16 @@ func (s *Service) CreateTask(userID string, req CreateTaskRequest) (*model.Task,
 	if billingOrder != nil {
 		task.BillingOrderID = billingOrder.ID
 	}
-	err = s.createTaskWithinStorageQuota(&task, billingOrder, policy)
+	err = s.createTaskWithinStorageQuota(&task, billingOrder, policy, idempotency)
+	if err != nil && idempotency != nil {
+		// 并发提交同一幂等键时，唯一索引会让其中一个事务回滚；
+		// 此时读取胜出任务并作为重放返回。
+		if replay, replayErr := s.replayTaskIdempotency(userID, idempotency.Key, idempotency.RequestDigest); replayErr == nil {
+			return replay, nil
+		} else if !errors.Is(replayErr, gorm.ErrRecordNotFound) {
+			return nil, replayErr
+		}
+	}
 	if errors.Is(err, repository.ErrActiveTaskLimit) {
 		return nil, BadAuthRequest(fmt.Sprintf("同时排队或运行的任务最多 %d 个，请等待已有任务完成", policy.Task.ActiveTaskLimit))
 	}

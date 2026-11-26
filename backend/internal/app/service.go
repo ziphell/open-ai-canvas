@@ -143,6 +143,7 @@ type CreateTaskRequest struct {
 	Provider             string         `json:"provider"`
 	Model                string         `json:"model"`
 	LogicalModelID       string         `json:"logicalModelId"`
+	IdempotencyKey       string         `json:"idempotencyKey"`
 	Input                map[string]any `json:"input"`
 	TraceID              string         `json:"-"`
 	RequestID            string         `json:"-"`

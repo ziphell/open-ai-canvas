@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"yingce/backend/internal/service"
@@ -41,6 +42,18 @@ func RegisterTaskRoutes(r *gin.RouterGroup, svc *service.Service) {
 		var req service.CreateTaskRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			fail(c, http.StatusBadRequest, err)
+			return
+		}
+		if headerKey := strings.TrimSpace(c.GetHeader("X-Idempotency-Key")); headerKey != "" {
+			key, keyErr := resolveIdempotencyKey(headerKey, req.IdempotencyKey)
+			if keyErr != nil {
+				fail(c, http.StatusBadRequest, keyErr)
+				return
+			}
+			req.IdempotencyKey = key
+		}
+		if required := missingTokenTaskScope(c, req); required != "" {
+			writeFailure(c, http.StatusForbidden, service.CodeForbidden, "scope_missing", "访问令牌缺少权限："+required)
 			return
 		}
 		req.TraceID = TraceID(c)

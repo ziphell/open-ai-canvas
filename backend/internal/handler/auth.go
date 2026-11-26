@@ -652,6 +652,12 @@ func readPayloadModel(body []byte) string {
 }
 
 func currentUser(c *gin.Context, svc *service.Service) (*model.User, error) {
+	if user, ok := tokenContextUser(c); ok {
+		if expected := c.GetHeader("X-Canvas-Expected-User"); expected != "" && expected != user.ID {
+			return nil, service.Forbidden("账号已切换，请重新加载后重试")
+		}
+		return user, nil
+	}
 	user, err := svc.CurrentUser(sessionCookie(c))
 	if err != nil {
 		return nil, err

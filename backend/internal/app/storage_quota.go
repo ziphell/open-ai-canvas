@@ -79,11 +79,15 @@ func validateStructuredReplacementQuotaWithPolicy(usage repository.UserStorageUs
 	return validateStructuredStorageQuotaWithPolicy(usage, kind, false, deltaBytes, policy)
 }
 
-func (s *Service) createTaskWithinStorageQuota(task *model.Task, billingOrder *model.BillingOrder, policy RuntimePolicySetting) error {
+func (s *Service) createTaskWithinStorageQuota(task *model.Task, billingOrder *model.BillingOrder, policy RuntimePolicySetting, idempotency ...*model.TaskIdempotency) error {
+	var idem *model.TaskIdempotency
+	if len(idempotency) > 0 {
+		idem = idempotency[0]
+	}
 	s.storageMu.Lock()
 	err := func() error {
 		defer s.storageMu.Unlock()
-		return createTaskWithStorageQuotaRepository(s.repo, task, billingOrder, policy)
+		return createTaskWithStorageQuotaRepository(s.repo, task, billingOrder, policy, idem)
 	}()
 	if err == nil {
 		s.wakeTaskDispatcher()
@@ -91,7 +95,11 @@ func (s *Service) createTaskWithinStorageQuota(task *model.Task, billingOrder *m
 	return err
 }
 
-func createTaskWithStorageQuotaRepository(repo *repository.Repository, task *model.Task, billingOrder *model.BillingOrder, policy RuntimePolicySetting) error {
+func createTaskWithStorageQuotaRepository(repo *repository.Repository, task *model.Task, billingOrder *model.BillingOrder, policy RuntimePolicySetting, idempotency ...*model.TaskIdempotency) error {
+	var idem *model.TaskIdempotency
+	if len(idempotency) > 0 {
+		idem = idempotency[0]
+	}
 	usage, err := repo.UserStorageUsage(task.UserID)
 	if err != nil {
 		return err
@@ -101,7 +109,13 @@ func createTaskWithStorageQuotaRepository(repo *repository.Repository, task *mod
 		return err
 	}
 	if billingOrder != nil {
+		if idem != nil {
+			return repo.CreateTaskWithCreditReservationIdempotent(task, billingOrder, idem, policy.Task.ActiveTaskLimit, policy.Task.AgentMaxRunsPerUser)
+		}
 		return repo.CreateTaskWithCreditReservation(task, billingOrder, policy.Task.ActiveTaskLimit, policy.Task.AgentMaxRunsPerUser)
+	}
+	if idem != nil {
+		return repo.CreateTaskWithActiveLimitIdempotent(task, idem, policy.Task.ActiveTaskLimit, policy.Task.AgentMaxRunsPerUser)
 	}
 	return repo.CreateTaskWithActiveLimit(task, policy.Task.ActiveTaskLimit, policy.Task.AgentMaxRunsPerUser)
 }

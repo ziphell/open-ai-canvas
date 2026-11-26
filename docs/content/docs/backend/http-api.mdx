@@ -1269,3 +1269,30 @@ install 的 Base URL、协议、能力和成本全部从服务端快照读取，
 ### 系统渠道参考素材发送方式
 
 管理端创建/更新渠道的现有 JSON 请求及渠道响应支持可选 `mediaTransport`，包括独立的 `image`、`audio`、`video` 字段。渠道未提交此对象时保留原设置，提交空对象恢复协议默认。模型的同名配置位于 `capabilityConfig.mediaTransport`，支持 `inherit`（跟随渠道）、`protocol`（使用协议默认并取消渠道强制值）、`url`、`base64`。后端执行任务时重新读取管理员配置，不接受客户端任务覆盖系统渠道策略。此字段只影响参考素材输入，不改变结果 `response_format`。
+
+## CLI 访问令牌
+
+CLI 与自动化使用独立令牌，不复用浏览器 Cookie。服务端默认关闭；设置 `CANVAS_API_TOKENS_ENABLED=true` 后启用。Bearer 只接管 `Authorization: Bearer yc_...`，其他 Authorization 头保持旧行为；Cookie 登录、后台和实时通道不受影响。
+
+### 浏览器授权
+
+| 方法 | 路径 | 鉴权 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/auth/cli/authorize` | Cookie | 校验 loopback 回调与 PKCE，返回待确认信息；`Accept: text/html` 时直接渲染确认页 |
+| POST | `/api/auth/cli/authorize` | Cookie | 用户确认后生成 60 秒一次性授权码；JSON 返回 `redirectUrl`，表单直接 302 回 loopback |
+| POST | `/api/auth/cli/token` | 授权码 | 校验 PKCE S256、回调地址精确匹配和一次性消费后签发令牌 |
+
+约束：回调只允许 `http://127.0.0.1:<port>/callback` 或 `http://[::1]:<port>/callback`；授权码只兑换一次；令牌明文只在兑换响应返回一次，服务端只保存 SHA-256。授权页展示将获得的读取、写画布、上传、生成、取消任务和云端 Agent 权限，并说明 CLI 与网页共用同一账号的积分、并发和存储配额。
+
+### 令牌与作用域
+
+| 方法 | 路径 | 鉴权 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/auth/tokens` | Cookie | 列出当前用户令牌，不含哈希和明文 |
+| DELETE | `/api/auth/tokens/current` | Bearer | 撤销当前令牌 |
+
+scope 为 `read`、`asset:upload`、`canvas:write`、`generate:image`、`generate:video`、`generate:audio`、`task:write`、`agent:run`。签发时至少包含 `read`；`POST /tasks` 按任务模式校验对应 `generate:*` 权限。Bearer 不能访问 `/api/admin/*`，也不能调用令牌列表与创建接口。已被撤销、过期或用户停用的令牌统一返回 401；缺少 scope 返回 403 `scope_missing`；服务端关闭时返回 401 `api_tokens_disabled`。
+
+### 任务幂等
+
+`POST /api/tasks` 支持 `X-Idempotency-Key`，格式为 8–128 位字母、数字、`-`、`_`；也可在 JSON 中传 `idempotencyKey`，两者不一致返回 400。相同键和相同请求摘要返回原任务并带 `replayed=true`，不会重复扣费；相同键但请求内容不同返回 409 `idempotency_conflict`。幂等记录与任务、积分预留在同一事务写入，保留 7 天；未传键时保持原行为。

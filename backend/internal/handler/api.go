@@ -11,9 +11,12 @@ import (
 // RegisterCanvasAPI 注册当前公开 HTTP API。main 把它挂在 /api。前后端一起发布，不做路径版本前缀。
 func RegisterCanvasAPI(api *gin.RouterGroup, svc *service.Service) {
 	// 必须先于所有业务路由挂载；Gin 只把中间件应用到之后注册的路由。
+	api.Use(AuthenticateBearer(svc))
 	api.Use(StorageReadOnlyGuard(svc))
+	api.Use(TokenScopeGuard())
 	RegisterOpenAPIRoutes(api)
 	RegisterAuthRoutes(api, svc)
+	RegisterAPITokenRoutes(api, svc)
 	RegisterAppearanceRoutes(api, svc)
 	RegisterFeatureAvailabilityRoutes(api, svc)
 	RegisterAgentRoutes(api, svc)

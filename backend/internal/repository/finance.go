@@ -117,37 +117,22 @@ func (r *Repository) CreditLedgerReferenceExists(referenceKey string) (bool, err
 }
 
 func (r *Repository) CreateTaskWithCreditReservation(task *model.Task, order *model.BillingOrder, activeTaskLimit int, agentRunLimit ...int) error {
-	return r.Transaction(func(repo *Repository) error {
-		tx := repo.db
-		if err := enforceAgentRunLimit(tx, task, agentRunLimit); err != nil {
-			return err
-		}
-		if err := repo.requireCurrentCloudAgentParent(task); err != nil {
-			return err
-		}
-		if err := New(tx).requireExclusiveCanvasAgent(task); err != nil {
-			return err
-		}
-		if err := r.requireActiveLogicalModelForTask(tx, task); err != nil {
-			return err
-		}
-		if err := enforceActiveTaskLimit(tx, task.UserID, activeTaskLimit); err != nil {
-			return err
-		}
-		if err := reserveBillingOrder(tx, order); err != nil {
-			return err
-		}
-		if err := tx.Create(task).Error; err != nil {
-			return err
-		}
-		if task.Operation == "cloud_agent" && task.ProjectID != "" {
-			repo.canvasChanged(task.UserID, task.ProjectID)
-		}
-		return nil
-	})
+	return r.createTaskWithAdmission(task, order, nil, activeTaskLimit, agentRunLimit)
+}
+
+func (r *Repository) CreateTaskWithCreditReservationIdempotent(task *model.Task, order *model.BillingOrder, idempotency *model.TaskIdempotency, activeTaskLimit int, agentRunLimit ...int) error {
+	return r.createTaskWithAdmission(task, order, idempotency, activeTaskLimit, agentRunLimit)
 }
 
 func (r *Repository) CreateTaskWithActiveLimit(task *model.Task, activeTaskLimit int, agentRunLimit ...int) error {
+	return r.createTaskWithAdmission(task, nil, nil, activeTaskLimit, agentRunLimit)
+}
+
+func (r *Repository) CreateTaskWithActiveLimitIdempotent(task *model.Task, idempotency *model.TaskIdempotency, activeTaskLimit int, agentRunLimit ...int) error {
+	return r.createTaskWithAdmission(task, nil, idempotency, activeTaskLimit, agentRunLimit)
+}
+
+func (r *Repository) createTaskWithAdmission(task *model.Task, order *model.BillingOrder, idempotency *model.TaskIdempotency, activeTaskLimit int, agentRunLimit []int) error {
 	return r.Transaction(func(repo *Repository) error {
 		tx := repo.db
 		if err := enforceAgentRunLimit(tx, task, agentRunLimit); err != nil {
@@ -164,6 +149,16 @@ func (r *Repository) CreateTaskWithActiveLimit(task *model.Task, activeTaskLimit
 		}
 		if err := enforceActiveTaskLimit(tx, task.UserID, activeTaskLimit); err != nil {
 			return err
+		}
+		if idempotency != nil {
+			if err := tx.Create(idempotency).Error; err != nil {
+				return err
+			}
+		}
+		if order != nil {
+			if err := reserveBillingOrder(tx, order); err != nil {
+				return err
+			}
 		}
 		if err := tx.Create(task).Error; err != nil {
 			return err

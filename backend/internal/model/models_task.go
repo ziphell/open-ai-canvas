@@ -16,6 +16,7 @@ type Task struct {
 	AuthorizedChargeMicrocredits int64                    `json:"authorizedChargeMicrocredits,omitempty"`
 	ExecutionDiagnosticJSON      string                   `json:"-" gorm:"type:text"`
 	Diagnostic                   *TaskExecutionDiagnostic `json:"diagnostic,omitempty" gorm:"-"`
+	Replayed                     bool                     `json:"replayed,omitempty" gorm:"-"`
 	CancellationSource           string                   `json:"cancellationSource,omitempty" gorm:"size:40"`
 	CancellationActorID          string                   `json:"cancellationActorId,omitempty" gorm:"size:36"`
 	CancellationRequestedAt      *time.Time               `json:"cancellationRequestedAt,omitempty"`
