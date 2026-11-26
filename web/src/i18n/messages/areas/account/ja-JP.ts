@@ -627,8 +627,6 @@ export const jaJP: DeepStringRecord<typeof zhCN> = {
             emptyTitle: "CLI トークンはまだありません",
             emptyDescription: "ターミナルで yingce login を実行すると、ブラウザでの認可後にここへ表示されます",
             loadFailed: "CLI トークンの読み込みに失敗しました",
-            disabledTitle: "CLI アクセスが無効です",
-            disabledDescription: "CLI とトークン管理を利用する前に、管理者に CANVAS_API_TOKENS_ENABLED=true の設定を依頼してください。",
             revoke: "取り消す",
             revokeTitle: "このトークンを取り消しますか？",
             revokeConfirm: "取り消すと「{{name}}」を使う CLI は即座に無効になります。作成済みのタスクには影響しません。",

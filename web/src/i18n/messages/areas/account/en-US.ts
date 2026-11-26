@@ -626,8 +626,6 @@ export const enUS: DeepStringRecord<typeof zhCN> = {
             emptyTitle: "No CLI tokens yet",
             emptyDescription: "Run yingce login in a terminal; the token appears here after you authorize in the browser",
             loadFailed: "Failed to load CLI tokens",
-            disabledTitle: "CLI access is disabled",
-            disabledDescription: "Ask an administrator to set CANVAS_API_TOKENS_ENABLED=true before using the CLI and token management.",
             revoke: "Revoke",
             revokeTitle: "Revoke this token?",
             revokeConfirm: "After revoking, any CLI using “{{name}}” stops working immediately. Existing tasks are unaffected.",

@@ -7,7 +7,6 @@ import { WorkspaceErrorState, WorkspaceState } from "@/components/layout/workspa
 import { StatusBadge } from "@/components/ui/base/badges";
 import { currentLocale } from "@/i18n";
 import { listApiTokens, revokeApiToken, type ApiToken } from "@/services/api/auth";
-import { ApiError } from "@/services/api/request";
 
 const SCOPE_LABEL_KEYS: Record<string, string> = {
     read: "account.settings.cliTokens.scopes.read",
@@ -42,21 +41,17 @@ export function CliTokensPane() {
     const [tokens, setTokens] = useState<ApiToken[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
-    const [disabled, setDisabled] = useState(false);
     const [revokingId, setRevokingId] = useState("");
 
     const load = useCallback(
         async (signal?: AbortSignal) => {
             setLoading(true);
             setLoadError("");
-            setDisabled(false);
             try {
                 const next = await listApiTokens(signal);
                 if (!signal?.aborted) setTokens(next);
             } catch (error) {
-                if (signal?.aborted) return;
-                if (error instanceof ApiError && error.reason === "api_tokens_disabled") setDisabled(true);
-                else setLoadError(errorText(error, t("account.settings.cliTokens.loadFailed")));
+                if (!signal?.aborted) setLoadError(errorText(error, t("account.settings.cliTokens.loadFailed")));
             } finally {
                 if (!signal?.aborted) setLoading(false);
             }
@@ -89,10 +84,6 @@ export function CliTokensPane() {
         if (leftActive !== rightActive) return rightActive - leftActive;
         return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
     });
-
-    if (disabled) {
-        return <WorkspaceState compact kind="forbidden" icon="settings" title={t("account.settings.cliTokens.disabledTitle")} description={t("account.settings.cliTokens.disabledDescription")} />;
-    }
 
     if (loadError && !tokens.length) {
         return <WorkspaceErrorState compact title={t("account.settings.cliTokens.loadFailed")} description={loadError} onRetry={() => void load()} />;

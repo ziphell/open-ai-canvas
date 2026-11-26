@@ -627,8 +627,6 @@ export const deDE: DeepStringRecord<typeof zhCN> = {
             emptyTitle: "Noch keine CLI-Token",
             emptyDescription: "Führen Sie yingce login im Terminal aus; nach der Browser-Autorisierung erscheint das Token hier",
             loadFailed: "CLI-Token konnten nicht geladen werden",
-            disabledTitle: "CLI-Zugriff ist deaktiviert",
-            disabledDescription: "Bitten Sie einen Administrator, CANVAS_API_TOKENS_ENABLED=true zu setzen, bevor Sie die CLI und die Token-Verwaltung nutzen.",
             revoke: "Widerrufen",
             revokeTitle: "Dieses Token widerrufen?",
             revokeConfirm: "Nach dem Widerruf funktioniert jede CLI mit „{{name}}“ sofort nicht mehr. Bestehende Aufgaben sind nicht betroffen.",

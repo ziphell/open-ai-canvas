@@ -25,13 +25,8 @@ import (
 
 const apiTokenTestSession = "api-token-session"
 
-func apiTokenFixture(t *testing.T, enabled bool) (*gin.Engine, *service.Service) {
+func apiTokenFixture(t *testing.T) (*gin.Engine, *service.Service) {
 	t.Helper()
-	if enabled {
-		t.Setenv("CANVAS_API_TOKENS_ENABLED", "true")
-	} else {
-		t.Setenv("CANVAS_API_TOKENS_ENABLED", "false")
-	}
 	gin.SetMode(gin.TestMode)
 	dir := t.TempDir()
 	db, err := gorm.Open(sqlite.Open(filepath.Join(dir, "tokens.db")), &gorm.Config{})
@@ -127,7 +122,7 @@ func testPKCE(verifier string) string {
 }
 
 func TestCLIBrowserAuthorizationAndTokenScopes(t *testing.T) {
-	router, _ := apiTokenFixture(t, true)
+	router, _ := apiTokenFixture(t)
 	verifier := strings.Repeat("a", 43)
 	challenge := testPKCE(verifier)
 	redirectURI := "http://127.0.0.1:43210/callback"
@@ -225,7 +220,7 @@ func TestCLIBrowserAuthorizationAndTokenScopes(t *testing.T) {
 }
 
 func TestCLIAuthCodeRejectsWrongPKCEWithoutConsuming(t *testing.T) {
-	router, _ := apiTokenFixture(t, true)
+	router, _ := apiTokenFixture(t)
 	verifier := strings.Repeat("b", 43)
 	challenge := testPKCE(verifier)
 	redirectURI := "http://127.0.0.1:43211/callback"
@@ -268,7 +263,7 @@ func TestCLIAuthCodeRejectsWrongPKCEWithoutConsuming(t *testing.T) {
 }
 
 func TestRevokeTokenByIDViaCookie(t *testing.T) {
-	router, svc := apiTokenFixture(t, true)
+	router, svc := apiTokenFixture(t)
 	raw, record, err := svc.IssueAPIToken("user-1", "laptop", []string{service.APITokenScopeRead}, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -286,21 +281,6 @@ func TestRevokeTokenByIDViaCookie(t *testing.T) {
 	after := tokenTestRequest(router, http.MethodGet, "/api/projects", nil, raw, false)
 	if after.Code != http.StatusUnauthorized {
 		t.Fatalf("revoked token status %d: %s", after.Code, after.Body.String())
-	}
-}
-
-func TestAPITokensDisabled(t *testing.T) {
-	router, svc := apiTokenFixture(t, false)
-	raw, _, err := svc.IssueAPIToken("user-1", "test", []string{service.APITokenScopeRead}, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	out := tokenTestRequest(router, http.MethodGet, "/api/projects", nil, raw, false)
-	if out.Code != http.StatusUnauthorized {
-		t.Fatalf("status %d: %s", out.Code, out.Body.String())
-	}
-	if reason := decodeTokenEnvelope(t, out).Reason; reason != "api_tokens_disabled" {
-		t.Fatalf("unexpected reason %q", reason)
 	}
 }
 
@@ -325,7 +305,7 @@ func TestMissingTokenTaskScopeUsesTaskMode(t *testing.T) {
 }
 
 func TestAuthorizePageRequiresLogin(t *testing.T) {
-	router, _ := apiTokenFixture(t, true)
+	router, _ := apiTokenFixture(t)
 	verifier := strings.Repeat("e", 43)
 	query := url.Values{
 		"redirect_uri":          {"http://127.0.0.1:43213/callback"},
@@ -346,7 +326,7 @@ func TestAuthorizePageRequiresLogin(t *testing.T) {
 }
 
 func TestAuthorizePageRendersHTML(t *testing.T) {
-	router, _ := apiTokenFixture(t, true)
+	router, _ := apiTokenFixture(t)
 	verifier := strings.Repeat("d", 43)
 	query := url.Values{
 		"redirect_uri":          {"http://127.0.0.1:43212/callback"},

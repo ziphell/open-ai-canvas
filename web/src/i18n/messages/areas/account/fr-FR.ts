@@ -627,8 +627,6 @@ export const frFR: DeepStringRecord<typeof zhCN> = {
             emptyTitle: "Aucun jeton CLI pour l'instant",
             emptyDescription: "Lancez yingce login dans un terminal ; le jeton apparaîtra ici après l'autorisation dans le navigateur",
             loadFailed: "Échec du chargement des jetons CLI",
-            disabledTitle: "L'accès CLI est désactivé",
-            disabledDescription: "Demandez à un administrateur de définir CANVAS_API_TOKENS_ENABLED=true avant d'utiliser la CLI et la gestion des jetons.",
             revoke: "Révoquer",
             revokeTitle: "Révoquer ce jeton ?",
             revokeConfirm: "Après révocation, toute CLI utilisant « {{name}} » cesse immédiatement de fonctionner. Les tâches déjà créées ne sont pas affectées.",

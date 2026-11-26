@@ -620,8 +620,6 @@ export const zhCN = {
             emptyTitle: "还没有 CLI 令牌",
             emptyDescription: "在命令行运行 yingce login，浏览器授权后令牌会出现在这里",
             loadFailed: "加载 CLI 令牌失败",
-            disabledTitle: "服务端未开启 CLI 访问",
-            disabledDescription: "请联系管理员设置 CANVAS_API_TOKENS_ENABLED=true 后再使用 CLI 与令牌管理。",
             revoke: "撤销",
             revokeTitle: "撤销这个令牌？",
             revokeConfirm: "撤销后，使用「{{name}}」的 CLI 会立即失效，已创建的任务不受影响。",

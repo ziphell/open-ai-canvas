@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"os"
 	"strings"
 
 	"yingce/backend/internal/model"
@@ -16,15 +15,6 @@ const (
 	tokenRecordContextKey = "yingce.auth.token.record"
 	tokenScopesContextKey = "yingce.auth.token.scopes"
 )
-
-func apiTokensEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("CANVAS_API_TOKENS_ENABLED"))) {
-	case "1", "true", "yes", "on":
-		return true
-	default:
-		return false
-	}
-}
 
 // AuthenticateBearer resolves Authorization: Bearer tokens before handlers run.
 // Requests without a Bearer header keep using the existing cookie session.
@@ -45,11 +35,6 @@ func AuthenticateBearer(svc *service.Service) gin.HandlerFunc {
 		if !strings.HasPrefix(raw, "yc_") {
 			// 只接管影策 CLI 令牌，避免影响历史上携带任意 Bearer 头的调用方。
 			c.Next()
-			return
-		}
-		if !apiTokensEnabled() {
-			writeFailure(c, http.StatusUnauthorized, service.CodeUnauthorized, "api_tokens_disabled", "服务端未开启 CLI 访问")
-			c.Abort()
 			return
 		}
 		route := strings.TrimPrefix(c.FullPath(), "/api")

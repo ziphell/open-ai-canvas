@@ -8,7 +8,7 @@ description: 当前项目已实现功能的手工验证清单与未确认边界
 ## CLI 访问令牌与浏览器授权
 
 - 已实现：`api_tokens` / `cli_auth_codes` 表、Bearer 中间件和 scope 守卫；只有 `yc_` 开头的 Bearer 令牌走新鉴权，其他 `Authorization` 继续沿用 Cookie 会话。浏览器授权采用授权码 + PKCE S256 + loopback 回调，授权码 60 秒一次性有效，令牌明文只返回一次并只保存 SHA-256。
-- 已实现：账号设置新增「CLI 令牌」页，列出令牌、授权范围、创建/最后使用/过期时间和撤销入口；`CANVAS_API_TOKENS_ENABLED` 未开启时展示停用说明。CLI 共用账号额度、并发和存储，没有令牌级上限。
+- 已实现：账号设置新增「CLI 令牌」页，列出令牌、授权范围、创建/最后使用/过期时间和撤销入口。CLI 共用账号额度、并发和存储，没有令牌级上限，也没有额外的服务端开关。
 - 已实现：`POST /tasks` 支持 `X-Idempotency-Key`，相同键和请求体回放原任务并标记 `replayed`，不同请求体返回 409，记录与任务、积分预留同事务写入，7 天后清理。
 - 已实现：`GET /api/cli/manifest` 无需登录返回契约版本、最低 CLI 版本和废弃命令；`yingce doctor` 已接入，契约不匹配或 CLI 版本过低返回退出码 9。
 - 自动回归：后端 handler 授权、PKCE、scope、撤销与停用测试通过；app/repository 幂等测试通过；CLI gofmt、vet 与测试通过；前端 typecheck、lint 通过。真实 E2E 已在本地 SQLite 上走通浏览器授权、CLI 登录、scope 拒绝和管理员接口拒绝。

@@ -16,10 +16,6 @@ import (
 
 func RegisterAPITokenRoutes(api *gin.RouterGroup, svc *service.Service) {
 	api.DELETE("/auth/tokens/current", func(c *gin.Context) {
-		if !apiTokensEnabled() {
-			writeFailure(c, http.StatusForbidden, service.CodeForbidden, "api_tokens_disabled", "服务端未开启 CLI 访问")
-			return
-		}
 		user, record, valid := currentToken(c, svc)
 		if !valid {
 			return
@@ -33,10 +29,6 @@ func RegisterAPITokenRoutes(api *gin.RouterGroup, svc *service.Service) {
 	})
 
 	api.GET("/auth/tokens", func(c *gin.Context) {
-		if !apiTokensEnabled() {
-			writeFailure(c, http.StatusForbidden, service.CodeForbidden, "api_tokens_disabled", "服务端未开启 CLI 访问")
-			return
-		}
 		user, err := currentUser(c, svc)
 		if err != nil {
 			failService(c, err)
@@ -55,10 +47,6 @@ func RegisterAPITokenRoutes(api *gin.RouterGroup, svc *service.Service) {
 	})
 
 	api.DELETE("/auth/tokens/:id", func(c *gin.Context) {
-		if !apiTokensEnabled() {
-			writeFailure(c, http.StatusForbidden, service.CodeForbidden, "api_tokens_disabled", "服务端未开启 CLI 访问")
-			return
-		}
 		user, err := currentUser(c, svc)
 		if err != nil {
 			failService(c, err)
@@ -73,10 +61,6 @@ func RegisterAPITokenRoutes(api *gin.RouterGroup, svc *service.Service) {
 	})
 
 	api.GET("/auth/cli/authorize", func(c *gin.Context) {
-		if !apiTokensEnabled() {
-			writeFailure(c, http.StatusForbidden, service.CodeForbidden, "api_tokens_disabled", "服务端未开启 CLI 访问")
-			return
-		}
 		user, err := currentUser(c, svc)
 		if err != nil {
 			if wantsHTML(c) {
@@ -99,10 +83,6 @@ func RegisterAPITokenRoutes(api *gin.RouterGroup, svc *service.Service) {
 	})
 
 	api.POST("/auth/cli/authorize", func(c *gin.Context) {
-		if !apiTokensEnabled() {
-			writeFailure(c, http.StatusForbidden, service.CodeForbidden, "api_tokens_disabled", "服务端未开启 CLI 访问")
-			return
-		}
 		user, err := currentUser(c, svc)
 		if err != nil {
 			failService(c, err)
@@ -126,10 +106,6 @@ func RegisterAPITokenRoutes(api *gin.RouterGroup, svc *service.Service) {
 	})
 
 	api.POST("/auth/cli/token", func(c *gin.Context) {
-		if !apiTokensEnabled() {
-			writeFailure(c, http.StatusForbidden, service.CodeForbidden, "api_tokens_disabled", "服务端未开启 CLI 访问")
-			return
-		}
 		var req struct {
 			Code         string `json:"code"`
 			CodeVerifier string `json:"codeVerifier"`

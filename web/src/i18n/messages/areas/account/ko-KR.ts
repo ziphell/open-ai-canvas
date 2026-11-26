@@ -625,8 +625,6 @@ export const koKR: DeepStringRecord<typeof zhCN> = {
             emptyTitle: "아직 CLI 토큰이 없습니다",
             emptyDescription: "터미널에서 yingce login을 실행하면 브라우저 승인 후 여기에 표시됩니다",
             loadFailed: "CLI 토큰을 불러오지 못했습니다",
-            disabledTitle: "CLI 액세스가 비활성화되었습니다",
-            disabledDescription: "CLI 및 토큰 관리를 사용하려면 관리자에게 CANVAS_API_TOKENS_ENABLED=true 설정을 요청하세요.",
             revoke: "취소",
             revokeTitle: "이 토큰을 취소할까요?",
             revokeConfirm: "취소하면 「{{name}}」을 사용하는 CLI가 즉시 무효화됩니다. 이미 생성된 작업에는 영향이 없습니다.",
