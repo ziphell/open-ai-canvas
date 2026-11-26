@@ -1,6 +1,6 @@
 # 影策 CLI Skill
 
-> 这是随 CLI 分发的 `SKILL.md` 设计稿；实际分发文件为 `cli/internal/skill/SKILL.md`，由 `yingce setup` 安装。
+> 这是随 CLI 分发的 `SKILL.md` 设计稿；实际分发文件为 `cli/internal/skill/SKILL.md`，由 `yingce skill` 原样输出。
 > 完整参数以 `yingce <命令> --help` 为准；对外契约见 `docs/design/yingce-cli-reference.md`。
 
 ---

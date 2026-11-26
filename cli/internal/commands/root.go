@@ -216,8 +216,8 @@ func Run(args []string, out, errw io.Writer, in io.Reader) int {
 		return runRun(args[1:], out, errw, in)
 	case "openapi":
 		return runOpenAPI(args[1:], out, errw, in)
-	case "setup":
-		return runSetup(args[1:], out, errw, in)
+	case "skill":
+		return runSkill(args[1:], out, errw, in)
 	default:
 		fmt.Fprintf(errw, "未知命令：%s\n\n", args[0])
 		usage(errw)
@@ -246,7 +246,7 @@ func usage(w io.Writer) {
   credit         额度
   run            云端 Agent 运行
   openapi        保存接口规范
-  setup          安装 SKILL.md
+  skill          输出 SKILL.md
 
 通用参数：
   --base-url <url>   服务端地址

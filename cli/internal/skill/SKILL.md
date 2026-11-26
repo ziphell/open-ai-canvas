@@ -28,7 +28,7 @@ yingce doctor --json
 ```
 
 - 命令不存在：先询问用户是否安装，得到同意后执行 `curl -fsSL https://<host>/cli/install.sh | bash`；不要下载未知来源的二进制。
-- 安装或升级后运行 `yingce setup --agent <claude-code|cursor|codex|generic> --write` 写入本文件；之后升级 CLI 用 `yingce setup --update` 刷新已写入的副本。服务端也提供 `https://<host>/cli/SKILL.md`。
+- 需要本文件内容时运行 `yingce skill`，它把 SKILL.md 原样输出到 stdout；CLI 不写任何第三方 Agent 目录。服务端也提供 `https://<host>/cli/SKILL.md`。
 - 未认证：运行 `yingce login`，它会拉起浏览器。如果还没有配置服务端，使用安装脚本打印的地址：`yingce login --base-url https://<host>`，或设置 `YINGCE_BASE_URL`；登录成功后 CLI 会记住服务端地址。如果没有自动打开浏览器，把打印的授权链接交给用户，让用户在浏览器里确认 scope 和额度。
 - 无浏览器环境（CI、容器）：让用户在 Web 设置里创建 token，再用 `yingce login --token-stdin` 或 `YINGCE_TOKEN` 注入。
 - **不要索要密码、Cookie 或浏览器导出的登录 JSON。**

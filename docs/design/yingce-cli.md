@@ -188,7 +188,7 @@ CLI                                后端                          浏览器
 | `yingce login --token-stdin` | 无 | 粘贴 token |
 | `yingce logout` | `DELETE /auth/tokens/current`（新增） | 撤销当前 token |
 | `yingce whoami` | `GET /auth/session`（需兼容 Bearer） | 当前用户与 scope |
-| `yingce setup --agent <name>` | 本地 | 安装 SKILL 与调用示例 |
+| `yingce skill` | 本地 | 输出 SKILL.md 原文，由调用方保存或注入 |
 
 ### 5.2 核心命令
 
@@ -318,21 +318,15 @@ yingce canvas apply <id> --ops ops.json --base-revision <rev> --mutation-id <uui
 
 ## 10. Agent 集成
 
-### 10.1 `yingce setup`
+### 10.1 `yingce skill`
 
-| Agent | 写入位置 |
-| --- | --- |
-| `claude-code` | `~/.claude/skills/yingce-cli/SKILL.md` |
-| `cursor` | `~/.cursor/skills/yingce-cli/SKILL.md`（或项目 `.cursor/skills`） |
-| `codex` | `~/.codex/skills/yingce-cli/SKILL.md` |
-| `generic` | `--dir <path>` 指定 |
+```bash
+yingce skill
+yingce skill --json
+```
 
-行为：
-
-- 默认只打印将写入的路径，`--write` 才落盘，并把目标记录到配置文件。
-- 升级 CLI 后运行 `yingce setup --update`，用当前内置的 SKILL.md 覆盖已写入的目标；不传 `--agent` 时刷新全部记录。
-- 不修改 `TOOLS.md`、`AGENTS.md` 等非本工具文件。
-- 同时打印该 Agent 的调用示例，不自动写用户配置。
+- 把内置的 `SKILL.md` 原样输出到 stdout；`--json` 时返回 `{"ok":true,"data":{"content":"..."}}`。
+- CLI 不写 Claude Code、Cursor、Codex 或其他工具的目录，也不修改用户配置；保存位置由宿主 Agent 或用户决定。
 - 服务端同时提供 `/cli/SKILL.md` 与 `/cli/<版本号>/SKILL.md`，供 Agent 直接读取或人工下载。
 
 ### 10.2 为什么 v1 不做 MCP
@@ -375,7 +369,7 @@ MCP 留作后续可选形态，不进入 v1 契约。
 
 1. **M1 认证基座**：token 表、Bearer 中间件、浏览器授权、`login/logout/whoami/doctor/version`。
 2. **M2 只读与生成**：project/canvas/task/model/asset/credit、quote、generate、`task wait`。
-3. **M3 写入与集成**：`canvas apply`、`setup`、SKILL.md、安装脚本。
+3. **M3 写入与集成**：`canvas apply`、`skill`、SKILL.md、安装脚本。
 4. **M4 加固**：幂等、上传去重、审计、文档、限流。
 
 ### 验收

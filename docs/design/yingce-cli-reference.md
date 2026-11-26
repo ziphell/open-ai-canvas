@@ -451,20 +451,14 @@ yingce openapi --out openapi.yaml
 
 保存服务端规范，用于排查；不用于生成客户端。
 
-### `yingce setup`
+### `yingce skill`
 
 ```bash
-yingce setup --agent claude-code --write
+yingce skill
+yingce skill --json
 ```
 
-| 参数 | 说明 |
-| --- | --- |
-| `--agent <claude-code|cursor|codex|generic>` | 目标 Agent |
-| `--dir <path>` | `generic` 时必填 |
-| `--write` | 实际写入；缺省只打印路径 |
-| `--update` | 用当前 CLI 内置的 `SKILL.md` 覆盖已写入的目标；不传 `--agent` 时刷新全部记录 |
-
-只写本工具自己的 `SKILL.md`，不修改其他文件。写入目标记录在 `~/.config/yingce/config.json`，升级 CLI 后运行 `yingce setup --update` 即可刷新；服务端同时提供 `/cli/SKILL.md` 和 `/cli/<版本号>/SKILL.md`。
+把内置的 `SKILL.md` 原样输出到 stdout；`--json` 时 `data.content` 返回全文。CLI 不写任何第三方 Agent 目录，也不修改用户配置。服务端同时提供 `/cli/SKILL.md` 和 `/cli/<版本号>/SKILL.md`。
 
 ## 10. 错误目录
 
