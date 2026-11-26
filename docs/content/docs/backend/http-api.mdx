@@ -1272,7 +1272,7 @@ install 的 Base URL、协议、能力和成本全部从服务端快照读取，
 
 ## CLI 访问令牌
 
-CLI 与自动化使用独立令牌，不复用浏览器 Cookie。服务端默认关闭；设置 `CANVAS_API_TOKENS_ENABLED=true` 后启用。Bearer 只接管 `Authorization: Bearer yc_...`，其他 Authorization 头保持旧行为；Cookie 登录、后台和实时通道不受影响。
+CLI 与自动化使用独立令牌，不复用浏览器 Cookie。服务端默认关闭；设置 `CANVAS_API_TOKENS_ENABLED=true` 后启用。受管 Compose 已透传该变量，写入部署目录的 `.env` 并重启 backend 即可。Bearer 只接管 `Authorization: Bearer yc_...`，其他 Authorization 头保持旧行为；Cookie 登录、后台和实时通道不受影响。
 
 ### 浏览器授权
 

@@ -27,8 +27,8 @@ yingce version --json
 yingce doctor --json
 ```
 
-- 命令不存在：先询问用户是否安装，得到同意后再执行安装脚本；不要下载未知来源的二进制。
-- 未认证：运行 `yingce login`，它会拉起浏览器。如果没有自动打开，把打印的授权链接交给用户，让用户在浏览器里确认 scope 和额度。
+- 命令不存在：先询问用户是否安装，得到同意后执行 `curl -fsSL https://<host>/cli/install.sh | bash`；不要下载未知来源的二进制。
+- 未认证：运行 `yingce login`，它会拉起浏览器。如果还没有配置服务端，使用安装脚本打印的地址：`yingce login --base-url https://<host>`，或设置 `YINGCE_BASE_URL`；登录成功后 CLI 会记住服务端地址。如果没有自动打开浏览器，把打印的授权链接交给用户，让用户在浏览器里确认 scope 和额度。
 - 无浏览器环境（CI、容器）：让用户在 Web 设置里创建 token，再用 `yingce login --token-stdin` 或 `YINGCE_TOKEN` 注入。
 - **不要索要密码、Cookie 或浏览器导出的登录 JSON。**
 - token 失效返回退出码 3；让用户重新登录，不要尝试绕过。

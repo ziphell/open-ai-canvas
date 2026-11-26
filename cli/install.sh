@@ -5,22 +5,25 @@ PROGRAM="yingce"
 BASE_URL="${YINGCE_CLI_BASE_URL:-https://yingce.tv/cli}"
 VERSION="${YINGCE_CLI_VERSION:-latest}"
 INSTALL_DIR="${YINGCE_CLI_INSTALL_DIR:-}"
+SERVER="${YINGCE_CLI_SERVER:-}"
 UPDATE_PATH=0
 DRY_RUN=0
 
 usage() {
   cat <<'EOF'
-用法：install.sh [--prefix <dir>] [--version <版本号>] [--update-path] [--dry-run]
+用法：install.sh [--prefix <dir>] [--version <版本号>] [--server <url>] [--update-path] [--dry-run]
 
 参数：
   --prefix <dir>          安装目录，默认 ~/.local/bin（Windows 为 ~/bin）
   --version <版本号>      指定版本目录，默认读取发布目录的 version.json
+  --server <url>          服务端地址，用于打印首次登录命令；默认从发布目录推导
   --update-path           把安装目录写入 shell 启动文件
   --dry-run               只打印将下载的版本、来源和目标，不下载
 
 环境变量：
   YINGCE_CLI_BASE_URL     发布目录，默认 https://yingce.tv/cli
   YINGCE_CLI_VERSION      指定版本目录；默认 latest
+  YINGCE_CLI_SERVER       服务端地址
   YINGCE_CLI_INSTALL_DIR  安装目录
 EOF
 }
@@ -33,6 +36,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --version)
       VERSION="${2:?缺少 --version 的值}"
+      shift 2
+      ;;
+    --server)
+      SERVER="${2:?缺少 --server 的值}"
       shift 2
       ;;
     --update-path)
@@ -194,4 +201,16 @@ esac
 
 echo "下一步："
 echo "  ${PROGRAM} --version"
-echo "  ${PROGRAM} login"
+if [ -z "$SERVER" ]; then
+  case "${BASE_URL%/}" in
+    */cli)
+      SERVER="${BASE_URL%/}"
+      SERVER="${SERVER%/cli}"
+      ;;
+  esac
+fi
+if [ -n "$SERVER" ]; then
+  echo "  ${PROGRAM} login --base-url ${SERVER}"
+else
+  echo "  ${PROGRAM} login --base-url <服务端地址>"
+fi
