@@ -284,6 +284,15 @@ func TestRevokeTokenByIDViaCookie(t *testing.T) {
 	}
 }
 
+func TestChunkedUploadScope(t *testing.T) {
+	if got := requiredTokenScope(http.MethodPut, "/resources/uploads/abc/chunks/0"); got != service.APITokenScopeAssetUpload {
+		t.Fatalf("chunk scope = %q", got)
+	}
+	if got := requiredTokenScope(http.MethodPost, "/resources/uploads/abc/complete"); got != service.APITokenScopeAssetUpload {
+		t.Fatalf("complete scope = %q", got)
+	}
+}
+
 func TestMissingTokenTaskScopeUsesTaskMode(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())

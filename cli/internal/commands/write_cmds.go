@@ -490,6 +490,9 @@ func uploadResource(ctx context.Context, app *App, path, kind, idempotencyKey st
 	if kind == "" {
 		kind = kindFromPath(path)
 	}
+	if info.Size() > chunkUploadThreshold {
+		return uploadResourceChunked(ctx, app, path, kind, idempotencyKey, info.Size())
+	}
 	headers := map[string]string{}
 	if idempotencyKey != "" {
 		headers["X-Idempotency-Key"] = idempotencyKey
@@ -506,6 +509,73 @@ func uploadResource(ctx context.Context, app *App, path, kind, idempotencyKey st
 	}
 	if payload.Resource == nil {
 		return nil, fmt.Errorf("上传响应缺少 resource")
+	}
+	return payload.Resource, nil
+}
+
+// 超过该大小改用分片上传；后端单片固定 8 MiB，整体文件仍受资源上限约束。
+const chunkUploadThreshold = 8 << 20
+
+func uploadResourceChunked(ctx context.Context, app *App, path, kind, idempotencyKey string, size int64) (map[string]any, error) {
+	initBody := map[string]any{
+		"fileName": filepath.Base(path),
+		"kind":     kind,
+		"size":     size,
+	}
+	if idempotencyKey != "" {
+		initBody["idempotencyKey"] = idempotencyKey
+	}
+	data, _, err := app.client().Do(ctx, http.MethodPost, "/resources/uploads", nil, initBody, nil)
+	if err != nil {
+		return nil, err
+	}
+	var session struct {
+		UploadID   string `json:"uploadId"`
+		ChunkSize  int64  `json:"chunkSize"`
+		ChunkCount int    `json:"chunkCount"`
+	}
+	if err := json.Unmarshal(data, &session); err != nil {
+		return nil, fmt.Errorf("分片上传响应格式错误: %w", err)
+	}
+	if session.UploadID == "" || session.ChunkSize <= 0 || session.ChunkCount <= 0 {
+		return nil, fmt.Errorf("分片上传响应缺少会话信息")
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	for index := 0; index < session.ChunkCount; index++ {
+		offset := int64(index) * session.ChunkSize
+		length := session.ChunkSize
+		if remaining := size - offset; remaining < length {
+			length = remaining
+		}
+		if length <= 0 {
+			return nil, fmt.Errorf("分片 %d 大小无效", index)
+		}
+		if !app.G.Quiet {
+			fmt.Fprintf(app.Err, "上传分片 %d/%d\n", index+1, session.ChunkCount)
+		}
+		section := io.NewSectionReader(file, offset, length)
+		if _, _, err := app.client().UploadChunk(ctx, session.UploadID, index, section, length); err != nil {
+			return nil, fmt.Errorf("上传分片 %d/%d 失败: %w", index+1, session.ChunkCount, err)
+		}
+	}
+
+	data, _, err = app.client().Do(ctx, http.MethodPost, "/resources/uploads/"+url.PathEscape(session.UploadID)+"/complete", nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	var payload struct {
+		Resource map[string]any `json:"resource"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return nil, fmt.Errorf("合并响应格式错误: %w", err)
+	}
+	if payload.Resource == nil {
+		return nil, fmt.Errorf("合并响应缺少 resource")
 	}
 	return payload.Resource, nil
 }

@@ -200,6 +200,42 @@ func (c *Client) Upload(ctx context.Context, filePath, kind string, fields map[s
 	return env.Data, meta, nil
 }
 
+// UploadChunk 发送分片上传的单个片段；body 长度必须与 size 一致。
+func (c *Client) UploadChunk(ctx context.Context, uploadID string, index int, body io.Reader, size int64) (json.RawMessage, Meta, error) {
+	path := fmt.Sprintf("/resources/uploads/%s/chunks/%d", url.PathEscape(uploadID), index)
+	req, err := c.newRequest(ctx, http.MethodPut, path, nil, body)
+	if err != nil {
+		return nil, Meta{}, err
+	}
+	req.ContentLength = size
+	req.Header.Set("Content-Type", "application/octet-stream")
+	start := time.Now()
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, Meta{}, err
+	}
+	defer resp.Body.Close()
+	payload, err := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
+	if err != nil {
+		return nil, Meta{}, err
+	}
+	meta := Meta{DurationMS: time.Since(start).Milliseconds(), RequestID: resp.Header.Get("X-Correlation-ID")}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, meta, decodeError(resp.StatusCode, payload)
+	}
+	if len(payload) == 0 {
+		return nil, meta, nil
+	}
+	var env envelope
+	if err := json.Unmarshal(payload, &env); err != nil {
+		return nil, meta, fmt.Errorf("分片响应不是有效 JSON（HTTP %d）", resp.StatusCode)
+	}
+	if env.Code != 0 {
+		return nil, meta, &APIError{Status: resp.StatusCode, Code: env.Code, Reason: env.Reason, Message: env.Msg}
+	}
+	return env.Data, meta, nil
+}
+
 func (c *Client) newRequest(ctx context.Context, method, path string, query url.Values, body io.Reader) (*http.Request, error) {
 	if c.BaseURL == "" {
 		return nil, errors.New("未配置 base URL")

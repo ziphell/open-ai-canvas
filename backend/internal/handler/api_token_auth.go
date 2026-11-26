@@ -125,6 +125,10 @@ func requiredTokenScope(method, route string) string {
 		case route == "/models/:id/quote", route == "/model-catalog/quote":
 			return service.APITokenScopeRead
 		}
+	case http.MethodPut:
+		if strings.HasPrefix(route, "/resources/uploads") {
+			return service.APITokenScopeAssetUpload
+		}
 	case http.MethodPatch:
 		if route == "/canvas-projects/:id/operations" {
 			return service.APITokenScopeCanvasWrite
