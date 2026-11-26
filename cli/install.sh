@@ -214,3 +214,4 @@ if [ -n "$SERVER" ]; then
 else
   echo "  ${PROGRAM} login --base-url <服务端地址>"
 fi
+echo "  ${PROGRAM} setup --agent <claude-code|cursor|codex|generic> --write"

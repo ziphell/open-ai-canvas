@@ -138,9 +138,10 @@ EOF
   fi
 )
 
-# 根目录只放版本指针和安装入口；二进制只保留在各版本目录，避免重复占用体积。
+# 根目录只放版本指针、安装入口和最新 SKILL.md；二进制只保留在各版本目录，避免重复占用体积。
 cp "$OUT/version.json" "$DIST/version.json"
 cp install.sh "$DIST/install.sh"
+cp internal/skill/SKILL.md "$DIST/SKILL.md"
 
 echo
 echo "已生成 $OUT"
@@ -159,6 +160,7 @@ if [ -n "$TARGET" ]; then
   rsync -av --delete "$OUT/" "$TARGET/$VERSION/"
   rsync -av "$DIST/version.json" "$TARGET/version.json"
   rsync -av "$DIST/install.sh" "$TARGET/install.sh"
+  rsync -av "$DIST/SKILL.md" "$TARGET/SKILL.md"
   echo "已发布 $VERSION"
 else
   echo
@@ -166,4 +168,5 @@ else
   echo "  rsync -av --delete dist/$VERSION/ <user>@<host>:/srv/yingce/cli/$VERSION/"
   echo "  rsync -av dist/version.json <user>@<host>:/srv/yingce/cli/version.json"
   echo "  rsync -av dist/install.sh <user>@<host>:/srv/yingce/cli/install.sh"
+  echo "  rsync -av dist/SKILL.md <user>@<host>:/srv/yingce/cli/SKILL.md"
 fi

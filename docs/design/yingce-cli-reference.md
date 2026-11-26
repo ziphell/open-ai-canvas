@@ -462,8 +462,9 @@ yingce setup --agent claude-code --write
 | `--agent <claude-code|cursor|codex|generic>` | 目标 Agent |
 | `--dir <path>` | `generic` 时必填 |
 | `--write` | 实际写入；缺省只打印路径 |
+| `--update` | 用当前 CLI 内置的 `SKILL.md` 覆盖已写入的目标；不传 `--agent` 时刷新全部记录 |
 
-只写本工具自己的 `SKILL.md`，不修改其他文件。
+只写本工具自己的 `SKILL.md`，不修改其他文件。写入目标记录在 `~/.config/yingce/config.json`，升级 CLI 后运行 `yingce setup --update` 即可刷新；服务端同时提供 `/cli/SKILL.md` 和 `/cli/<版本号>/SKILL.md`。
 
 ## 10. 错误目录
 

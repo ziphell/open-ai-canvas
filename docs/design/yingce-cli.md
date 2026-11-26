@@ -102,7 +102,7 @@ CLI 安装包进入前端构建流程，由 web 静态目录提供；发布和�
 
 - 版本号写在 `cli/VERSION`。版本号与提交号通过 `-ldflags` 注入 `commands.Version` / `commands.Commit`。
 - Docker 的 `cli-build` 阶段交叉编译 6 个平台，产物注入 `web/public/cli/`，随 Vite 构建进入 web 镜像；`nginx.conf` 用 `/cli/` 直接提供静态文件。
-- 发布目录：`/cli/version.json` 是版本指针，`/cli/install.sh` 是稳定安装入口，`/cli/<版本号>/` 保存该版本全部文件；不复制 `latest` 目录，避免二进制重复占用体积。
+- 发布目录：`/cli/version.json` 是版本指针，`/cli/install.sh` 是稳定安装入口，`/cli/SKILL.md` 是最新技能说明，`/cli/<版本号>/` 保存该版本全部文件；不复制 `latest` 目录，避免二进制重复占用体积。
 - `canvas-web-entrypoint.sh` 把镜像内的 `/cli/` 同步进 `web-data` 卷；web 容器升级后旧版本目录保留，固定版本安装仍可回退。
 - 需要只更新 CLI、不重建 web 镜像时，可运行 `cli/release.sh` 生成产物并通过 rsync 发布到 web 静态根；用法见脚本帮助。
 
@@ -329,9 +329,11 @@ yingce canvas apply <id> --ops ops.json --base-revision <rev> --mutation-id <uui
 
 行为：
 
-- 默认只打印将写入的路径，`--write` 才落盘。
+- 默认只打印将写入的路径，`--write` 才落盘，并把目标记录到配置文件。
+- 升级 CLI 后运行 `yingce setup --update`，用当前内置的 SKILL.md 覆盖已写入的目标；不传 `--agent` 时刷新全部记录。
 - 不修改 `TOOLS.md`、`AGENTS.md` 等非本工具文件。
 - 同时打印该 Agent 的调用示例，不自动写用户配置。
+- 服务端同时提供 `/cli/SKILL.md` 与 `/cli/<版本号>/SKILL.md`，供 Agent 直接读取或人工下载。
 
 ### 10.2 为什么 v1 不做 MCP
 

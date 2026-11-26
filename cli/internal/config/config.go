@@ -8,10 +8,17 @@ import (
 	"time"
 )
 
+// SkillTarget 记录 setup 写入过的 SKILL.md 目录，供 setup --update 刷新。
+type SkillTarget struct {
+	Agent string `json:"agent,omitempty"`
+	Path  string `json:"path"`
+}
+
 // Config is the non-secret CLI configuration.
 type Config struct {
-	BaseURL          string `json:"baseUrl,omitempty"`
-	DefaultProjectID string `json:"defaultProjectId,omitempty"`
+	BaseURL          string        `json:"baseUrl,omitempty"`
+	DefaultProjectID string        `json:"defaultProjectId,omitempty"`
+	SkillTargets     []SkillTarget `json:"skillTargets,omitempty"`
 }
 
 // Credentials is the local token record. It never contains a password or cookie.
