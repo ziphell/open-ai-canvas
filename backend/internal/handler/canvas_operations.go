@@ -7,10 +7,35 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"yingce/backend/internal/service"
 )
+
+// normalizeJSONFieldPath 去掉数组下标，保留稳定的字段路径。
+// 不同 Go 版本的 encoding/json 会对同一个类型错误给出 operations.patch 或 operations.0.patch，
+// 诊断日志需要跨版本一致。
+func normalizeJSONFieldPath(field string) string {
+	segments := strings.Split(field, ".")
+	kept := make([]string, 0, len(segments))
+	for _, segment := range segments {
+		if segment == "" || isJSONIndexSegment(segment) {
+			continue
+		}
+		kept = append(kept, segment)
+	}
+	return strings.Join(kept, ".")
+}
+
+func isJSONIndexSegment(segment string) bool {
+	for _, r := range segment {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return segment != ""
+}
 
 func logCanvasOperationsFailure(c *gin.Context, stage string, req *service.CanvasOperationsRequest, err error) {
 	status, code := http.StatusInternalServerError, http.StatusInternalServerError
@@ -51,7 +76,7 @@ func logCanvasOperationsFailure(c *gin.Context, stage string, req *service.Canva
 	switch {
 	case errors.As(err, &typeErr):
 		message = "JSON 字段类型不匹配"
-		attrs = append(attrs, slog.String("field", typeErr.Field), slog.String("expected_type", typeErr.Type.String()), slog.Int64("offset", typeErr.Offset))
+		attrs = append(attrs, slog.String("field", normalizeJSONFieldPath(typeErr.Field)), slog.String("expected_type", typeErr.Type.String()), slog.Int64("offset", typeErr.Offset))
 	case errors.As(err, &syntaxErr):
 		message = "JSON 语法错误"
 		attrs = append(attrs, slog.Int64("offset", syntaxErr.Offset))

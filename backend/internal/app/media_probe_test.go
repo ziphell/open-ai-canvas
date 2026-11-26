@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,11 +15,15 @@ import (
 )
 
 // requireFFmpegTools 跳过依赖本机 ffmpeg/ffprobe 的用例；纯逻辑用例不经过这里。
+// 仅检查二进制存在不够：运行环境注入不兼容的动态库时，工具存在但无法执行。
 func requireFFmpegTools(t *testing.T) {
 	t.Helper()
 	for _, name := range []string{"ffmpeg", "ffprobe"} {
 		if _, err := exec.LookPath(name); err != nil {
 			t.Skipf("%s 未安装，跳过真实媒体探测用例", name)
+		}
+		if output, err := exec.Command(name, "-version").CombinedOutput(); err != nil {
+			t.Skipf("%s 无法执行，跳过真实媒体探测用例：%v %s", name, err, strings.TrimSpace(string(output)))
 		}
 	}
 }
