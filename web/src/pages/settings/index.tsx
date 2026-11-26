@@ -1,5 +1,5 @@
 import { App, Button } from "antd";
-import { ArrowLeft, Boxes, Bug, Cloud, Inbox, MessageSquareText, RadioTower, ShieldCheck, SlidersHorizontal, UserRound, Workflow, BookMarked } from "lucide-react";
+import { ArrowLeft, Boxes, Bug, Cloud, Inbox, KeyRound, MessageSquareText, RadioTower, ShieldCheck, SlidersHorizontal, UserRound, Workflow, BookMarked } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -22,10 +22,11 @@ import { ProfilePane } from "./profile-pane";
 import { FeedbackInboxPane } from "./feedback-inbox-pane";
 import { ArkAssetsPane } from "./ark-assets-pane";
 import { PreferencesPane } from "./preferences-pane";
+import { CliTokensPane } from "./cli-tokens-pane";
 import { arkPortraitOverviewQueryKey, getArkPortraitOverview } from "@/services/api/ark-portraits";
 import "./settings-page.css";
 
-type ConfigSectionKey = "profile" | "channels" | "models" | "runninghub" | "preferences" | "prompts" | "agent-memory" | "storage" | "ark-assets" | "diagnostics" | "feedbacks";
+type ConfigSectionKey = "profile" | "preferences" | "cli-tokens" | "channels" | "models" | "runninghub" | "prompts" | "agent-memory" | "storage" | "ark-assets" | "diagnostics" | "feedbacks";
 type ConfigSectionGroup = "general" | "creation" | "integrations" | "support";
 
 const configSectionGroups: ConfigSectionGroup[] = ["general", "creation", "integrations", "support"];
@@ -37,6 +38,7 @@ const configSectionGroups: ConfigSectionGroup[] = ["general", "creation", "integ
 const configSections: Array<{ key: ConfigSectionKey; group: ConfigSectionGroup; icon: ReactNode }> = [
     { key: "profile", group: "general", icon: <UserRound className="size-4" /> },
     { key: "preferences", group: "general", icon: <SlidersHorizontal className="size-4" /> },
+    { key: "cli-tokens", group: "general", icon: <KeyRound className="size-4" /> },
     { key: "models", group: "creation", icon: <Boxes className="size-4" /> },
     { key: "prompts", group: "creation", icon: <MessageSquareText className="size-4" /> },
     { key: "agent-memory", group: "creation", icon: <BookMarked className="size-4" /> },
@@ -164,6 +166,19 @@ export default function SettingsPage() {
         preferences: (
             <SettingsPane>
                 <PreferencesPane />
+            </SettingsPane>
+        ),
+        "cli-tokens": (
+            <SettingsPane>
+                <div className="settings-pane-header">
+                    <div className="min-w-0">
+                        <h2>{t("settings.sections.cli-tokens.label")}</h2>
+                        <p>{t("settings.sections.cli-tokens.description")}</p>
+                    </div>
+                </div>
+                <div className="settings-section">
+                    <CliTokensPane />
+                </div>
             </SettingsPane>
         ),
         prompts: (

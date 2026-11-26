@@ -290,6 +290,7 @@ export const deDE: Messages = {
             models: { label: "Modelle", description: "Standardmodelle nach Kategorie" },
             preferences: { label: "Präferenzen", description: "Darstellung, Sprache, Hinweise und Standards" },
             prompts: { label: "Prompt-Präferenzen", description: "Plattformvorlagen pro Aufgabe anpassen" },
+            "cli-tokens": { label: "CLI-Tokens", description: "CLI-Autorisierung, letzte Nutzung und Widerruf verwalten" },
             "agent-memory": { label: "Agent-Gedächtnis", description: "Freigeben, hinzufügen, exportieren, importieren, verdichten" },
             "ark-assets": { label: "Ark-Assetbibliothek", description: "Personenverifizierung und Asset-Gruppen" },
             storage: { label: "Mein Objektspeicher", description: "Persönlichen Medienspeicher verwalten" },

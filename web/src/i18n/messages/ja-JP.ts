@@ -290,6 +290,7 @@ export const jaJP: Messages = {
             models: { label: "モデル選択", description: "分野ごとの既定モデル" },
             preferences: { label: "環境設定", description: "外観、言語、通知と生成の既定値" },
             prompts: { label: "プロンプト設定", description: "タスクごとにテンプレートを調整" },
+            "cli-tokens": { label: "CLI トークン", description: "CLI の認可、最終使用、失効を管理" },
             "agent-memory": { label: "エージェントの記憶", description: "承認、追加、エクスポート、インポート、圧縮" },
             "ark-assets": { label: "Ark 素材ライブラリ", description: "本人認証と素材グループの管理" },
             storage: { label: "マイオブジェクトストレージ", description: "個人のメディアストレージを管理" },

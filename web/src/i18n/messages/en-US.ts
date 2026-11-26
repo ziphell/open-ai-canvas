@@ -289,6 +289,7 @@ export const enUS: Messages = {
             models: { label: "Models", description: "Default models by category" },
             preferences: { label: "Preferences", description: "Appearance, language, alerts and defaults" },
             prompts: { label: "Prompt preferences", description: "Customize platform templates per task" },
+            "cli-tokens": { label: "CLI tokens", description: "Manage CLI authorization, last use and revocation" },
             "agent-memory": { label: "Agent memory", description: "Approve, add, export, import and compact" },
             "ark-assets": { label: "Ark asset library", description: "Real-person verification and asset groups" },
             storage: { label: "My object storage", description: "Manage personal media storage" },

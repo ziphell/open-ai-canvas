@@ -290,6 +290,7 @@ export const frFR: Messages = {
             models: { label: "Modèles", description: "Modèles par défaut par catégorie" },
             preferences: { label: "Préférences", description: "Apparence, langue, alertes et valeurs par défaut" },
             prompts: { label: "Préférences de prompts", description: "Personnaliser les modèles par tâche" },
+            "cli-tokens": { label: "Jetons CLI", description: "Gérer l'autorisation CLI, la dernière utilisation et la révocation" },
             "agent-memory": { label: "Mémoire de l'Agent", description: "Approuver, ajouter, exporter, importer, compacter" },
             "ark-assets": { label: "Bibliothèque Ark", description: "Vérification de personnes et groupes de ressources" },
             storage: { label: "Mon stockage objet", description: "Gérer le stockage multimédia personnel" },

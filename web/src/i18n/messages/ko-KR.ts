@@ -290,6 +290,7 @@ export const koKR: Messages = {
             models: { label: "모델 선택", description: "분야별 기본 모델" },
             preferences: { label: "환경설정", description: "외관, 언어, 알림과 생성 기본값" },
             prompts: { label: "프롬프트 설정", description: "작업별 템플릿 맞춤 설정" },
+            "cli-tokens": { label: "CLI 토큰", description: "CLI 권한, 마지막 사용, 폐기 관리" },
             "agent-memory": { label: "에이전트 기억", description: "승인, 추가, 내보내기, 가져오기, 압축" },
             "ark-assets": { label: "Ark 소재 라이브러리", description: "실제 인물 인증과 소재 그룹 관리" },
             storage: { label: "내 오브젝트 스토리지", description: "개인 미디어 스토리지 관리" },

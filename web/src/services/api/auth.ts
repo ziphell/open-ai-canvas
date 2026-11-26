@@ -800,3 +800,25 @@ export function updateAdminModelPricing(id: string, input: Omit<ModelPricing, "i
 export function deleteAdminModelPricing(id: string) {
     return http.delete<{ ok: boolean }>(`/admin/model-pricings/${encodeURIComponent(id)}`);
 }
+
+/** CLI 访问令牌：只用于当前账号的另一个入口，额度与网页共用。 */
+export type ApiToken = {
+    id: string;
+    name: string;
+    tokenPrefix: string;
+    scopes: string[];
+    createdAt: string;
+    expiresAt: string;
+    lastUsedAt?: string;
+    revokedAt?: string;
+};
+
+export async function listApiTokens(signal?: AbortSignal): Promise<ApiToken[]> {
+    const data = await http.get<{ tokens: ApiToken[] }>("/auth/tokens", { signal });
+    return data.tokens || [];
+}
+
+export async function revokeApiToken(id: string): Promise<boolean> {
+    const data = await http.delete<{ revoked: boolean }>(`/auth/tokens/${encodeURIComponent(id)}`);
+    return Boolean(data.revoked);
+}

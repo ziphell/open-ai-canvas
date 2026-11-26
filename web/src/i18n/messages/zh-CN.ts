@@ -290,6 +290,7 @@ export const zhCN = {
             models: { label: "模型选择", description: "按领域选择默认模型" },
             preferences: { label: "偏好设置", description: "外观、语言、通知与生成默认值" },
             prompts: { label: "提示词偏好", description: "按任务定制平台模板" },
+            "cli-tokens": { label: "CLI 令牌", description: "管理 CLI 授权、查看最后使用和撤销" },
             "agent-memory": { label: "Agent 记忆", description: "批准、添加、导出导入、压缩" },
             "ark-assets": { label: "方舟素材库", description: "真人认证、虚拟与授权素材组" },
             storage: { label: "我的对象存储", description: "管理个人媒体存储" },
