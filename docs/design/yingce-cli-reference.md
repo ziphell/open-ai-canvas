@@ -460,6 +460,8 @@ yingce skill --json
 
 把内置的 `SKILL.md` 原样输出到 stdout；`--json` 时 `data.content` 返回全文。CLI 不写任何第三方 Agent 目录，也不修改用户配置。服务端同时提供 `/cli/SKILL.md` 和 `/cli/<版本号>/SKILL.md`。
 
+也支持 skill 优先：`npx skills add https://github.com/ddcat-ai/open-ai-canvas/tree/main/skills/yingce-cli` 先安装技能，再由技能引导安装 CLI 和浏览器授权。
+
 ## 10. 错误目录
 
 | `reason` | 退出码 | 行动 |

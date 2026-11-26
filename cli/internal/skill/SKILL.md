@@ -34,6 +34,12 @@ yingce doctor --json
 - **不要索要密码、Cookie 或浏览器导出的登录 JSON。**
 - token 失效返回退出码 3；让用户重新登录，不要尝试绕过。
 
+## 保持最新
+
+- 本文件随仓库更新；重新运行 `npx skills add https://github.com/ddcat-ai/open-ai-canvas/tree/main/skills/yingce-cli` 即可按内容更新。更新 skill 不会升级 CLI。
+- 升级 CLI 需要重新运行安装脚本；`yingce skill` 始终输出当前 CLI 内置的同版本内容，可用于比对。
+- 升级环境前先征得用户同意，不要在后台自动修改。
+
 ## 先判断意图
 
 ```

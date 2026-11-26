@@ -329,7 +329,20 @@ yingce skill --json
 - CLI 不写 Claude Code、Cursor、Codex 或其他工具的目录，也不修改用户配置；保存位置由宿主 Agent 或用户决定。
 - 服务端同时提供 `/cli/SKILL.md` 与 `/cli/<版本号>/SKILL.md`，供 Agent 直接读取或人工下载。
 
-### 10.2 为什么 v1 不做 MCP
+### 10.2 Skill 优先分发
+
+除了先装 CLI，也支持像可灵一样先装 skill，再由 skill 引导安装和授权：
+
+```bash
+npx skills add https://github.com/ddcat-ai/open-ai-canvas/tree/main/skills/yingce-cli
+```
+
+- 仓库里的 `skills/yingce-cli/SKILL.md` 是分发入口；skills 工具把它安装到宿主自己的技能目录，不属于 CLI 写别人的目录。
+- skill 内容自带「检测 CLI → 安装 → 浏览器授权 → 使用命令」的完整步骤，因此可以反过来先有 skill、后有 CLI。
+- skill 与 CLI 分别升级：重新运行 `npx skills add ...` 更新 skill，重新运行安装脚本更新 CLI；`yingce skill` 输出当前 CLI 内置的同版本内容，可用于比对。
+- `cli/internal/skill/SKILL.md` 与 `skills/yingce-cli/SKILL.md` 由测试保证一致。
+
+### 10.3 为什么 v1 不做 MCP
 
 - 覆盖面：能跑 shell 的 Agent 都能用 CLI；MCP 只是其中一部分客户端的额外通道。
 - 维护面：MCP 要单独维护工具 schema、错误映射、长任务和版本协商，收益不足以进入 v1。
