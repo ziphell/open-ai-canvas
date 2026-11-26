@@ -28,6 +28,14 @@ const (
 	APITokenScopeGenerateAudio = "generate:audio"
 )
 
+// CLI 契约版本与服务端最低版本由服务端和 CLI 同步维护，doctor 通过 manifest 判断兼容性。
+const (
+	CLIContractVersion = "cli/v1"
+	CLIMinCLIVersion   = "0.1.0"
+)
+
+var CLIDeprecatedCommands = []string{}
+
 var DefaultCLIScopes = []string{
 	APITokenScopeRead,
 	APITokenScopeAssetUpload,

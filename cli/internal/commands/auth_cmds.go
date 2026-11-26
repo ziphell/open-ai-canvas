@@ -185,8 +185,31 @@ func runDoctor(args []string, out, errw io.Writer, in io.Reader) int {
 		}
 		checks = append(checks, check{Name: item.name, OK: true})
 	}
-	if !failed {
-		checks = append(checks, check{Name: "contract", OK: true, Message: ContractVersion})
+	var manifest struct {
+		ContractVersion string   `json:"contractVersion"`
+		MinCliVersion   string   `json:"minCliVersion"`
+		Deprecated      []string `json:"deprecated"`
+	}
+	manifestData, _, manifestErr := doctorClient.Do(context.Background(), http.MethodGet, "/cli/manifest", nil, nil, nil)
+	switch {
+	case manifestErr != nil:
+		checks = append(checks, check{Name: "manifest", OK: false, Message: manifestErr.Error()})
+		failed = true
+	case json.Unmarshal(manifestData, &manifest) != nil:
+		checks = append(checks, check{Name: "manifest", OK: false, Message: "响应格式无效"})
+		failed = true
+	case manifest.ContractVersion != ContractVersion:
+		checks = append(checks, check{Name: "manifest", OK: false, Message: fmt.Sprintf("服务端契约 %s 与 CLI %s 不兼容", manifest.ContractVersion, ContractVersion)})
+		failed = true
+	case manifest.MinCliVersion != "" && compareVersions(Version, manifest.MinCliVersion) < 0:
+		checks = append(checks, check{Name: "manifest", OK: false, Message: fmt.Sprintf("CLI %s 低于服务端要求的 %s", Version, manifest.MinCliVersion)})
+		failed = true
+	default:
+		message := ContractVersion
+		if len(manifest.Deprecated) > 0 {
+			message += "；服务端已废弃：" + strings.Join(manifest.Deprecated, ", ")
+		}
+		checks = append(checks, check{Name: "manifest", OK: true, Message: message})
 	}
 	if app.G.JSON {
 		payload, _ := json.Marshal(map[string]any{"ok": !failed, "data": map[string]any{"checks": checks}})

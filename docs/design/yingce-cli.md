@@ -364,7 +364,7 @@ MCP 留作后续可选形态，不进入 v1 契约。
 | scope 强制 | 按路由与任务模式校验 | P0 |
 | 任务幂等 | `POST /tasks` 接受 `X-Idempotency-Key`；已实现 | P1 |
 | 上传去重 | 按用户 + SHA-256 复用资源 | P1 |
-| CLI manifest | `GET /cli/manifest` | P2 |
+| CLI manifest | `GET /cli/manifest` 返回契约、最低版本与废弃命令；`doctor` 已接入 | 已实现 |
 | OpenAPI 子集 | 只文档化白名单端点 | P2 |
 
 ## 13. 落地顺序与验收

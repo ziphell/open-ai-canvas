@@ -1293,6 +1293,10 @@ CLI 与自动化使用独立令牌，不复用浏览器 Cookie。服务端默认
 
 scope 为 `read`、`asset:upload`、`canvas:write`、`generate:image`、`generate:video`、`generate:audio`、`task:write`、`agent:run`。签发时至少包含 `read`；`POST /tasks` 按任务模式校验对应 `generate:*` 权限。Bearer 不能访问 `/api/admin/*`，也不能调用令牌列表与创建接口。已被撤销、过期或用户停用的令牌统一返回 401；缺少 scope 返回 403 `scope_missing`；服务端关闭时返回 401 `api_tokens_disabled`。
 
+### 兼容性清单
+
+`GET /api/cli/manifest` 无需登录，返回 `contractVersion`、`minCliVersion` 和 `deprecated`（废弃命令数组）。`yingce doctor` 用它判断 CLI 契约是否兼容、版本是否过低，并在有废弃命令时提示。
+
 ### 任务幂等
 
 `POST /api/tasks` 支持 `X-Idempotency-Key`，格式为 8–128 位字母、数字、`-`、`_`；也可在 JSON 中传 `idempotencyKey`，两者不一致返回 400。相同键和相同请求摘要返回原任务并带 `replayed=true`，不会重复扣费；相同键但请求内容不同返回 409 `idempotency_conflict`。幂等记录与任务、积分预留在同一事务写入，保留 7 天；未传键时保持原行为。

@@ -15,6 +15,7 @@ func RegisterCanvasAPI(api *gin.RouterGroup, svc *service.Service) {
 	api.Use(StorageReadOnlyGuard(svc))
 	api.Use(TokenScopeGuard())
 	RegisterOpenAPIRoutes(api)
+	RegisterCLIRoutes(api)
 	RegisterAuthRoutes(api, svc)
 	RegisterAPITokenRoutes(api, svc)
 	RegisterAppearanceRoutes(api, svc)
