@@ -7,6 +7,12 @@ description: 用影策 CLI 在 Agent 中读取项目与画布、上传素材、�
 
 影策是 AI 影视与短剧创作工作台。通过 `yingce`，你可以在不打开网页的情况下读取画布、上传参考素材、报价、生成图片/视频并跟踪任务。
 
+## 开始执行
+
+1. 先运行本文件同级的 `scripts/ensure-cli.sh`，保存返回 JSON 里的 `cli_path`；本次任务后续命令都用这个绝对路径代替 `yingce`。如果只拿到文本（例如 `yingce skill` 的输出），直接使用已安装的 `yingce`，或从 `<host>/cli/scripts/ensure-cli.sh` 获取脚本。
+2. 返回 `ready: false` 时，先询问用户是否安装；用户同意后加 `--install` 重跑。脚本只写入自己的缓存目录，不修改 Agent 或其他工具目录。
+3. 参数与能力以 `cli_path version --json` 和对应命令的 `--help` 为准。
+
 ## 何时使用
 
 - 用户要求查看或修改影策里的项目、画布、分镜。

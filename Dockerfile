@@ -6,6 +6,7 @@ FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS cli-build
 RUN apk add --no-cache bash
 WORKDIR /app/cli
 COPY cli /app/cli
+COPY skills/yingce-cli/scripts/ensure-cli.sh /app/skills/yingce-cli/scripts/ensure-cli.sh
 ARG BUILD_COMMIT=unknown
 ENV YINGCE_CLI_COMMIT=${BUILD_COMMIT}
 RUN bash release.sh --skip-tests --output /out/cli

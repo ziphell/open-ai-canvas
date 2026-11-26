@@ -102,7 +102,7 @@ CLI 安装包进入前端构建流程，由 web 静态目录提供；发布和�
 
 - 版本号写在 `cli/VERSION`。版本号与提交号通过 `-ldflags` 注入 `commands.Version` / `commands.Commit`。
 - Docker 的 `cli-build` 阶段交叉编译 6 个平台，产物注入 `web/public/cli/`，随 Vite 构建进入 web 镜像；`nginx.conf` 用 `/cli/` 直接提供静态文件。
-- 发布目录：`/cli/version.json` 是版本指针，`/cli/install.sh` 是稳定安装入口，`/cli/SKILL.md` 是最新技能说明，`/cli/<版本号>/` 保存该版本全部文件；不复制 `latest` 目录，避免二进制重复占用体积。
+- 发布目录：`/cli/version.json` 是版本指针，`/cli/install.sh` 是稳定安装入口，`/cli/SKILL.md` 是最新技能说明，`/cli/scripts/ensure-cli.sh` 供技能先装、CLI 后装时自举，`/cli/<版本号>/` 保存该版本全部文件；不复制 `latest` 目录，避免二进制重复占用体积。
 - `canvas-web-entrypoint.sh` 把镜像内的 `/cli/` 同步进 `web-data` 卷；web 容器升级后旧版本目录保留，固定版本安装仍可回退。
 - 需要只更新 CLI、不重建 web 镜像时，可运行 `cli/release.sh` 生成产物并通过 rsync 发布到 web 静态根；用法见脚本帮助。
 
@@ -339,6 +339,7 @@ npx skills add https://github.com/ddcat-ai/open-ai-canvas/tree/main/skills/yingc
 
 - 仓库里的 `skills/yingce-cli/SKILL.md` 是分发入口；skills 工具把它安装到宿主自己的技能目录，不属于 CLI 写别人的目录。
 - skill 内容自带「检测 CLI → 安装 → 浏览器授权 → 使用命令」的完整步骤，因此可以反过来先有 skill、后有 CLI。
+- `skills/yingce-cli/scripts/ensure-cli.sh` 负责自举：先找 PATH，再找自己的缓存 `~/.cache/yingce/cli/current`，校验最低版本；默认只报告 `ready`，显式加 `--install` 才安装到自己的缓存目录，不写 Agent 目录。
 - skill 与 CLI 分别升级：重新运行 `npx skills add ...` 更新 skill，重新运行安装脚本更新 CLI；`yingce skill` 输出当前 CLI 内置的同版本内容，可用于比对。
 - `cli/internal/skill/SKILL.md` 与 `skills/yingce-cli/SKILL.md` 由测试保证一致。
 

@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DIST="${YINGCE_CLI_OUTPUT_DIR:-$ROOT/dist}"
+ENSURE_SCRIPT="${YINGCE_CLI_ENSURE_SCRIPT:-$ROOT/../skills/yingce-cli/scripts/ensure-cli.sh}"
 VERSION=""
 TARGET="${YINGCE_CLI_PUBLISH_TARGET:-}"
 RUN_TESTS=1
@@ -99,6 +100,10 @@ if [ -z "$CONTRACT" ]; then
   echo "无法读取 CLI 契约版本" >&2
   exit 1
 fi
+if [ ! -f "$ENSURE_SCRIPT" ]; then
+  echo "缺少 ensure-cli.sh：$ENSURE_SCRIPT" >&2
+  exit 1
+fi
 
 OUT="$DIST/$VERSION"
 rm -rf "$OUT"
@@ -119,6 +124,9 @@ done
 
 cp internal/skill/SKILL.md "$OUT/SKILL.md"
 cp install.sh "$OUT/install.sh"
+mkdir -p "$OUT/scripts"
+cp "$ENSURE_SCRIPT" "$OUT/scripts/ensure-cli.sh"
+chmod +x "$OUT/scripts/ensure-cli.sh"
 
 cat > "$OUT/version.json" <<EOF
 {
@@ -142,6 +150,8 @@ EOF
 cp "$OUT/version.json" "$DIST/version.json"
 cp install.sh "$DIST/install.sh"
 cp internal/skill/SKILL.md "$DIST/SKILL.md"
+mkdir -p "$DIST/scripts"
+cp "$OUT/scripts/ensure-cli.sh" "$DIST/scripts/ensure-cli.sh"
 
 echo
 echo "已生成 $OUT"
@@ -161,6 +171,7 @@ if [ -n "$TARGET" ]; then
   rsync -av "$DIST/version.json" "$TARGET/version.json"
   rsync -av "$DIST/install.sh" "$TARGET/install.sh"
   rsync -av "$DIST/SKILL.md" "$TARGET/SKILL.md"
+  rsync -av --delete "$DIST/scripts/" "$TARGET/scripts/"
   echo "已发布 $VERSION"
 else
   echo
@@ -169,4 +180,5 @@ else
   echo "  rsync -av dist/version.json <user>@<host>:/srv/yingce/cli/version.json"
   echo "  rsync -av dist/install.sh <user>@<host>:/srv/yingce/cli/install.sh"
   echo "  rsync -av dist/SKILL.md <user>@<host>:/srv/yingce/cli/SKILL.md"
+  echo "  rsync -av --delete dist/scripts/ <user>@<host>:/srv/yingce/cli/scripts/"
 fi

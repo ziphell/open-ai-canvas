@@ -22,15 +22,17 @@ description: 当前项目已实现功能的手工验证清单与未确认边界
 ## CLI 发布
 
 - 已实现：CLI 安装包进入前端构建流程。Docker 的 `cli-build` 阶段按 `cli/VERSION` 交叉编译 darwin/linux/windows × amd64/arm64，产物注入 `web/public/cli/`，随 Vite 构建进入 web 镜像，由 nginx `/cli/` 直接提供；发布和升级不依赖 GitHub。
-- 已实现：发布目录为 `/cli/version.json`（版本指针）、`/cli/install.sh`、`/cli/SKILL.md`（最新技能说明）、`/cli/<版本号>/`（二进制、`SHA256SUMS`、`version.json`、`SKILL.md`、`install.sh`）；不再复制 `latest` 目录，避免二进制重复占用体积。
+- 已实现：发布目录为 `/cli/version.json`（版本指针）、`/cli/install.sh`、`/cli/SKILL.md`（最新技能说明）、`/cli/scripts/ensure-cli.sh`（技能自举）、`/cli/<版本号>/`（二进制、`SHA256SUMS`、`version.json`、`SKILL.md`、`install.sh`、`scripts/`）；不再复制 `latest` 目录，避免二进制重复占用体积。
 - 已实现：`cli/release.sh` 可在本地执行 gofmt、vet、测试并生成同样的目录，支持 `--output` 和 `--skip-tests`；设置 `YINGCE_CLI_PUBLISH_TARGET` 或 `--target` 时可通过 rsync 直接发布到 web 静态根。
 - 已实现：`install.sh` 默认读取 `/cli/version.json` 解析最新版本，`--version` 直接读取 `/cli/<版本号>/`；支持 `--dry-run`，Windows 默认安装到 `~/bin`，SHA256 不符时停止且不写入目标；`nginx.conf` 对 `/cli/` 缺失文件返回 404，不回退 SPA。
 - 已实现：`yingce skill` 把内置的 SKILL.md 原样输出到 stdout，`--json` 时放在 `data.content`；CLI 不写 Claude Code、Cursor、Codex 或其他工具目录，也不修改用户配置。
 - 已实现：新增 `skills/yingce-cli/SKILL.md` 分发目录，可先执行 `npx skills add https://github.com/ddcat-ai/open-ai-canvas/tree/main/skills/yingce-cli` 安装技能，再由技能内的步骤安装 CLI 和完成浏览器授权；分发副本与内嵌副本由测试保证一致。
-- 自动回归：`release.sh` 全流程通过，6 个目标编译成功，根 `version.json`、版本目录与 `SHA256SUMS` 一致；本地 HTTP 目录验证 `--dry-run`、最新版安装、固定版本安装，以及篡改二进制时校验失败且不落盘；`yingce skill` 的原文输出和 JSON 输出均与内置文件一致。
-- [ ] 构建 web 镜像并启动容器，确认 `web-data` 卷内出现 `cli/version.json`、`cli/SKILL.md`、`cli/0.1.0/` 和 `cli/install.sh`，`curl https://<host>/cli/SKILL.md` 可读。
+- 已实现：`skills/yingce-cli/scripts/ensure-cli.sh` 先查 PATH、再查自己的缓存，按 `YINGCE_CLI_MIN_VERSION` 校验版本；默认只输出 `{ready, cli_path, version}`，显式 `--install` 才安装到 `~/.cache/yingce/cli/current`，不写 Agent 目录，安装输出全部走 stderr。
+- 自动回归：`release.sh` 全流程通过，6 个目标编译成功，根 `version.json`、版本目录与 `SHA256SUMS` 一致；本地 HTTP 目录验证 `--dry-run`、最新版安装、固定版本安装，以及篡改二进制时校验失败且不落盘；`yingce skill` 的原文输出和 JSON 输出均与内置文件一致；`ensure-cli.sh` 覆盖已就绪、版本过低、缺失时 `--install` 三种路径，安装后 stdout 仍为纯 JSON。
+- [ ] 构建 web 镜像并启动容器，确认 `web-data` 卷内出现 `cli/version.json`、`cli/SKILL.md`、`cli/scripts/ensure-cli.sh`、`cli/0.1.0/` 和 `cli/install.sh`，`curl https://<host>/cli/SKILL.md` 与 `curl https://<host>/cli/scripts/ensure-cli.sh` 可读。
 - [ ] 在干净的 macOS 与 Windows（Git Bash）实机执行 `curl | bash`，确认安装目录、PATH 提示、macOS quarantine 清理和 `yingce version` 输出。
 - [ ] 升级一次：提升 `cli/VERSION` 并重新部署 web 镜像，确认默认安装拿到新版本、旧版本目录仍可回退；确认镜像体积增量符合预期。
+- [ ] 在干净 Agent 环境里用 `npx skills add` 安装技能，验证 `ensure-cli.sh` 在未安装 CLI 时返回 `ready:false`，用户同意后 `--install` 能装到缓存并被后续命令复用。
 
 ## 技能体系拆分：公共目录与用户技能实例
 
