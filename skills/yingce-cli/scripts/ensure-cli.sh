@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MIN_VERSION="${YINGCE_CLI_MIN_VERSION:-0.1.0}"
+MIN_VERSION="${YINGCE_CLI_MIN_VERSION:-0.1.1}"
 BASE_URL="${YINGCE_CLI_BASE_URL:-https://yingce.tv/cli}"
 CACHE_DIR="${YINGCE_CLI_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/yingce/cli/current}"
 INSTALL=0
