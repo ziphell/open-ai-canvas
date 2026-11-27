@@ -52,8 +52,8 @@ export type AudioCapabilityConfig = {
         maxAudios: number;
         maxImages: number;
     };
-    /** free 表示音色 ID 由用户自由填写；preset 表示使用渠道预置音色。 */
-    voice: "free" | "preset";
+    /** free 表示豆包式自由音色 ID；custom 表示其他厂商的自由音色 ID；preset 表示使用渠道预置音色。 */
+    voice: "free" | "custom" | "preset";
     formats: string[];
 };
 
@@ -486,7 +486,13 @@ export function defaultModelCapabilityConfig(protocol?: ModelProtocol, model = "
             ? { modes: ["tts", "generation"], references: { maxAudios: 3, maxImages: 1 }, voice: "free", formats: ["mp3", "wav", "ogg_opus", "pcm"] }
             : protocol === "doubao-voice-tts-3-0"
               ? { modes: ["tts"], references: { maxAudios: 0, maxImages: 0 }, voice: "free", formats: ["mp3", "pcm", "ogg_opus"] }
-              : { modes: ["tts"], references: { maxAudios: 0, maxImages: 0 }, voice: "preset", formats: ["mp3", "wav", "opus", "aac", "flac", "pcm"] };
+              : protocol === "doubao-voice-tts-2-0"
+                ? { modes: ["tts"], references: { maxAudios: 0, maxImages: 0 }, voice: "free", formats: ["mp3", "pcm", "ogg_opus", "wav"] }
+                : protocol === "doubao-voice-tts-2-0-async"
+                  ? { modes: ["tts"], references: { maxAudios: 0, maxImages: 0 }, voice: "free", formats: ["mp3", "pcm", "ogg_opus"] }
+                  : protocol === "minimax-tts" || protocol === "minimax-tts-async"
+                    ? { modes: ["tts"], references: { maxAudios: 0, maxImages: 0 }, voice: "custom", formats: ["mp3", "wav", "flac"] }
+                    : { modes: ["tts"], references: { maxAudios: 0, maxImages: 0 }, voice: "preset", formats: ["mp3", "wav", "opus", "aac", "flac", "pcm"] };
     const text: TextCapabilityConfig = {
         streaming: true,
         contextWindowTokens: 128_000,

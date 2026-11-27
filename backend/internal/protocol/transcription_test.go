@@ -197,6 +197,78 @@ func TestVolcengineTranscriptionQueryPendingAndFailedHeaders(t *testing.T) {
 	}
 }
 
+func loadMiniMaxTranscriptionAdapter(t *testing.T) Adapter {
+	t.Helper()
+	manifest, err := os.ReadFile("../../../plugin-packages/minimax-transcription/manifest.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter, err := LoadManifest(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return adapter
+}
+
+func TestMiniMaxTranscriptionBuildsMultipartRequest(t *testing.T) {
+	adapter := loadMiniMaxTranscriptionAdapter(t)
+	request := transcriptionRequest()
+	request.Model = "asr-1.0"
+	spec, err := adapter.BuildCreate(context.Background(), RequestContext{Request: request})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.Path != "/v1/speech_to_text" || spec.ContentType != "multipart/form-data" {
+		t.Fatalf("spec = %#v", spec)
+	}
+	body := spec.Body.(map[string]any)
+	if body["model"] != "asr-1.0" || body["response_format"] != "verbose_json" || body["timestamp_level"] != "sentence" {
+		t.Fatalf("body = %#v", body)
+	}
+	if spec.Headers["language"] != "zh" {
+		t.Fatalf("headers = %#v", spec.Headers)
+	}
+	if len(spec.Files) != 1 || spec.Files[0].Name != "file" || spec.Files[0].Reference.DataURL == "" {
+		t.Fatalf("files = %#v", spec.Files)
+	}
+	if spec.Auth.Type != "bearer" {
+		t.Fatalf("auth = %#v", spec.Auth)
+	}
+}
+
+func TestMiniMaxTranscriptionMapsVerboseJSONSegments(t *testing.T) {
+	adapter := loadMiniMaxTranscriptionAdapter(t)
+	body := []byte(`{"text":"你好世界","duration":26.325,"n_speakers":2,"segments":[{"id":0,"start":0.48,"end":5.88,"speaker":"S1","text":" 你好 "},{"id":1,"start":6.0,"end":7.2,"speaker":"S2","text":"世界"}],"trace_id":"trace-1"}`)
+	request := transcriptionRequest()
+	request.Model = "asr-1.0"
+	created, err := adapter.(RequestAwareCreateParser).ParseCreateWithRequest(context.Background(), request, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Status != StatusSucceeded || created.Result == nil || created.Result.Transcription == nil {
+		t.Fatalf("created = %#v", created)
+	}
+	segments := created.Result.Transcription.Segments
+	if len(segments) != 2 || segments[0].StartMs != 480 || segments[0].EndMs != 5880 || segments[0].Text != "你好" {
+		t.Fatalf("segments = %#v", segments)
+	}
+	if created.Result.Transcription.Language != "zh" {
+		t.Fatalf("language = %q", created.Result.Transcription.Language)
+	}
+}
+
+func TestMiniMaxTranscriptionBaseRespFailure(t *testing.T) {
+	adapter := loadMiniMaxTranscriptionAdapter(t)
+	body := []byte(`{"base_resp":{"status_code":1004,"status_msg":"invalid api key"}}`)
+	created, err := adapter.ParseCreate(context.Background(), body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Status != StatusFailed || created.Message != "invalid api key" {
+		t.Fatalf("created = %#v", created)
+	}
+}
+
 func TestTranscriptionPackageRequiresAudio(t *testing.T) {
 	manifest, err := os.ReadFile("../../../plugin-packages/openai-transcription/manifest.json")
 	if err != nil {

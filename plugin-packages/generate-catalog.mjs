@@ -542,6 +542,225 @@ add({
   }
 });
 
+const ttsParams = (modelDescription) => [
+  ["model", "string", true, "model", modelDescription],
+  ["prompt", "string", true, "text", "待朗读文本。"],
+  ["providerOptions", "object", false, "provider-specific fields", "插件命名空间内的厂商扩展字段。"]
+];
+
+add({
+  id: "doubao-voice-tts-2-0", providerId: "doubao-voice-tts-2-0", name: "豆包语音合成 2.0", vendor: "Volcengine", capability: "audio",
+  version: "2.0.0",
+  baseUrl: "https://openspeech.bytedance.com",
+  auth: { type: "header", field: "apiKey", header: "X-Api-Key" },
+  params: [
+    ["model", "string", true, "X-Api-Resource-Id", "资源 ID：seed-tts-2.0（语音合成大模型 2.0）或 seed-icl-2.0（声音复刻 2.0）。"],
+    ["prompt", "string", true, "req_params.text", "待朗读文本。"],
+    ["providerOptions", "object", false, "provider-specific fields", "插件命名空间内的厂商扩展字段。"]
+  ],
+  notes: "豆包语音合成大模型 2.0 单向流式 HTTP 接口。POST /api/v3/tts/unidirectional，X-Api-Resource-Id 固定为 seed-tts-2.0 或 seed-icl-2.0，音色 ID 通过 req_params.speaker 传入；响应为 HTTP Chunked JSON 片段，按顺序拼接 code、message 与 Base64 data 字段。输出格式支持 mp3、pcm、ogg_opus、wav；该协议只做文本朗读，不接收参考音频或参考图片。",
+  validations: [{ assert: ref("request.extra.audioVoice"), message: "豆包语音合成 2.0 需要填写音色 ID" }],
+  create: {
+    method: "POST",
+    path: "/api/v3/tts/unidirectional",
+    contentType: "application/json",
+    headers: {
+      "X-Api-Resource-Id": coalesce(ref("request.model"), "seed-tts-2.0"),
+      "X-Api-Request-Id": ref("request.extra.idempotencyKey")
+    },
+    body: {
+      req_params: {
+        text: ref("request.prompt"),
+        speaker: ref("request.extra.audioVoice"),
+        audio_params: {
+          format: coalesce(ref("request.extra.audioFormat"), "mp3"),
+          sample_rate: conditional(eq(ref("request.extra.audioFormat"), "ogg_opus"), 48000, 24000),
+          speech_rate: addNumbers(multiply(coalesce(nonZeroFloat(ref("request.extra.audioSpeed")), 1), 100), -100),
+          enable_subtitle: false
+        }
+      }
+    }
+  },
+  response: { streamedJsonAudio: true, resultKind: "audio" }
+});
+
+add({
+  id: "doubao-voice-tts-2-0-async", providerId: "doubao-voice-tts-2-0-async", name: "豆包语音合成 2.0（异步）", vendor: "Volcengine", capability: "audio",
+  version: "2.0.0",
+  baseUrl: "https://openspeech.bytedance.com",
+  auth: { type: "header", field: "apiKey", header: "X-Api-Key" },
+  params: [
+    ["model", "string", true, "X-Api-Resource-Id", "资源 ID：seed-tts-2.0（语音合成大模型 2.0）或 seed-icl-2.0（声音复刻 2.0）。"],
+    ["prompt", "string", true, "req_params.text", "待朗读文本，最长 10 万字符。"],
+    ["providerOptions", "object", false, "provider-specific fields", "插件命名空间内的厂商扩展字段。"]
+  ],
+  notes: "豆包异步长文本语音合成。POST /api/v3/tts/submit 提交任务，task_id 由 unique_id（宿主幂等键）回传；POST /api/v3/tts/query 查询，task_status：1 处理中、2 成功、3 失败，成功后返回 audio_url（有效期 1 小时）。单次最多 10 万字符，音频在服务端保存 7 天。",
+  validations: [{ assert: ref("request.extra.audioVoice"), message: "豆包语音合成 2.0（异步）需要填写音色 ID" }],
+  create: {
+    method: "POST",
+    path: "/api/v3/tts/submit",
+    contentType: "application/json",
+    headers: {
+      "X-Api-Resource-Id": coalesce(ref("request.model"), "seed-tts-2.0"),
+      "X-Api-Request-Id": ref("request.extra.idempotencyKey")
+    },
+    body: {
+      user: { uid: "yingce" },
+      unique_id: ref("request.extra.idempotencyKey"),
+      req_params: {
+        text: ref("request.prompt"),
+        speaker: ref("request.extra.audioVoice"),
+        audio_params: {
+          format: coalesce(ref("request.extra.audioFormat"), "mp3"),
+          sample_rate: conditional(eq(ref("request.extra.audioFormat"), "ogg_opus"), 48000, 24000),
+          speech_rate: addNumbers(multiply(coalesce(nonZeroFloat(ref("request.extra.audioSpeed")), 1), 100), -100),
+          loudness_rate: 0,
+          enable_timestamp: false
+        }
+      }
+    }
+  },
+  poll: {
+    method: "POST",
+    path: "/api/v3/tts/query",
+    contentType: "application/json",
+    headers: {
+      "X-Api-Resource-Id": coalesce(ref("request.model"), "seed-tts-2.0"),
+      "X-Api-Request-Id": ref("taskId")
+    },
+    body: { task_id: ref("taskId") }
+  },
+  response: {
+    taskId: coalesce(ref("response.data.task_id"), ref("taskId")),
+    status: conditional(
+      ne(ref("response.code"), 20000000),
+      "failed",
+      conditional(
+        eq(ref("response.data.task_status"), 2),
+        "succeeded",
+        conditional(eq(ref("response.data.task_status"), 3), "failed", conditional(eq(ref("response.data.task_status"), 1), "processing", "pending"))
+      )
+    ),
+    message: conditional(
+      eq(ref("response.data.task_status"), 3),
+      conditional({ $in: [lower(coalesce(ref("response.message"), "")), ["", "ok"]] }, "语音合成任务失败", ref("response.message")),
+      coalesce(ref("response.message"), ref("message"))
+    ),
+    audios: conditional(ref("response.data.audio_url"), { url: ref("response.data.audio_url"), ephemeral: true }),
+    usage: { characters: ref("response.data.synthesize_text_length") },
+    resultEphemeral: true
+  }
+});
+
+const minimaxAudioMime = conditional(
+  eq(ref("request.extra.audioFormat"), "wav"),
+  "audio/wav",
+  conditional(eq(ref("request.extra.audioFormat"), "flac"), "audio/flac", conditional(eq(ref("request.extra.audioFormat"), "pcm"), "audio/pcm", conditional(eq(ref("request.extra.audioFormat"), "opus"), "audio/ogg", "audio/mpeg")))
+);
+
+add({
+  id: "minimax-tts", providerId: "minimax-tts", name: "MiniMax 语音合成", vendor: "MiniMax", capability: "audio",
+  version: "2.0.0",
+  baseUrl: "https://api.minimax.cn",
+  auth: bearer,
+  params: ttsParams("语音合成模型 ID，例如 speech-2.8-hd、speech-2.8-turbo。"),
+  notes: "MiniMax 同步语音合成 HTTP 接口。POST /v1/t2a_v2，非流式一次性返回 hex 编码音频，插件转换为 data URL 后由宿主持久化。voice_setting.voice_id 必填，audio_setting 支持 mp3、wav、flac 等格式。默认域名 https://api.minimax.cn。",
+  validations: [{ assert: ref("request.extra.audioVoice"), message: "MiniMax 语音合成需要填写音色 ID" }],
+  create: {
+    method: "POST",
+    path: "/v1/t2a_v2",
+    contentType: "application/json",
+    body: {
+      model: coalesce(ref("request.model"), "speech-2.8-hd"),
+      text: ref("request.prompt"),
+      stream: false,
+      voice_setting: {
+        voice_id: ref("request.extra.audioVoice"),
+        speed: coalesce(nonZeroFloat(ref("request.extra.audioSpeed")), 1),
+        vol: 1,
+        pitch: 0
+      },
+      audio_setting: {
+        sample_rate: 32000,
+        bitrate: 128000,
+        format: coalesce(ref("request.extra.audioFormat"), "mp3"),
+        channel: 1
+      }
+    }
+  },
+  response: {
+    status: conditional(eq(ref("response.base_resp.status_code"), 0), "succeeded", "failed"),
+    message: coalesce(ref("response.base_resp.status_msg"), ref("message")),
+    audios: conditional(ref("response.data.audio"), {
+      dataUrl: { $concat: ["data:", minimaxAudioMime, ";base64,", { $hexToBase64: ref("response.data.audio") }] },
+      mimeType: minimaxAudioMime
+    }),
+    usage: { audio_length_ms: ref("response.extra_info.audio_length"), characters: ref("response.extra_info.usage_characters") },
+    errorPaths: ["base_resp.status_code"],
+    messagePaths: ["base_resp.status_msg", "message"]
+  }
+});
+
+add({
+  id: "minimax-tts-async", providerId: "minimax-tts-async", name: "MiniMax 语音合成（异步）", vendor: "MiniMax", capability: "audio",
+  version: "2.0.0",
+  baseUrl: "https://api.minimax.cn",
+  auth: bearer,
+  params: ttsParams("语音合成模型 ID，例如 speech-2.8-hd、speech-2.8-turbo。"),
+  notes: "MiniMax 异步长文本语音合成。POST /v1/t2a_async_v2 创建任务，GET /v1/query/t2a_async_query_v2 查询状态（Processing/Success/Failed/Expired），成功后用 file_id 调 GET /v1/files/retrieve 获取 download_url。默认域名 https://api.minimax.cn。",
+  validations: [{ assert: ref("request.extra.audioVoice"), message: "MiniMax 语音合成（异步）需要填写音色 ID" }],
+  create: {
+    method: "POST",
+    path: "/v1/t2a_async_v2",
+    contentType: "application/json",
+    body: {
+      model: coalesce(ref("request.model"), "speech-2.8-hd"),
+      text: ref("request.prompt"),
+      voice_setting: {
+        voice_id: ref("request.extra.audioVoice"),
+        speed: coalesce(nonZeroFloat(ref("request.extra.audioSpeed")), 1),
+        vol: 1,
+        pitch: 0
+      },
+      audio_setting: {
+        audio_sample_rate: 32000,
+        bitrate: 128000,
+        format: coalesce(ref("request.extra.audioFormat"), "mp3"),
+        channel: 1
+      }
+    }
+  },
+  poll: {
+    method: "GET",
+    path: "/v1/query/t2a_async_query_v2",
+    query: { task_id: ref("taskId") }
+  },
+  result: {
+    method: "GET",
+    path: "/v1/files/retrieve",
+    query: { file_id: ref("resultId") }
+  },
+  response: {
+    taskId: coalesce(ref("response.task_id"), ref("taskId")),
+    resultId: ref("response.file_id"),
+    status: coalesce(ref("response.status"), conditional(eq(ref("response.base_resp.status_code"), 0), "pending", "failed")),
+    message: conditional(
+      { $in: [lower(ref("response.status")), ["failed", "expired"]] },
+      conditional(
+        { $in: [lower(coalesce(ref("response.base_resp.status_msg"), "")), ["", "success", "ok"]] },
+        "语音合成任务失败",
+        ref("response.base_resp.status_msg")
+      ),
+      coalesce(ref("response.base_resp.status_msg"), ref("message"))
+    ),
+    audios: conditional(ref("response.file.download_url"), { url: ref("response.file.download_url"), ephemeral: true }),
+    usage: { characters: ref("response.usage_characters") },
+    resultEphemeral: true,
+    errorPaths: ["base_resp.status_code"],
+    messagePaths: ["base_resp.status_msg", "message"]
+  }
+});
+
 const transcriptionParams = [
   ["model", "string", false, "model", "转写模型 ID；本地 whisper.cpp 通常忽略。"],
   ["audios", "media[]", true, "file", "待转写的音视频文件，作为 multipart file 上传。"],
@@ -668,6 +887,47 @@ add({
     },
     errorPaths: ["error.code"],
     messagePaths: ["message"]
+  }
+});
+
+add({
+  id: "minimax-transcription", providerId: "minimax-transcription", name: "MiniMax 语音识别", vendor: "MiniMax", capability: "transcription",
+  version: "2.0.0",
+  baseUrl: "https://api.minimax.cn",
+  auth: bearer,
+  params: [
+    ["model", "string", false, "model", "转写模型 ID，默认 asr-1.0。"],
+    ["audios", "media[]", true, "file", "待转写音频文件，作为 multipart file 上传。"],
+    ["prompt", "string", false, "language 请求头", "可选语言代码，例如 zh、yue、en；留空启用混合语言识别。"],
+    ["providerOptions", "object", false, "provider-specific fields", "插件命名空间内的厂商扩展字段。"]
+  ],
+  notes: "MiniMax POST /v1/speech_to_text 同步语音识别协议。multipart 提交 model、file 与 response_format=verbose_json，timestamp_level=sentence；language 通过请求头发送。音频支持 wav、aiff、flac、m4a、mp3、aac、opus、ogg，单文件不超过 500 秒和 50 MB；超过限制时上游返回 400/413。verbose_json 响应返回 text、duration（秒）、n_speakers 和 segments[]（start/end 秒、speaker、text）。",
+  validations: [{ assert: gt(len(ref("request.audios")), 0), message: "MiniMax 语音识别需要连接音视频文件" }],
+  create: {
+    method: "POST",
+    path: "/v1/speech_to_text",
+    contentType: "multipart/form-data",
+    headers: {
+      language: omit(coalesce(ref("request.extra.language"), ref("request.prompt")))
+    },
+    body: {
+      model: coalesce(ref("request.model"), "asr-1.0"),
+      response_format: "verbose_json",
+      timestamp_level: "sentence"
+    },
+    files: [{ name: "file", source: first(ref("request.audios")), filename: "audio.wav", mimeType: "audio/wav" }]
+  },
+  response: {
+    transcription: {
+      segments: map(ref("response.segments"), "s", {
+        start: ref("s.start"),
+        end: ref("s.end"),
+        text: ref("s.text")
+      }),
+      language: ref("request.extra.language")
+    },
+    errorPaths: ["base_resp.status_code", "error.code", "error"],
+    messagePaths: ["base_resp.status_msg", "error.message", "message"]
   }
 });
 

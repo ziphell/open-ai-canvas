@@ -480,7 +480,9 @@ export default function SkillsPage() {
                 className="min-h-[188px]"
                 icon="skills"
                 title={filtersActive ? (search.trim() ? `没有找到与“${search.trim()}”相关的技能` : "没有符合筛选条件的技能") : scope === "created" ? "还没有创建技能" : scope === "public" ? "技能广场还是空的" : "这里还没有技能"}
-                description={filtersActive ? "换一个关键词或分类，或清除筛选后查看全部。" : scope === "favorites" ? "收藏的公开技能会显示在这里。" : scope === "mine" ? "从技能广场加入，或上传自己的技能后，会显示在这里。" : "管理员发布技能后，会显示在这里。"}
+                description={
+                    filtersActive ? "换一个关键词或分类，或清除筛选后查看全部。" : scope === "favorites" ? "收藏的公开技能会显示在这里。" : scope === "mine" ? "从技能广场加入，或上传自己的技能后，会显示在这里。" : "管理员发布技能后，会显示在这里。"
+                }
                 action={
                     filtersActive ? (
                         <Button onClick={resetFilters}>清除筛选</Button>
@@ -818,7 +820,13 @@ function SkillCard({
         ...(skill.isOwner
             ? [{ key: "workbench", label: workbenchLabel }, { key: "edit", label: "编辑技能信息" }, { type: "divider" as const }, { key: "delete", label: "删除技能", danger: true }]
             : skill.isAdded
-              ? [{ key: "update", label: "更新到广场最新内容", disabled: loading || !skill.hasUpdate }, { key: "workbench", label: "编辑副本" }, { key: "edit", label: "编辑技能信息" }, { type: "divider" as const }, { key: "toggle-added", label: "从我的技能移除", disabled: loading }]
+              ? [
+                    { key: "update", label: "更新到广场最新内容", disabled: loading || !skill.hasUpdate },
+                    { key: "workbench", label: "编辑副本" },
+                    { key: "edit", label: "编辑技能信息" },
+                    { type: "divider" as const },
+                    { key: "toggle-added", label: "从我的技能移除", disabled: loading },
+                ]
               : [{ key: "toggle-added", label: "加入我的技能", disabled: loading }]),
     ];
     return (

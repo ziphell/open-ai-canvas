@@ -217,6 +217,190 @@ func TestDoubaoVoiceTTS30RequiresVoice(t *testing.T) {
 	}
 }
 
+func loadTTSPlugin(t *testing.T, id string) Adapter {
+	t.Helper()
+	manifest, err := os.ReadFile("../../../plugin-packages/" + id + "/manifest.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter, err := LoadManifest(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return adapter
+}
+
+func TestDoubaoVoiceTTS20BuildsUnidirectionalRequest(t *testing.T) {
+	adapter := loadTTSPlugin(t, "doubao-voice-tts-2-0")
+	spec, err := adapter.BuildCreate(context.Background(), RequestContext{Request: GenerationRequest{
+		Capability: CapabilityAudio,
+		Model:      "seed-tts-2.0",
+		Prompt:     "你好，欢迎使用语音合成。",
+		Extra:      map[string]any{"audioVoice": "zh_female_vv_uranus_bigtts", "audioFormat": "mp3", "audioSpeed": "1.2", "idempotencyKey": "request-2"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.Path != "/api/v3/tts/unidirectional" {
+		t.Fatalf("path = %s", spec.Path)
+	}
+	if spec.Headers["X-Api-Resource-Id"] != "seed-tts-2.0" || spec.Headers["X-Api-Request-Id"] != "request-2" {
+		t.Fatalf("headers = %#v", spec.Headers)
+	}
+	params := spec.Body.(map[string]any)["req_params"].(map[string]any)
+	if params["text"] != "你好，欢迎使用语音合成。" || params["speaker"] != "zh_female_vv_uranus_bigtts" {
+		t.Fatalf("req_params = %#v", params)
+	}
+	audioParams := params["audio_params"].(map[string]any)
+	if audioParams["format"] != "mp3" || audioParams["speech_rate"] != 20 {
+		t.Fatalf("audio_params = %#v", audioParams)
+	}
+}
+
+func TestDoubaoVoiceTTS20AsyncSubmitAndQuery(t *testing.T) {
+	adapter := loadTTSPlugin(t, "doubao-voice-tts-2-0-async")
+	spec, err := adapter.BuildCreate(context.Background(), RequestContext{Request: GenerationRequest{
+		Capability: CapabilityAudio,
+		Model:      "seed-tts-2.0",
+		Prompt:     "长文本",
+		Extra:      map[string]any{"audioVoice": "zh_female_vv_uranus_bigtts", "audioFormat": "mp3", "idempotencyKey": "request-3"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.Path != "/api/v3/tts/submit" || spec.Headers["X-Api-Resource-Id"] != "seed-tts-2.0" {
+		t.Fatalf("spec = %#v", spec)
+	}
+	body := spec.Body.(map[string]any)
+	if body["unique_id"] != "request-3" {
+		t.Fatalf("body = %#v", body)
+	}
+	created, err := adapter.ParseCreate(context.Background(), []byte(`{"code":20000000,"message":"ok","data":{"task_id":"task-9","task_status":1}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Status != StatusProcessing || created.TaskID != "task-9" {
+		t.Fatalf("created = %#v", created)
+	}
+	pollSpec, err := adapter.BuildPoll(context.Background(), PollContext{TaskID: "task-9", Request: GenerationRequest{Model: "seed-tts-2.0"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pollSpec.Path != "/api/v3/tts/query" || pollSpec.Body.(map[string]any)["task_id"] != "task-9" {
+		t.Fatalf("poll spec = %#v", pollSpec)
+	}
+	state, err := adapter.ParsePoll(context.Background(), PollContext{TaskID: "task-9"}, []byte(`{"code":20000000,"message":"ok","data":{"task_id":"task-9","task_status":2,"audio_url":"https://cdn.example.com/tts.mp3"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Status != StatusSucceeded || state.Result == nil || len(state.Result.Audios) != 1 || state.Result.Audios[0].URL != "https://cdn.example.com/tts.mp3" || !state.Result.Audios[0].Ephemeral {
+		t.Fatalf("state = %#v", state)
+	}
+	failed, err := adapter.ParsePoll(context.Background(), PollContext{TaskID: "task-9"}, []byte(`{"code":20000000,"message":"ok","data":{"task_id":"task-9","task_status":3}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if failed.Status != StatusFailed || failed.Message == "" {
+		t.Fatalf("failed = %#v", failed)
+	}
+}
+
+func TestMiniMaxTTSBuildsSyncRequest(t *testing.T) {
+	adapter := loadTTSPlugin(t, "minimax-tts")
+	spec, err := adapter.BuildCreate(context.Background(), RequestContext{Request: GenerationRequest{
+		Capability: CapabilityAudio,
+		Model:      "speech-2.8-hd",
+		Prompt:     "今天是不是很开心呀",
+		Extra:      map[string]any{"audioVoice": "male-qn-qingse", "audioFormat": "mp3", "audioSpeed": "1.1"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.Path != "/v1/t2a_v2" {
+		t.Fatalf("path = %s", spec.Path)
+	}
+	if spec.Auth.Type != "bearer" {
+		t.Fatalf("auth = %#v", spec.Auth)
+	}
+	body := spec.Body.(map[string]any)
+	if body["model"] != "speech-2.8-hd" || body["text"] != "今天是不是很开心呀" {
+		t.Fatalf("body = %#v", body)
+	}
+	voice := body["voice_setting"].(map[string]any)
+	if voice["voice_id"] != "male-qn-qingse" || voice["speed"] != 1.1 {
+		t.Fatalf("voice_setting = %#v", voice)
+	}
+	audio := body["audio_setting"].(map[string]any)
+	if audio["format"] != "mp3" || audio["sample_rate"] != float64(32000) {
+		t.Fatalf("audio_setting = %#v", audio)
+	}
+	created, err := adapter.ParseCreate(context.Background(), []byte(`{"data":{"audio":"68656c6c6f","status":2},"extra_info":{"audio_length":9900,"usage_characters":26},"base_resp":{"status_code":0,"status_msg":"success"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Status != StatusSucceeded || created.Result == nil || len(created.Result.Audios) != 1 || created.Result.Audios[0].DataURL != "data:audio/mpeg;base64,aGVsbG8=" {
+		t.Fatalf("created = %#v", created)
+	}
+	failed, err := adapter.ParseCreate(context.Background(), []byte(`{"base_resp":{"status_code":1004,"status_msg":"invalid api key"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if failed.Status != StatusFailed || failed.Message != "invalid api key" {
+		t.Fatalf("failed = %#v", failed)
+	}
+}
+
+func TestMiniMaxTTSAsyncCreatePollAndResult(t *testing.T) {
+	adapter := loadTTSPlugin(t, "minimax-tts-async")
+	spec, err := adapter.BuildCreate(context.Background(), RequestContext{Request: GenerationRequest{
+		Capability: CapabilityAudio,
+		Model:      "speech-2.8-hd",
+		Prompt:     "长文本",
+		Extra:      map[string]any{"audioVoice": "audiobook_male_1", "audioFormat": "mp3"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.Path != "/v1/t2a_async_v2" {
+		t.Fatalf("path = %s", spec.Path)
+	}
+	created, err := adapter.ParseCreate(context.Background(), []byte(`{"task_id":95157322514444,"file_id":95157322514496,"usage_characters":101,"base_resp":{"status_code":0,"status_msg":"success"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Status != StatusPending || created.TaskID != "95157322514444" || created.ResultID != "95157322514496" {
+		t.Fatalf("created = %#v", created)
+	}
+	pollSpec, err := adapter.BuildPoll(context.Background(), PollContext{TaskID: created.TaskID, Request: GenerationRequest{Model: "speech-2.8-hd"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pollSpec.Method != "GET" || pollSpec.Path != "/v1/query/t2a_async_query_v2" || pollSpec.Query["task_id"][0] != created.TaskID {
+		t.Fatalf("poll spec = %#v", pollSpec)
+	}
+	state, err := adapter.ParsePoll(context.Background(), PollContext{TaskID: created.TaskID}, []byte(`{"task_id":95157322514444,"status":"Success","file_id":95157322514496,"base_resp":{"status_code":0,"status_msg":"success"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Status != StatusSucceeded || state.ResultID != "95157322514496" {
+		t.Fatalf("state = %#v", state)
+	}
+	resultSpec, err := adapter.(ResultAdapter).BuildResult(context.Background(), PollContext{TaskID: created.TaskID, ResultID: state.ResultID, Request: GenerationRequest{Model: "speech-2.8-hd"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resultSpec.Path != "/v1/files/retrieve" || resultSpec.Query["file_id"][0] != state.ResultID {
+		t.Fatalf("result spec = %#v", resultSpec)
+	}
+	resultState, err := adapter.ParsePoll(context.Background(), PollContext{TaskID: created.TaskID}, []byte(`{"file":{"file_id":95157322514496,"download_url":"https://cdn.example.com/async.mp3"},"base_resp":{"status_code":0,"status_msg":"success"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resultState.Result == nil || len(resultState.Result.Audios) != 1 || resultState.Result.Audios[0].URL != "https://cdn.example.com/async.mp3" {
+		t.Fatalf("result state = %#v", resultState)
+	}
+}
+
 func TestStreamedJSONLTTSEventsConcatenateAudio(t *testing.T) {
 	first := base64.StdEncoding.EncodeToString([]byte("first"))
 	second := base64.StdEncoding.EncodeToString([]byte("second"))

@@ -1,21 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "@/lib/plugins/builtin/editor/editor-shell";
-import {
-    AlertTriangle,
-    ArrowLeft,
-    Check,
-    CircleDot,
-    Download,
-    Loader2,
-    Maximize,
-    Minimize,
-    PanelRightClose,
-    PanelRightOpen,
-    Redo2,
-    Sparkles,
-    Undo2,
-    X,
-} from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, CircleDot, Download, Loader2, Maximize, Minimize, PanelRightClose, PanelRightOpen, Redo2, Sparkles, Undo2, X } from "lucide-react";
 
 import type { ProjectAsset, ProjectDetail, ShotArtifact } from "@/services/api/projects";
 import { linkProjectAsset, listProjectAssets } from "@/services/api/projects";
@@ -64,20 +49,11 @@ function SlotStack({ slots, emptyHint }: { slots: EditorSlotRegistration[]; empt
             ))}
             {denied.map((slot) => {
                 const verdict = pluginMayRenderEditorSlot(slot.pluginId, slot.slot);
-                const missing =
-                    verdict.allowed === false && verdict.reason === "missing-permission" ? verdict.missing : null;
+                const missing = verdict.allowed === false && verdict.reason === "missing-permission" ? verdict.missing : null;
                 return (
-                    <div
-                        key={slot.id}
-                        title={`插件 ${slot.pluginId} 缺少 ${missing ?? "注册"}，已按 fail-closed 拒绝渲染`}
-                        className="flex min-h-8 shrink-0 items-center gap-2 bg-[var(--previs-danger)]/10 px-3 text-[11px] text-[var(--previs-danger)]"
-                    >
+                    <div key={slot.id} title={`插件 ${slot.pluginId} 缺少 ${missing ?? "注册"}，已按 fail-closed 拒绝渲染`} className="flex min-h-8 shrink-0 items-center gap-2 bg-[var(--previs-danger)]/10 px-3 text-[11px] text-[var(--previs-danger)]">
                         <AlertTriangle className="size-3 shrink-0" />
-                        <span className="truncate">
-                            {missing
-                                ? `插件 ${slot.pluginId} 缺少 ${missing} 权限，已停用该面板。`
-                                : `插件 ${slot.pluginId} 未注册，已停用该面板。`}
-                        </span>
+                        <span className="truncate">{missing ? `插件 ${slot.pluginId} 缺少 ${missing} 权限，已停用该面板。` : `插件 ${slot.pluginId} 未注册，已停用该面板。`}</span>
                     </div>
                 );
             })}
@@ -86,17 +62,7 @@ function SlotStack({ slots, emptyHint }: { slots: EditorSlotRegistration[]; empt
 }
 
 /** 面板 Tab 条（Concat 式分类/属性切换）：只渲染激活槽，全部槽始终注册。 */
-function PanelTabs({
-    tabs,
-    active,
-    onChange,
-    trailing,
-}: {
-    tabs: { id: string; label: string }[];
-    active: string;
-    onChange: (id: string) => void;
-    trailing?: React.ReactNode;
-}) {
+function PanelTabs({ tabs, active, onChange, trailing }: { tabs: { id: string; label: string }[]; active: string; onChange: (id: string) => void; trailing?: React.ReactNode }) {
     return (
         <div className="flex h-9 shrink-0 items-center gap-0.5 border-b border-[var(--previs-sequencer-border)] bg-[var(--previs-sequencer-surface-raised)] px-1.5">
             {tabs.map((tab) => (
@@ -104,11 +70,7 @@ function PanelTabs({
                     key={tab.id}
                     type="button"
                     onClick={() => onChange(tab.id)}
-                    className={`h-7 rounded-md px-2.5 text-xs transition-colors ${
-                        active === tab.id
-                            ? "bg-[var(--previs-dock-active-surface)] text-[var(--previs-dock-fg-strong)]"
-                            : "text-[var(--previs-dock-fg)] hover:bg-[var(--previs-control-hover)]"
-                    }`}
+                    className={`h-7 rounded-md px-2.5 text-xs transition-colors ${active === tab.id ? "bg-[var(--previs-dock-active-surface)] text-[var(--previs-dock-fg-strong)]" : "text-[var(--previs-dock-fg)] hover:bg-[var(--previs-control-hover)]"}`}
                 >
                     {tab.label}
                 </button>
@@ -120,34 +82,14 @@ function PanelTabs({
 }
 
 /** 顶部工具栏（Concat 主菜单区）：项目名 + 全局撤销/重做 + 保存状态 + 导出主按钮。 */
-function EditorTopBar({
-    onBack,
-    onExport,
-    isFullscreen,
-    onToggleFullscreen,
-    aiOpen,
-    onToggleAi,
-}: {
-    onBack: () => void;
-    onExport: () => void;
-    isFullscreen: boolean;
-    onToggleFullscreen: () => void;
-    aiOpen: boolean;
-    onToggleAi: () => void;
-}) {
+function EditorTopBar({ onBack, onExport, isFullscreen, onToggleFullscreen, aiOpen, onToggleAi }: { onBack: () => void; onExport: () => void; isFullscreen: boolean; onToggleFullscreen: () => void; aiOpen: boolean; onToggleAi: () => void }) {
     const { project, history, isDirty, saving, saveError, undo, redo } = useEditorStoreContext();
     const canUndo = (history?.undoStack.length ?? 0) > 0;
     const canRedo = (history?.redoStack.length ?? 0) > 0;
 
     return (
         <header className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--previs-sequencer-border)] bg-[var(--previs-sequencer-surface-raised)] px-3">
-            <button
-                type="button"
-                aria-label="返回制作台"
-                title="返回制作台"
-                onClick={onBack}
-                className="grid size-8 place-items-center rounded-md text-[var(--previs-dock-fg)] hover:bg-[var(--previs-control-hover)]"
-            >
+            <button type="button" aria-label="返回制作台" title="返回制作台" onClick={onBack} className="grid size-8 place-items-center rounded-md text-[var(--previs-dock-fg)] hover:bg-[var(--previs-control-hover)]">
                 <ArrowLeft className="size-4" />
             </button>
             <button
@@ -189,11 +131,7 @@ function EditorTopBar({
                     aria-pressed={aiOpen}
                     title="AI 剪辑助手（编辑意图转时间线指令）"
                     onClick={onToggleAi}
-                    className={`grid size-8 place-items-center rounded-md transition-colors ${
-                        aiOpen
-                            ? "bg-[var(--previs-dock-active-surface)] text-[var(--previs-dock-fg-strong)]"
-                            : "text-[var(--previs-dock-fg)] hover:bg-[var(--previs-control-hover)]"
-                    }`}
+                    className={`grid size-8 place-items-center rounded-md transition-colors ${aiOpen ? "bg-[var(--previs-dock-active-surface)] text-[var(--previs-dock-fg-strong)]" : "text-[var(--previs-dock-fg)] hover:bg-[var(--previs-control-hover)]"}`}
                 >
                     <Sparkles className="size-4" />
                 </button>
@@ -206,13 +144,7 @@ function EditorTopBar({
                 >
                     {isFullscreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
                 </button>
-                <button
-                    type="button"
-                    aria-label="导出"
-                    title="导出"
-                    onClick={onExport}
-className="grid size-8 place-items-center rounded-md text-[var(--previs-dock-fg)] hover:bg-[var(--previs-control-hover)] hover:text-[var(--previs-dock-fg-strong)]"
-                >
+                <button type="button" aria-label="导出" title="导出" onClick={onExport} className="grid size-8 place-items-center rounded-md text-[var(--previs-dock-fg)] hover:bg-[var(--previs-control-hover)] hover:text-[var(--previs-dock-fg-strong)]">
                     <Download className="size-4" />
                 </button>
             </div>
@@ -286,10 +218,7 @@ export default function ProjectEditorView({ detail }: { detail: ProjectDetail })
         try {
             const list = (await listProjectAssets(projectId)).assets;
             // 项目、账号或刷新序号变化都说明当前响应已经过期；旧响应不得覆盖新上下文的素材快照。
-            if (
-                activeAssetOwnerKeyRef.current !== requestedOwnerKey ||
-                assetRefreshSequenceRef.current !== requestSequence
-            ) {
+            if (activeAssetOwnerKeyRef.current !== requestedOwnerKey || assetRefreshSequenceRef.current !== requestSequence) {
                 return null;
             }
             setAssets(list);
@@ -311,9 +240,7 @@ export default function ProjectEditorView({ detail }: { detail: ProjectDetail })
     }, []);
 
     const toggleFullscreen = () => {
-        const operation = document.fullscreenElement
-            ? document.exitFullscreen()
-            : workbenchRef.current?.requestFullscreen();
+        const operation = document.fullscreenElement ? document.exitFullscreen() : workbenchRef.current?.requestFullscreen();
         void operation?.catch((error) => {
             console.warn("切换编辑器全屏状态失败", { projectId, error });
         });
@@ -397,13 +324,7 @@ export default function ProjectEditorView({ detail }: { detail: ProjectDetail })
         syncedCanvasResourcesRef.current.clear();
     }, [assetOwnerKey]);
     const canvasSyncKeys = detail.shotArtifacts
-        .filter(
-            (a): a is ShotArtifact & { resourceId: string } =>
-                a.selected &&
-                a.status === "ready" &&
-                !!a.resourceId &&
-                ["storyboard", "action_board", "start_frame", "end_frame", "video", "delivery"].includes(a.type),
-        )
+        .filter((a): a is ShotArtifact & { resourceId: string } => a.selected && a.status === "ready" && !!a.resourceId && ["storyboard", "action_board", "start_frame", "end_frame", "video", "delivery"].includes(a.type))
         .map((a) => `resource:${a.resourceId}`)
         .join(",");
     useEffect(() => {
@@ -443,38 +364,17 @@ export default function ProjectEditorView({ detail }: { detail: ProjectDetail })
     return (
         <EditorStoreProvider store={store} host={{ projectId, assets, refreshAssets }}>
             <div ref={workbenchRef} className="editor-workbench relative flex h-full min-h-0 flex-col bg-[var(--previs-workspace-bg)]">
-                <EditorTopBar
-                    onBack={() => navigate(`/projects/${projectId}`)}
-                    onExport={() => setRightTab("export")}
-                    isFullscreen={isFullscreen}
-                    onToggleFullscreen={toggleFullscreen}
-                    aiOpen={aiOpen}
-                    onToggleAi={() => setAiOpen((v) => !v)}
-                />
+                <EditorTopBar onBack={() => navigate(`/projects/${projectId}`)} onExport={() => setRightTab("export")} isFullscreen={isFullscreen} onToggleFullscreen={toggleFullscreen} aiOpen={aiOpen} onToggleAi={() => setAiOpen((v) => !v)} />
                 {/* AI 助手浮层：常驻挂载、随开关显隐，关闭再开保留会话与输入（状态在 SlotStack 内）。 */}
                 <div className={aiOpen ? "contents" : "hidden"}>
-                    <button
-                        type="button"
-                        aria-label="关闭 AI 助手"
-                        tabIndex={-1}
-                        className="fixed inset-0 z-30 cursor-default bg-transparent"
-                        onClick={() => setAiOpen(false)}
-                    />
+                    <button type="button" aria-label="关闭 AI 助手" tabIndex={-1} className="fixed inset-0 z-30 cursor-default bg-transparent" onClick={() => setAiOpen(false)} />
                     <div className="absolute right-2 top-14 z-40 flex h-[640px] max-h-[calc(100%-3.75rem)] w-[460px] max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-[var(--previs-sequencer-border)] bg-[var(--previs-sequencer-surface)] shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
                         <div className="flex h-10 shrink-0 items-center gap-2 border-b border-[var(--previs-sequencer-border)] px-3">
                             <Sparkles className="size-4 text-[var(--previs-dock-fg)]/80" />
                             <span className="text-xs font-medium text-[var(--previs-dock-fg-strong)]">AI 剪辑助手</span>
-                            <span className="hidden truncate text-[10px] text-[var(--previs-dock-fg)]/45 sm:inline">
-                                编辑意图 → 时间线指令（宿主校验）
-                            </span>
+                            <span className="hidden truncate text-[10px] text-[var(--previs-dock-fg)]/45 sm:inline">编辑意图 → 时间线指令（宿主校验）</span>
                             <div className="flex-1" />
-                            <button
-                                type="button"
-                                aria-label="关闭"
-                                title="关闭（Esc）"
-                                onClick={() => setAiOpen(false)}
-                                className="grid size-7 place-items-center rounded-md text-[var(--previs-dock-fg)] hover:bg-[var(--previs-control-hover)]"
-                            >
+                            <button type="button" aria-label="关闭" title="关闭（Esc）" onClick={() => setAiOpen(false)} className="grid size-7 place-items-center rounded-md text-[var(--previs-dock-fg)] hover:bg-[var(--previs-control-hover)]">
                                 <X className="size-4" />
                             </button>
                         </div>
@@ -497,11 +397,7 @@ export default function ProjectEditorView({ detail }: { detail: ProjectDetail })
                                 active={leftTab}
                                 onChange={setLeftTab}
                             />
-                            {leftTab === "asset" ? (
-                                <SlotStack slots={assetSlots} emptyHint="素材库插件未加载。" />
-                            ) : (
-                                <SlotStack slots={transcriptionSlots} emptyHint="转写插件未加载。" />
-                            )}
+                            {leftTab === "asset" ? <SlotStack slots={assetSlots} emptyHint="素材库插件未加载。" /> : <SlotStack slots={transcriptionSlots} emptyHint="转写插件未加载。" />}
                         </aside>
 
                         {/* 中栏：预览（占满剩余高度） */}

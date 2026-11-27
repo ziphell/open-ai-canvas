@@ -1,0 +1,310 @@
+{
+  "apiVersion": "yingce.plugin/v2",
+  "id": "minimax-tts",
+  "name": "MiniMax 语音合成",
+  "version": "2.0.0",
+  "author": "MiniMax / 影策",
+  "description": "MiniMax 语音合成 独立请求协议插件。",
+  "documentation": "# MiniMax 语音合成\n\n该目录是独立官方协议插件源码。\n\n后端从生成的 `minimax-tts.yingce-plugin` 包加载，不依赖系统内置 `host:` 适配器。\n\n完整接口见 [docs/interface.md](docs/interface.md)。\n\n---\n\n# MiniMax 语音合成 接口字段\n\n## 协议身份\n\n- 插件 ID：`minimax-tts`。\n- Provider ID：`minimax-tts`。\n- 能力：`audio`。\n- 默认 Base URL：`https://api.minimax.cn`。\n- 鉴权驱动：`bearer`。\n- 创建：`POST /v1/t2a_v2`。\n- 生命周期：同步响应。\n\n## 配置字段\n\n| 字段 | 类型 | 必填 | 含义 |\n| --- | --- | --- | --- |\n| `apiKey` | secret | 是 | API Key |\n\n## 统一字段映射\n\n| 统一字段 | 类型 | 必填 | 上游映射 | 说明 |\n| --- | --- | --- | --- | --- |\n| `model` | string | 是 | `model` | 语音合成模型 ID，例如 speech-2.8-hd、speech-2.8-turbo。 |\n| `prompt` | string | 是 | `text` | 待朗读文本。 |\n| `providerOptions` | object | 否 | `provider-specific fields` | 插件命名空间内的厂商扩展字段。 |\n\n## 上游请求模板逐字段清单\n\n下表由插件请求模板生成，覆盖 body、query、headers 和 multipart 文件声明中的每个字段。\n\n| 上游位置 | 值或转换表达式 |\n| --- | --- |\n| `create.method` | `\"POST\"` |\n| `create.path` | `\"/v1/t2a_v2\"` |\n| `create.contentType` | `\"application/json\"` |\n| `create.body.model` | `{\"$coalesce\":[{\"$ref\":\"request.model\"},\"speech-2.8-hd\"]}` |\n| `create.body.text` | `{\"$ref\":\"request.prompt\"}` |\n| `create.body.stream` | `false` |\n| `create.body.voice_setting.voice_id` | `{\"$ref\":\"request.extra.audioVoice\"}` |\n| `create.body.voice_setting.speed` | `{\"$coalesce\":[{\"$if\":{\"condition\":{\"$ne\":[{\"$toFloat\":{\"$ref\":\"request.extra.audioSpeed\"}},0]},\"then\":{\"$toFloat\":{\"$ref\":\"request.extra.audioSpeed\"}},\"else\":null}},1]}` |\n| `create.body.voice_setting.vol` | `1` |\n| `create.body.voice_setting.pitch` | `0` |\n| `create.body.audio_setting.sample_rate` | `32000` |\n| `create.body.audio_setting.bitrate` | `128000` |\n| `create.body.audio_setting.format` | `{\"$coalesce\":[{\"$ref\":\"request.extra.audioFormat\"},\"mp3\"]}` |\n| `create.body.audio_setting.channel` | `1` |\n\n## Provider 扩展键\n\n- 无额外扩展键。\n\n动态模型或工作流允许使用文档声明的完整 `parameters/input/extra_body` 对象；该对象是协议本身的开放 schema，不会被宿主裁剪。\n\n## 响应映射逐字段清单\n\n| 映射位置 | 上游路径或转换表达式 |\n| --- | --- |\n| `response.status` | `{\"$if\":{\"condition\":{\"$eq\":[{\"$ref\":\"response.base_resp.status_code\"},0]},\"then\":\"succeeded\",\"else\":\"failed\"}}` |\n| `response.message` | `{\"$coalesce\":[{\"$ref\":\"response.base_resp.status_msg\"},{\"$ref\":\"message\"}]}` |\n| `response.audios` | `{\"$if\":{\"condition\":{\"$ref\":\"response.data.audio\"},\"then\":{\"dataUrl\":{\"$concat\":[\"data:\",{\"$if\":{\"condition\":{\"$eq\":[{\"$ref\":\"request.extra.audioFormat\"},\"wav\"]},\"then\":\"audio/wav\",\"else\":{\"$if\":{\"condition\":{\"$eq\":[{\"$ref\":\"request.extra.audioFormat\"},\"flac\"]},\"then\":\"audio/flac\",\"else\":{\"$if\":{\"condition\":{\"$eq\":[{\"$ref\":\"request.extra.audioFormat\"},\"pcm\"]},\"then\":\"audio/pcm\",\"else\":{\"$if\":{\"condition\":{\"$eq\":[{\"$ref\":\"request.extra.audioFormat\"},\"opus\"]},\"then\":\"audio/ogg\",\"else\":\"audio/mpeg\"}}}}}}}},\";base64,\",{\"$hexToBase64\":{\"$ref\":\"response.data.audio\"}}]},\"mimeType\":{\"$if\":{\"condition\":{\"$eq\":[{\"$ref\":\"request.extra.audioFormat\"},\"wav\"]},\"then\":\"audio/wav\",\"else\":{\"$if\":{\"condition\":{\"$eq\":[{\"$ref\":\"request.extra.audioFormat\"},\"flac\"]},\"then\":\"audio/flac\",\"else\":{\"$if\":{\"condition\":{\"$eq\":[{\"$ref\":\"request.extra.audioFormat\"},\"pcm\"]},\"then\":\"audio/pcm\",\"else\":{\"$if\":{\"condition\":{\"$eq\":[{\"$ref\":\"request.extra.audioFormat\"},\"opus\"]},\"then\":\"audio/ogg\",\"else\":\"audio/mpeg\"}}}}}}}}},\"else\":null}}` |\n| `response.usage.audio_length_ms` | `{\"$ref\":\"response.extra_info.audio_length\"}` |\n| `response.usage.characters` | `{\"$ref\":\"response.extra_info.usage_characters\"}` |\n| `response.errorPaths[0]` | `\"base_resp.status_code\"` |\n| `response.messagePaths[0]` | `\"base_resp.status_msg\"` |\n| `response.messagePaths[1]` | `\"message\"` |\n\n## 响应与错误\n\n插件把上游 task/status/text/media/usage 映射为统一结果。临时媒体 URL 标记为 ephemeral，由宿主立即下载持久化。HTTP 错误、业务 code 和 error object 保持失败语义，不包装成成功。\n\n## 兼容边界\n\nMiniMax 同步语音合成 HTTP 接口。POST /v1/t2a_v2，非流式一次性返回 hex 编码音频，插件转换为 data URL 后由宿主持久化。voice_setting.voice_id 必填，audio_setting 支持 mp3、wav、flac 等格式。默认域名 https://api.minimax.cn。\n\n<!-- YINGCE_MANIFEST_CONTRACT_START -->\n## Manifest 完整接口定义\n\n以下 JSON 与插件包内实际 `manifest.json` 逐字段一致，覆盖插件身份、权限、配置、鉴权、参数、校验、创建、Agent、查询、取消、结果下载、响应和 Agent 响应映射。`documentation` 字段的值就是当前完整文档；为避免文档在自身内部无限递归，JSON 中仅用等义占位文本表示正文。\n\n```json\n{\n  \"apiVersion\": \"yingce.plugin/v2\",\n  \"id\": \"minimax-tts\",\n  \"name\": \"MiniMax 语音合成\",\n  \"version\": \"2.0.0\",\n  \"author\": \"MiniMax / 影策\",\n  \"description\": \"MiniMax 语音合成 独立请求协议插件。\",\n  \"documentation\": \"<当前插件的完整 documentation，由 README.md 与 docs/interface.md 拼接而成；为避免 JSON 递归，此处不重复展开正文。>\",\n  \"permissions\": [\n    \"generation.run\",\n    \"media.read\"\n  ],\n  \"configuration\": {\n    \"fields\": [\n      {\n        \"name\": \"apiKey\",\n        \"type\": \"secret\",\n        \"label\": \"API Key\",\n        \"required\": true\n      }\n    ]\n  },\n  \"contributes\": {\n    \"providers\": [\n      {\n        \"id\": \"minimax-tts\",\n        \"label\": \"MiniMax 语音合成\",\n        \"capabilities\": [\n          \"audio\"\n        ],\n        \"scopes\": [\n          \"admin.system-channel\",\n          \"user.custom-channel\",\n          \"canvas\",\n          \"creation\",\n          \"agent\"\n        ],\n        \"baseUrl\": \"https://api.minimax.cn\",\n        \"requiresPublicMediaUrls\": false,\n        \"auth\": {\n          \"type\": \"bearer\",\n          \"field\": \"apiKey\"\n        },\n        \"parameters\": [\n          {\n            \"name\": \"model\",\n            \"type\": \"string\",\n            \"required\": true,\n            \"mapping\": \"model\",\n            \"description\": \"语音合成模型 ID，例如 speech-2.8-hd、speech-2.8-turbo。\"\n          },\n          {\n            \"name\": \"prompt\",\n            \"type\": \"string\",\n            \"required\": true,\n            \"mapping\": \"text\",\n            \"description\": \"待朗读文本。\"\n          },\n          {\n            \"name\": \"providerOptions\",\n            \"type\": \"object\",\n            \"required\": false,\n            \"mapping\": \"provider-specific fields\",\n            \"description\": \"插件命名空间内的厂商扩展字段。\"\n          }\n        ],\n        \"validations\": [\n          {\n            \"assert\": {\n              \"$ref\": \"request.extra.audioVoice\"\n            },\n            \"message\": \"MiniMax 语音合成需要填写音色 ID\"\n          }\n        ],\n        \"create\": {\n          \"method\": \"POST\",\n          \"path\": \"/v1/t2a_v2\",\n          \"contentType\": \"application/json\",\n          \"body\": {\n            \"model\": {\n              \"$coalesce\": [\n                {\n                  \"$ref\": \"request.model\"\n                },\n                \"speech-2.8-hd\"\n              ]\n            },\n            \"text\": {\n              \"$ref\": \"request.prompt\"\n            },\n            \"stream\": false,\n            \"voice_setting\": {\n              \"voice_id\": {\n                \"$ref\": \"request.extra.audioVoice\"\n              },\n              \"speed\": {\n                \"$coalesce\": [\n                  {\n                    \"$if\": {\n                      \"condition\": {\n                        \"$ne\": [\n                          {\n                            \"$toFloat\": {\n                              \"$ref\": \"request.extra.audioSpeed\"\n                            }\n                          },\n                          0\n                        ]\n                      },\n                      \"then\": {\n                        \"$toFloat\": {\n                          \"$ref\": \"request.extra.audioSpeed\"\n                        }\n                      },\n                      \"else\": null\n                    }\n                  },\n                  1\n                ]\n              },\n              \"vol\": 1,\n              \"pitch\": 0\n            },\n            \"audio_setting\": {\n              \"sample_rate\": 32000,\n              \"bitrate\": 128000,\n              \"format\": {\n                \"$coalesce\": [\n                  {\n                    \"$ref\": \"request.extra.audioFormat\"\n                  },\n                  \"mp3\"\n                ]\n              },\n              \"channel\": 1\n            }\n          }\n        },\n        \"response\": {\n          \"status\": {\n            \"$if\": {\n              \"condition\": {\n                \"$eq\": [\n                  {\n                    \"$ref\": \"response.base_resp.status_code\"\n                  },\n                  0\n                ]\n              },\n              \"then\": \"succeeded\",\n              \"else\": \"failed\"\n            }\n          },\n          \"message\": {\n            \"$coalesce\": [\n              {\n                \"$ref\": \"response.base_resp.status_msg\"\n              },\n              {\n                \"$ref\": \"message\"\n              }\n            ]\n          },\n          \"audios\": {\n            \"$if\": {\n              \"condition\": {\n                \"$ref\": \"response.data.audio\"\n              },\n              \"then\": {\n                \"dataUrl\": {\n                  \"$concat\": [\n                    \"data:\",\n                    {\n                      \"$if\": {\n                        \"condition\": {\n                          \"$eq\": [\n                            {\n                              \"$ref\": \"request.extra.audioFormat\"\n                            },\n                            \"wav\"\n                          ]\n                        },\n                        \"then\": \"audio/wav\",\n                        \"else\": {\n                          \"$if\": {\n                            \"condition\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.extra.audioFormat\"\n                                },\n                                \"flac\"\n                              ]\n                            },\n                            \"then\": \"audio/flac\",\n                            \"else\": {\n                              \"$if\": {\n                                \"condition\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.extra.audioFormat\"\n                                    },\n                                    \"pcm\"\n                                  ]\n                                },\n                                \"then\": \"audio/pcm\",\n                                \"else\": {\n                                  \"$if\": {\n                                    \"condition\": {\n                                      \"$eq\": [\n                                        {\n                                          \"$ref\": \"request.extra.audioFormat\"\n                                        },\n                                        \"opus\"\n                                      ]\n                                    },\n                                    \"then\": \"audio/ogg\",\n                                    \"else\": \"audio/mpeg\"\n                                  }\n                                }\n                              }\n                            }\n                          }\n                        }\n                      }\n                    },\n                    \";base64,\",\n                    {\n                      \"$hexToBase64\": {\n                        \"$ref\": \"response.data.audio\"\n                      }\n                    }\n                  ]\n                },\n                \"mimeType\": {\n                  \"$if\": {\n                    \"condition\": {\n                      \"$eq\": [\n                        {\n                          \"$ref\": \"request.extra.audioFormat\"\n                        },\n                        \"wav\"\n                      ]\n                    },\n                    \"then\": \"audio/wav\",\n                    \"else\": {\n                      \"$if\": {\n                        \"condition\": {\n                          \"$eq\": [\n                            {\n                              \"$ref\": \"request.extra.audioFormat\"\n                            },\n                            \"flac\"\n                          ]\n                        },\n                        \"then\": \"audio/flac\",\n                        \"else\": {\n                          \"$if\": {\n                            \"condition\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.extra.audioFormat\"\n                                },\n                                \"pcm\"\n                              ]\n                            },\n                            \"then\": \"audio/pcm\",\n                            \"else\": {\n                              \"$if\": {\n                                \"condition\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.extra.audioFormat\"\n                                    },\n                                    \"opus\"\n                                  ]\n                                },\n                                \"then\": \"audio/ogg\",\n                                \"else\": \"audio/mpeg\"\n                              }\n                            }\n                          }\n                        }\n                      }\n                    }\n                  }\n                }\n              },\n              \"else\": null\n            }\n          },\n          \"usage\": {\n            \"audio_length_ms\": {\n              \"$ref\": \"response.extra_info.audio_length\"\n            },\n            \"characters\": {\n              \"$ref\": \"response.extra_info.usage_characters\"\n            }\n          },\n          \"errorPaths\": [\n            \"base_resp.status_code\"\n          ],\n          \"messagePaths\": [\n            \"base_resp.status_msg\",\n            \"message\"\n          ]\n        }\n      }\n    ]\n  }\n}\n```\n<!-- YINGCE_MANIFEST_CONTRACT_END -->\n",
+  "permissions": [
+    "generation.run",
+    "media.read"
+  ],
+  "configuration": {
+    "fields": [
+      {
+        "name": "apiKey",
+        "type": "secret",
+        "label": "API Key",
+        "required": true
+      }
+    ]
+  },
+  "contributes": {
+    "providers": [
+      {
+        "id": "minimax-tts",
+        "label": "MiniMax 语音合成",
+        "capabilities": [
+          "audio"
+        ],
+        "scopes": [
+          "admin.system-channel",
+          "user.custom-channel",
+          "canvas",
+          "creation",
+          "agent"
+        ],
+        "baseUrl": "https://api.minimax.cn",
+        "requiresPublicMediaUrls": false,
+        "auth": {
+          "type": "bearer",
+          "field": "apiKey"
+        },
+        "parameters": [
+          {
+            "name": "model",
+            "type": "string",
+            "required": true,
+            "mapping": "model",
+            "description": "语音合成模型 ID，例如 speech-2.8-hd、speech-2.8-turbo。"
+          },
+          {
+            "name": "prompt",
+            "type": "string",
+            "required": true,
+            "mapping": "text",
+            "description": "待朗读文本。"
+          },
+          {
+            "name": "providerOptions",
+            "type": "object",
+            "required": false,
+            "mapping": "provider-specific fields",
+            "description": "插件命名空间内的厂商扩展字段。"
+          }
+        ],
+        "validations": [
+          {
+            "assert": {
+              "$ref": "request.extra.audioVoice"
+            },
+            "message": "MiniMax 语音合成需要填写音色 ID"
+          }
+        ],
+        "create": {
+          "method": "POST",
+          "path": "/v1/t2a_v2",
+          "contentType": "application/json",
+          "body": {
+            "model": {
+              "$coalesce": [
+                {
+                  "$ref": "request.model"
+                },
+                "speech-2.8-hd"
+              ]
+            },
+            "text": {
+              "$ref": "request.prompt"
+            },
+            "stream": false,
+            "voice_setting": {
+              "voice_id": {
+                "$ref": "request.extra.audioVoice"
+              },
+              "speed": {
+                "$coalesce": [
+                  {
+                    "$if": {
+                      "condition": {
+                        "$ne": [
+                          {
+                            "$toFloat": {
+                              "$ref": "request.extra.audioSpeed"
+                            }
+                          },
+                          0
+                        ]
+                      },
+                      "then": {
+                        "$toFloat": {
+                          "$ref": "request.extra.audioSpeed"
+                        }
+                      },
+                      "else": null
+                    }
+                  },
+                  1
+                ]
+              },
+              "vol": 1,
+              "pitch": 0
+            },
+            "audio_setting": {
+              "sample_rate": 32000,
+              "bitrate": 128000,
+              "format": {
+                "$coalesce": [
+                  {
+                    "$ref": "request.extra.audioFormat"
+                  },
+                  "mp3"
+                ]
+              },
+              "channel": 1
+            }
+          }
+        },
+        "response": {
+          "status": {
+            "$if": {
+              "condition": {
+                "$eq": [
+                  {
+                    "$ref": "response.base_resp.status_code"
+                  },
+                  0
+                ]
+              },
+              "then": "succeeded",
+              "else": "failed"
+            }
+          },
+          "message": {
+            "$coalesce": [
+              {
+                "$ref": "response.base_resp.status_msg"
+              },
+              {
+                "$ref": "message"
+              }
+            ]
+          },
+          "audios": {
+            "$if": {
+              "condition": {
+                "$ref": "response.data.audio"
+              },
+              "then": {
+                "dataUrl": {
+                  "$concat": [
+                    "data:",
+                    {
+                      "$if": {
+                        "condition": {
+                          "$eq": [
+                            {
+                              "$ref": "request.extra.audioFormat"
+                            },
+                            "wav"
+                          ]
+                        },
+                        "then": "audio/wav",
+                        "else": {
+                          "$if": {
+                            "condition": {
+                              "$eq": [
+                                {
+                                  "$ref": "request.extra.audioFormat"
+                                },
+                                "flac"
+                              ]
+                            },
+                            "then": "audio/flac",
+                            "else": {
+                              "$if": {
+                                "condition": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.extra.audioFormat"
+                                    },
+                                    "pcm"
+                                  ]
+                                },
+                                "then": "audio/pcm",
+                                "else": {
+                                  "$if": {
+                                    "condition": {
+                                      "$eq": [
+                                        {
+                                          "$ref": "request.extra.audioFormat"
+                                        },
+                                        "opus"
+                                      ]
+                                    },
+                                    "then": "audio/ogg",
+                                    "else": "audio/mpeg"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    ";base64,",
+                    {
+                      "$hexToBase64": {
+                        "$ref": "response.data.audio"
+                      }
+                    }
+                  ]
+                },
+                "mimeType": {
+                  "$if": {
+                    "condition": {
+                      "$eq": [
+                        {
+                          "$ref": "request.extra.audioFormat"
+                        },
+                        "wav"
+                      ]
+                    },
+                    "then": "audio/wav",
+                    "else": {
+                      "$if": {
+                        "condition": {
+                          "$eq": [
+                            {
+                              "$ref": "request.extra.audioFormat"
+                            },
+                            "flac"
+                          ]
+                        },
+                        "then": "audio/flac",
+                        "else": {
+                          "$if": {
+                            "condition": {
+                              "$eq": [
+                                {
+                                  "$ref": "request.extra.audioFormat"
+                                },
+                                "pcm"
+                              ]
+                            },
+                            "then": "audio/pcm",
+                            "else": {
+                              "$if": {
+                                "condition": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.extra.audioFormat"
+                                    },
+                                    "opus"
+                                  ]
+                                },
+                                "then": "audio/ogg",
+                                "else": "audio/mpeg"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "else": null
+            }
+          },
+          "usage": {
+            "audio_length_ms": {
+              "$ref": "response.extra_info.audio_length"
+            },
+            "characters": {
+              "$ref": "response.extra_info.usage_characters"
+            }
+          },
+          "errorPaths": [
+            "base_resp.status_code"
+          ],
+          "messagePaths": [
+            "base_resp.status_msg",
+            "message"
+          ]
+        }
+      }
+    ]
+  }
+}

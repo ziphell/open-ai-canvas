@@ -1,0 +1,171 @@
+{
+  "apiVersion": "yingce.plugin/v2",
+  "id": "minimax-transcription",
+  "name": "MiniMax 语音识别",
+  "version": "2.0.0",
+  "author": "MiniMax / 影策",
+  "description": "MiniMax 语音识别 独立请求协议插件。",
+  "documentation": "# MiniMax 语音识别\n\n该目录是独立官方协议插件源码。\n\n后端从生成的 `minimax-transcription.yingce-plugin` 包加载，不依赖系统内置 `host:` 适配器。\n\n完整接口见 [docs/interface.md](docs/interface.md)。\n\n---\n\n# MiniMax 语音识别 接口字段\n\n## 协议身份\n\n- 插件 ID：`minimax-transcription`。\n- Provider ID：`minimax-transcription`。\n- 能力：`transcription`。\n- 默认 Base URL：`https://api.minimax.cn`。\n- 鉴权驱动：`bearer`。\n- 创建：`POST /v1/speech_to_text`。\n- 生命周期：同步响应。\n\n## 配置字段\n\n| 字段 | 类型 | 必填 | 含义 |\n| --- | --- | --- | --- |\n| `apiKey` | secret | 是 | API Key |\n\n## 统一字段映射\n\n| 统一字段 | 类型 | 必填 | 上游映射 | 说明 |\n| --- | --- | --- | --- | --- |\n| `model` | string | 否 | `model` | 转写模型 ID，默认 asr-1.0。 |\n| `audios` | media[] | 是 | `file` | 待转写音频文件，作为 multipart file 上传。 |\n| `prompt` | string | 否 | `language 请求头` | 可选语言代码，例如 zh、yue、en；留空启用混合语言识别。 |\n| `providerOptions` | object | 否 | `provider-specific fields` | 插件命名空间内的厂商扩展字段。 |\n\n## 上游请求模板逐字段清单\n\n下表由插件请求模板生成，覆盖 body、query、headers 和 multipart 文件声明中的每个字段。\n\n| 上游位置 | 值或转换表达式 |\n| --- | --- |\n| `create.method` | `\"POST\"` |\n| `create.path` | `\"/v1/speech_to_text\"` |\n| `create.contentType` | `\"multipart/form-data\"` |\n| `create.headers.language` | `{\"$omitEmpty\":{\"$coalesce\":[{\"$ref\":\"request.extra.language\"},{\"$ref\":\"request.prompt\"}]}}` |\n| `create.body.model` | `{\"$coalesce\":[{\"$ref\":\"request.model\"},\"asr-1.0\"]}` |\n| `create.body.response_format` | `\"verbose_json\"` |\n| `create.body.timestamp_level` | `\"sentence\"` |\n| `create.files[0].name` | `\"file\"` |\n| `create.files[0].source` | `{\"$first\":{\"$ref\":\"request.audios\"}}` |\n| `create.files[0].filename` | `\"audio.wav\"` |\n| `create.files[0].mimeType` | `\"audio/wav\"` |\n\n## Provider 扩展键\n\n- 无额外扩展键。\n\n动态模型或工作流允许使用文档声明的完整 `parameters/input/extra_body` 对象；该对象是协议本身的开放 schema，不会被宿主裁剪。\n\n## 响应映射逐字段清单\n\n| 映射位置 | 上游路径或转换表达式 |\n| --- | --- |\n| `response.transcription.segments` | `{\"$map\":{\"from\":{\"$ref\":\"response.segments\"},\"as\":\"s\",\"in\":{\"start\":{\"$ref\":\"s.start\"},\"end\":{\"$ref\":\"s.end\"},\"text\":{\"$ref\":\"s.text\"}}}}` |\n| `response.transcription.language` | `{\"$ref\":\"request.extra.language\"}` |\n| `response.errorPaths[0]` | `\"base_resp.status_code\"` |\n| `response.errorPaths[1]` | `\"error.code\"` |\n| `response.errorPaths[2]` | `\"error\"` |\n| `response.messagePaths[0]` | `\"base_resp.status_msg\"` |\n| `response.messagePaths[1]` | `\"error.message\"` |\n| `response.messagePaths[2]` | `\"message\"` |\n\n## 响应与错误\n\n插件把上游 task/status/text/media/usage 映射为统一结果。临时媒体 URL 标记为 ephemeral，由宿主立即下载持久化。HTTP 错误、业务 code 和 error object 保持失败语义，不包装成成功。\n\n## 兼容边界\n\nMiniMax POST /v1/speech_to_text 同步语音识别协议。multipart 提交 model、file 与 response_format=verbose_json，timestamp_level=sentence；language 通过请求头发送。音频支持 wav、aiff、flac、m4a、mp3、aac、opus、ogg，单文件不超过 500 秒和 50 MB；超过限制时上游返回 400/413。verbose_json 响应返回 text、duration（秒）、n_speakers 和 segments[]（start/end 秒、speaker、text）。\n\n<!-- YINGCE_MANIFEST_CONTRACT_START -->\n## Manifest 完整接口定义\n\n以下 JSON 与插件包内实际 `manifest.json` 逐字段一致，覆盖插件身份、权限、配置、鉴权、参数、校验、创建、Agent、查询、取消、结果下载、响应和 Agent 响应映射。`documentation` 字段的值就是当前完整文档；为避免文档在自身内部无限递归，JSON 中仅用等义占位文本表示正文。\n\n```json\n{\n  \"apiVersion\": \"yingce.plugin/v2\",\n  \"id\": \"minimax-transcription\",\n  \"name\": \"MiniMax 语音识别\",\n  \"version\": \"2.0.0\",\n  \"author\": \"MiniMax / 影策\",\n  \"description\": \"MiniMax 语音识别 独立请求协议插件。\",\n  \"documentation\": \"<当前插件的完整 documentation，由 README.md 与 docs/interface.md 拼接而成；为避免 JSON 递归，此处不重复展开正文。>\",\n  \"permissions\": [\n    \"generation.run\",\n    \"media.read\"\n  ],\n  \"configuration\": {\n    \"fields\": [\n      {\n        \"name\": \"apiKey\",\n        \"type\": \"secret\",\n        \"label\": \"API Key\",\n        \"required\": true\n      }\n    ]\n  },\n  \"contributes\": {\n    \"providers\": [\n      {\n        \"id\": \"minimax-transcription\",\n        \"label\": \"MiniMax 语音识别\",\n        \"capabilities\": [\n          \"transcription\"\n        ],\n        \"scopes\": [\n          \"admin.system-channel\",\n          \"user.custom-channel\",\n          \"canvas\",\n          \"creation\",\n          \"agent\"\n        ],\n        \"baseUrl\": \"https://api.minimax.cn\",\n        \"requiresPublicMediaUrls\": false,\n        \"auth\": {\n          \"type\": \"bearer\",\n          \"field\": \"apiKey\"\n        },\n        \"parameters\": [\n          {\n            \"name\": \"model\",\n            \"type\": \"string\",\n            \"required\": false,\n            \"mapping\": \"model\",\n            \"description\": \"转写模型 ID，默认 asr-1.0。\"\n          },\n          {\n            \"name\": \"audios\",\n            \"type\": \"media[]\",\n            \"required\": true,\n            \"mapping\": \"file\",\n            \"description\": \"待转写音频文件，作为 multipart file 上传。\"\n          },\n          {\n            \"name\": \"prompt\",\n            \"type\": \"string\",\n            \"required\": false,\n            \"mapping\": \"language 请求头\",\n            \"description\": \"可选语言代码，例如 zh、yue、en；留空启用混合语言识别。\"\n          },\n          {\n            \"name\": \"providerOptions\",\n            \"type\": \"object\",\n            \"required\": false,\n            \"mapping\": \"provider-specific fields\",\n            \"description\": \"插件命名空间内的厂商扩展字段。\"\n          }\n        ],\n        \"validations\": [\n          {\n            \"assert\": {\n              \"$gt\": [\n                {\n                  \"$len\": {\n                    \"$ref\": \"request.audios\"\n                  }\n                },\n                0\n              ]\n            },\n            \"message\": \"MiniMax 语音识别需要连接音视频文件\"\n          }\n        ],\n        \"create\": {\n          \"method\": \"POST\",\n          \"path\": \"/v1/speech_to_text\",\n          \"contentType\": \"multipart/form-data\",\n          \"headers\": {\n            \"language\": {\n              \"$omitEmpty\": {\n                \"$coalesce\": [\n                  {\n                    \"$ref\": \"request.extra.language\"\n                  },\n                  {\n                    \"$ref\": \"request.prompt\"\n                  }\n                ]\n              }\n            }\n          },\n          \"body\": {\n            \"model\": {\n              \"$coalesce\": [\n                {\n                  \"$ref\": \"request.model\"\n                },\n                \"asr-1.0\"\n              ]\n            },\n            \"response_format\": \"verbose_json\",\n            \"timestamp_level\": \"sentence\"\n          },\n          \"files\": [\n            {\n              \"name\": \"file\",\n              \"source\": {\n                \"$first\": {\n                  \"$ref\": \"request.audios\"\n                }\n              },\n              \"filename\": \"audio.wav\",\n              \"mimeType\": \"audio/wav\"\n            }\n          ]\n        },\n        \"response\": {\n          \"transcription\": {\n            \"segments\": {\n              \"$map\": {\n                \"from\": {\n                  \"$ref\": \"response.segments\"\n                },\n                \"as\": \"s\",\n                \"in\": {\n                  \"start\": {\n                    \"$ref\": \"s.start\"\n                  },\n                  \"end\": {\n                    \"$ref\": \"s.end\"\n                  },\n                  \"text\": {\n                    \"$ref\": \"s.text\"\n                  }\n                }\n              }\n            },\n            \"language\": {\n              \"$ref\": \"request.extra.language\"\n            }\n          },\n          \"errorPaths\": [\n            \"base_resp.status_code\",\n            \"error.code\",\n            \"error\"\n          ],\n          \"messagePaths\": [\n            \"base_resp.status_msg\",\n            \"error.message\",\n            \"message\"\n          ]\n        }\n      }\n    ]\n  }\n}\n```\n<!-- YINGCE_MANIFEST_CONTRACT_END -->\n",
+  "permissions": [
+    "generation.run",
+    "media.read"
+  ],
+  "configuration": {
+    "fields": [
+      {
+        "name": "apiKey",
+        "type": "secret",
+        "label": "API Key",
+        "required": true
+      }
+    ]
+  },
+  "contributes": {
+    "providers": [
+      {
+        "id": "minimax-transcription",
+        "label": "MiniMax 语音识别",
+        "capabilities": [
+          "transcription"
+        ],
+        "scopes": [
+          "admin.system-channel",
+          "user.custom-channel",
+          "canvas",
+          "creation",
+          "agent"
+        ],
+        "baseUrl": "https://api.minimax.cn",
+        "requiresPublicMediaUrls": false,
+        "auth": {
+          "type": "bearer",
+          "field": "apiKey"
+        },
+        "parameters": [
+          {
+            "name": "model",
+            "type": "string",
+            "required": false,
+            "mapping": "model",
+            "description": "转写模型 ID，默认 asr-1.0。"
+          },
+          {
+            "name": "audios",
+            "type": "media[]",
+            "required": true,
+            "mapping": "file",
+            "description": "待转写音频文件，作为 multipart file 上传。"
+          },
+          {
+            "name": "prompt",
+            "type": "string",
+            "required": false,
+            "mapping": "language 请求头",
+            "description": "可选语言代码，例如 zh、yue、en；留空启用混合语言识别。"
+          },
+          {
+            "name": "providerOptions",
+            "type": "object",
+            "required": false,
+            "mapping": "provider-specific fields",
+            "description": "插件命名空间内的厂商扩展字段。"
+          }
+        ],
+        "validations": [
+          {
+            "assert": {
+              "$gt": [
+                {
+                  "$len": {
+                    "$ref": "request.audios"
+                  }
+                },
+                0
+              ]
+            },
+            "message": "MiniMax 语音识别需要连接音视频文件"
+          }
+        ],
+        "create": {
+          "method": "POST",
+          "path": "/v1/speech_to_text",
+          "contentType": "multipart/form-data",
+          "headers": {
+            "language": {
+              "$omitEmpty": {
+                "$coalesce": [
+                  {
+                    "$ref": "request.extra.language"
+                  },
+                  {
+                    "$ref": "request.prompt"
+                  }
+                ]
+              }
+            }
+          },
+          "body": {
+            "model": {
+              "$coalesce": [
+                {
+                  "$ref": "request.model"
+                },
+                "asr-1.0"
+              ]
+            },
+            "response_format": "verbose_json",
+            "timestamp_level": "sentence"
+          },
+          "files": [
+            {
+              "name": "file",
+              "source": {
+                "$first": {
+                  "$ref": "request.audios"
+                }
+              },
+              "filename": "audio.wav",
+              "mimeType": "audio/wav"
+            }
+          ]
+        },
+        "response": {
+          "transcription": {
+            "segments": {
+              "$map": {
+                "from": {
+                  "$ref": "response.segments"
+                },
+                "as": "s",
+                "in": {
+                  "start": {
+                    "$ref": "s.start"
+                  },
+                  "end": {
+                    "$ref": "s.end"
+                  },
+                  "text": {
+                    "$ref": "s.text"
+                  }
+                }
+              }
+            },
+            "language": {
+              "$ref": "request.extra.language"
+            }
+          },
+          "errorPaths": [
+            "base_resp.status_code",
+            "error.code",
+            "error"
+          ],
+          "messagePaths": [
+            "base_resp.status_msg",
+            "error.message",
+            "message"
+          ]
+        }
+      }
+    ]
+  }
+}

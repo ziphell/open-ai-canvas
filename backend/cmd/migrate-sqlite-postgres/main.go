@@ -374,6 +374,7 @@ func migrations() []tableMigration {
 		migrateTable[model.UserGroupChannel]("user_group_channels"),
 		migrateTable[model.UserAvatar]("user_avatars"),
 		migrateTable[model.UserFeedback]("user_feedbacks"),
+		migrateTable[model.UserModelPreference]("user_model_preferences"),
 		migrateTable[model.DramaProduction]("drama_productions"),
 		migrateTable[model.DramaCast]("drama_casts"),
 		migrateTable[model.DramaEpisode]("drama_episodes"),

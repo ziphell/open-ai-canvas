@@ -8,6 +8,7 @@ import {
     audioSpeedLabel,
     audioVoiceOptionsForConfig,
     effectiveAudioMode,
+    isCustomVoiceAudioConfig,
     isDoubaoAudioConfig,
     normalizeAudioFormatForConfig,
     normalizeAudioSpeedValue,
@@ -34,6 +35,7 @@ type AudioSettingsPanelProps = {
 export function AudioSettingsPanel({ config, referenceAudioLabels, references = [], onBindingsChange, onConfigChange, theme, showTitle = true, className = "w-[var(--panel-width-compact)] space-y-4" }: AudioSettingsPanelProps) {
     const listId = useId();
     const doubao = isDoubaoAudioConfig(config);
+    const customVoice = isCustomVoiceAudioConfig(config);
     const capability = audioCapabilityForConfig(config);
     const audioMode = effectiveAudioMode(config, referenceAudioLabels?.length);
     const modeOptions = audioModeOptionsForConfig(config);
@@ -116,6 +118,13 @@ export function AudioSettingsPanel({ config, referenceAudioLabels, references = 
                             ) : null}
                             <p className="text-xs leading-5" style={{ color: theme.node.muted }}>
                                 仅填写当前模型已开通的音色或复刻音色 ID；不自动套用旧版音色列表。参考图片模式不使用此音色。
+                            </p>
+                        </>
+                    ) : customVoice ? (
+                        <>
+                            <Input aria-label="渠道音色 ID" value={config.audioVoice || ""} placeholder="输入渠道音色 ID" onChange={(event) => selectVoice(event.target.value.trim())} />
+                            <p className="text-xs leading-5" style={{ color: theme.node.muted }}>
+                                填写当前模型要求的声音 ID，例如 MiniMax 的 male-qn-qingse。
                             </p>
                         </>
                     ) : (

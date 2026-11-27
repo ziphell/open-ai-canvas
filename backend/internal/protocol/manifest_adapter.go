@@ -451,7 +451,7 @@ func (a manifestAdapter) parseWithEnv(payload map[string]any, c PollContext, ext
 			}
 		}
 	}
-	if status == StatusPending && (result.Text != "" || len(result.Images) > 0 || len(result.Videos) > 0 || len(result.Audios) > 0) {
+	if status == StatusPending && (result.Text != "" || len(result.Images) > 0 || len(result.Videos) > 0 || len(result.Audios) > 0 || result.Transcription != nil) {
 		status = StatusSucceeded
 	}
 	// 独立下载接口稍后提供媒体时，保留轮询中的实际时长和清晰度。

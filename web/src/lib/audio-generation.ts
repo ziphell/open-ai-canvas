@@ -96,6 +96,11 @@ export function isDoubaoAudioConfig(config: AiConfig) {
     return audioCapabilityForConfig(config).voice === "free";
 }
 
+/** 非豆包厂商的自由音色 ID：不做预设列表，也不套用豆包音色提示。 */
+export function isCustomVoiceAudioConfig(config: AiConfig) {
+    return audioCapabilityForConfig(config).voice === "custom";
+}
+
 export function audioModeOptionsForConfig(config: AiConfig) {
     const modes = audioCapabilityForConfig(config).modes;
     return [
@@ -124,6 +129,7 @@ export function effectiveAudioMode(config: AiConfig, referenceCount = 0): AudioM
 }
 
 export function audioVoiceOptionsForConfig(config: AiConfig) {
+    if (isCustomVoiceAudioConfig(config)) return [];
     return isDoubaoAudioConfig(config) ? doubaoAudioVoiceOptions : openAIAudioVoiceOptions;
 }
 
@@ -135,6 +141,7 @@ export function audioFormatOptionsForConfig(config: AiConfig) {
 export function normalizeAudioVoiceForConfig(config: AiConfig, value: string) {
     const options = audioVoiceOptionsForConfig(config);
     const normalized = String(value || "").trim();
+    if (isCustomVoiceAudioConfig(config)) return normalized;
     if (isDoubaoAudioConfig(config)) {
         if (!normalized || normalized === "alloy") return "";
         return normalized;

@@ -1,6 +1,8 @@
 package protocol
 
 import (
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -306,6 +308,16 @@ func evaluateManifestOperator(operator string, operand any, env map[string]any) 
 			return nil, err
 		}
 		return value, nil
+	case "$hexToBase64":
+		value, err := evaluateManifestValue(operand, env)
+		if err != nil {
+			return nil, err
+		}
+		decoded, err := hex.DecodeString(strings.TrimSpace(manifestString(value)))
+		if err != nil {
+			return nil, fmt.Errorf("$hexToBase64 requires valid hex: %w", err)
+		}
+		return base64.StdEncoding.EncodeToString(decoded), nil
 	case "$lower", "$upper", "$trim", "$toString", "$toInt", "$toFloat", "$toBool", "$dataMime", "$dataPayload", "$json":
 		value, err := evaluateManifestValue(operand, env)
 		if err != nil {

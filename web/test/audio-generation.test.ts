@@ -4,7 +4,9 @@ import {
     audioFormatOptionsForConfig,
     audioModeOptionsForConfig,
     effectiveAudioMode,
+    audioVoiceOptionsForConfig,
     doubaoAudioVoiceOptions,
+    isCustomVoiceAudioConfig,
     isDoubaoAudioConfig,
     normalizeAudioSpeedValue,
     normalizeAudioVoiceForConfig,
@@ -80,5 +82,27 @@ describe("audio voice protocol handling", () => {
         expect(effectiveAudioMode(tts3)).toBe("tts");
         expect(audioCapabilityForConfig(tts3).references).toEqual({ maxAudios: 0, maxImages: 0 });
         expect(audioFormatOptionsForConfig(tts3).map((option) => option.value)).toEqual(["mp3", "pcm", "ogg_opus"]);
+    });
+
+    test("Doubao TTS 2.0 sync and async use free voice IDs and their supported formats", () => {
+        const sync = { ...config("doubao-voice-tts-2-0"), model: "seed-tts-2.0", audioModel: "seed-tts-2.0" } as any;
+        expect(isDoubaoAudioConfig(sync)).toBe(true);
+        expect(audioModeOptionsForConfig(sync).map((option) => option.value)).toEqual(["tts"]);
+        expect(audioFormatOptionsForConfig(sync).map((option) => option.value)).toEqual(["mp3", "pcm", "ogg_opus", "wav"]);
+
+        const asyncConfig = { ...config("doubao-voice-tts-2-0-async"), model: "seed-tts-2.0", audioModel: "seed-tts-2.0" } as any;
+        expect(isDoubaoAudioConfig(asyncConfig)).toBe(true);
+        expect(audioFormatOptionsForConfig(asyncConfig).map((option) => option.value)).toEqual(["mp3", "pcm", "ogg_opus"]);
+    });
+
+    test("MiniMax TTS uses free-form voice IDs without preset suggestions", () => {
+        for (const protocol of ["minimax-tts", "minimax-tts-async"]) {
+            const minimax = { ...config(protocol), model: "speech-2.8-hd", audioModel: "speech-2.8-hd" } as any;
+            expect(isDoubaoAudioConfig(minimax)).toBe(false);
+            expect(isCustomVoiceAudioConfig(minimax)).toBe(true);
+            expect(audioVoiceOptionsForConfig(minimax)).toEqual([]);
+            expect(normalizeAudioVoiceForConfig(minimax, "male-qn-qingse")).toBe("male-qn-qingse");
+            expect(audioFormatOptionsForConfig(minimax).map((option) => option.value)).toEqual(["mp3", "wav", "flac"]);
+        }
     });
 });

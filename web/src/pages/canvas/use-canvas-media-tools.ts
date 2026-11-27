@@ -651,14 +651,18 @@ export function useCanvasMediaTools({
                 const size = fitNodeSize(uploaded.width || 1280, uploaded.height || 720, VIDEO_NODE_MAX_SIZE.width, VIDEO_NODE_MAX_SIZE.height);
                 const left = Math.max(...videos.map((node) => node.position.x + node.width)) + 120;
                 const top = Math.min(...videos.map((node) => node.position.y));
-                const mergedNode = createCanvasNode(CanvasNodeType.Video, { x: left + size.width / 2, y: top + size.height / 2 }, {
-                    ...videoMetadata(uploaded),
-                    prompt: `按选中顺序合并 ${videos.length} 段视频`,
-                    workflowKind: "final",
-                    workflowTitle: translate("canvasPage.mediaTools.mergeFinalTitle"),
-                    videoEditOperation: "concat",
-                    status: NODE_STATUS_SUCCESS,
-                });
+                const mergedNode = createCanvasNode(
+                    CanvasNodeType.Video,
+                    { x: left + size.width / 2, y: top + size.height / 2 },
+                    {
+                        ...videoMetadata(uploaded),
+                        prompt: `按选中顺序合并 ${videos.length} 段视频`,
+                        workflowKind: "final",
+                        workflowTitle: translate("canvasPage.mediaTools.mergeFinalTitle"),
+                        videoEditOperation: "concat",
+                        status: NODE_STATUS_SUCCESS,
+                    },
+                );
                 mergedNode.title = translate("canvasPage.mediaTools.titleMerged", { count: videos.length });
                 mergedNode.width = size.width;
                 mergedNode.height = size.height;
