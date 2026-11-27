@@ -25,7 +25,7 @@ import { resourceFileUrl, resourceIdFromStorageKey } from "./api/resources";
 import type { ResponseInputMessage, ResponseToolCall } from "./api/image";
 import { listAddedSkills } from "./api/skills";
 import { hasSkillLibraryAccess } from "@/lib/skill-access";
-import { skillRuntime } from "./skill-runtime";
+import { reconcileSkillSelection, skillRuntime } from "./skill-runtime";
 import { ensureCanvasNodeAsset } from "./project-asset-sync";
 import { withRemoteUserDataSyncExclusive } from "./user-data-sync";
 import { useCanvasStore } from "@/stores/canvas/use-canvas-store";
@@ -314,8 +314,16 @@ export class CreativeAgentController {
     private async preparePlanning(prompt: string) {
         if (this.state.modelCalls >= 32) throw new Error("此任务已达到 32 次分析调用上限，请新建任务并沿用当前方案");
         const config = this.requestConfig();
-        const skills = hasSkillLibraryAccess() ? await listAddedSkills() : { skills: [] };
-        const prepared = await skillRuntime.prepare({ profile: "creation", prompt, skills: skills.skills || [], selectedSkillIds: hasSkillLibraryAccess() ? this.state.selectedSkillIds : [] });
+        const skillAccess = hasSkillLibraryAccess();
+        const skills = skillAccess ? await listAddedSkills() : { skills: [] };
+        let selectedSkillIds = skillAccess ? this.state.selectedSkillIds : [];
+        if (skillAccess) {
+            // 已删除或取消安装的技能不能继续参与规划；清掉旧选择后再保存状态。
+            const reconciled = reconcileSkillSelection(selectedSkillIds, skills.skills || []);
+            selectedSkillIds = reconciled.skillIds;
+            if (reconciled.removedSkillIds.length) this.state = { ...this.state, selectedSkillIds };
+        }
+        const prepared = await skillRuntime.prepare({ profile: "creation", prompt, skills: skills.skills || [], selectedSkillIds });
         this.assertLive();
         const catalogue = (["image", "video"] as const).flatMap((mode) =>
             selectableModelsByCapability(config, mode)

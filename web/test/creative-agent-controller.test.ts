@@ -357,14 +357,12 @@ describe("创作控制器恢复", () => {
     });
 });
 
-test("普通用户带旧技能选择也能创建规划，不请求受限技能接口", async () => {
+test("普通用户带旧技能选择也能创建规划，并清理已失效选择", async () => {
     useUserStore.setState({ hydrated: true, user: { id: "member", username: "member", displayName: "Member", role: "user", status: "active" } });
     const channel = createModelChannel({ id: "system-text", name: "Text", scope: "system", models: ["text"], apiFormat: "openai", interfaceType: "chat-completion", apiKey: "system", baseUrl: "/api/test" });
     const config = { ...defaultConfig, channels: [channel], model: "system-text::text", textModel: "system-text::text" };
     const h = harness({ ...initialCreativeState(), selectedSkillIds: ["private-skill"] }, "paused", [], undefined, config);
-    const request = spyOn(apiClient, "request").mockImplementation(async () => {
-        throw new Error("不得调用技能接口");
-    });
+    const request = spyOn(apiClient, "request").mockImplementation((async () => ({ data: { code: 0, data: { skills: [] }, msg: "" } })) as typeof apiClient.request);
     let prepared = 0;
     h.api.prepare = async (_id, input) => {
         prepared += 1;
@@ -376,7 +374,7 @@ test("普通用户带旧技能选择也能创建规划，不请求受限技能�
         expect(prepared).toBe(1);
         expect(h.view().run?.status).toBe("waiting_payment");
         expect(h.view().state.selectedSkillIds).toEqual([]);
-        expect(request).not.toHaveBeenCalled();
+        expect(request).toHaveBeenCalled();
     } finally {
         h.controller.dispose();
         request.mockRestore();

@@ -307,12 +307,12 @@ test("管理员空会话恢复原光球、居中欢迎文案和三个入口，�
     expect(sent).toEqual(["保留我的短片草稿"]);
 });
 
-test("普通用户欢迎页保留创作入口且不显示技能入口", async () => {
+test("普通用户欢迎页同样保留创作入口和技能入口", async () => {
     useUserStore.setState({ user: { id: "sidebar-user", username: "sidebar-user", displayName: "侧栏用户", role: "user", status: "active" } });
     await render(<SidebarFixture />);
-    expect(host.querySelectorAll(".agent-welcome-actions button")).toHaveLength(2);
-    expect(host.querySelector('[aria-label="打开 Skills 技能库"]')).toBeNull();
-    expect(host.textContent).not.toContain("选择技能，开始创作");
+    expect(host.querySelectorAll(".agent-welcome-actions button")).toHaveLength(3);
+    expect(host.querySelector('[aria-label="打开 Skills 技能库"]')).not.toBeNull();
+    expect(host.textContent).toContain("选择技能，开始创作");
     await type("普通用户的短片草稿");
     await click("发送");
     expect(sent).toEqual(["普通用户的短片草稿"]);

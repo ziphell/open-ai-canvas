@@ -176,14 +176,16 @@ async function submitAgentRequest(path: string, input: CreateAgentRunInput) {
 }
 
 export async function createAgentRun(input: CreateAgentRunInput) {
-    return submitAgentRequest("/agent/runs", { ...input, pinnedSkillIds: hasSkillLibraryAccess() ? input.pinnedSkillIds : [], contextScope: hasSkillLibraryAccess() ? input.contextScope : input.contextScope?.filter((scope) => scope !== "skills") });
+    const skillAccess = hasSkillLibraryAccess();
+    return submitAgentRequest("/agent/runs", { ...input, pinnedSkillIds: skillAccess ? (input.pinnedSkillIds ?? []) : [], contextScope: skillAccess ? input.contextScope : input.contextScope?.filter((scope) => scope !== "skills") });
 }
 
 export async function sendAgentMessage(runId: string, input: CreateAgentRunInput) {
+    const skillAccess = hasSkillLibraryAccess();
     return submitAgentRequest(`/agent/runs/${encodeURIComponent(runId)}/messages`, {
         ...input,
-        pinnedSkillIds: hasSkillLibraryAccess() ? input.pinnedSkillIds : [],
-        contextScope: hasSkillLibraryAccess() ? input.contextScope : input.contextScope?.filter((scope) => scope !== "skills"),
+        pinnedSkillIds: skillAccess ? (input.pinnedSkillIds ?? []) : [],
+        contextScope: skillAccess ? input.contextScope : input.contextScope?.filter((scope) => scope !== "skills"),
     });
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { GenerationTaskEffectClaim } from "@/services/generation-task-materializer";
+import { createProviderNeutralGenerationTaskEffectStore } from "@/services/provider-neutral-generation-effects";
 
 type WorkerRequest = { kind: "request"; id: number; action: string; args: unknown[] };
 type WorkerResult = { kind: "result"; id: number; value?: unknown; error?: string };
@@ -123,39 +124,31 @@ describe("生成副作用跨标签租约", () => {
         }
     });
 
-    test("生产要求跨标签锁而浏览器未提供时，降级为进程内互斥仍可领取", async () => {
-        const harness = sharedBrowserHarness();
+    test("无 Web Locks 时进程内互斥仍可领取并完成", async () => {
+        // 当前进程没有浏览器窗口时，存储与锁都走进程内降级；这里直接覆盖该分支，
+        // 不再依赖 Worker（无安全上下文的测试环境无法稳定创建 Worker）。
+        const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
+        const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+        Object.defineProperty(globalThis, "window", { configurable: true, value: undefined });
+        Object.defineProperty(globalThis, "navigator", { configurable: true, value: undefined });
         try {
-            const realm = harness.createRealm();
-            await realm.invoke("initialize", { browserLocks: false, required: true });
-            const owner = await realm.invoke<GenerationTaskEffectClaim>("claim", "materialize:no-lock:0", "no-lock");
-            expect(owner.status).toBe("claimed");
-            if (owner.status !== "claimed") throw new Error("Expected a claimed lease");
-            await realm.invoke("complete", "materialize:no-lock:0", "no-lock", { materializedAssetId: "saved-without-web-locks" }, owner.binding);
-            await expect(realm.invoke("claim", "materialize:no-lock:0", "no-lock")).resolves.toEqual({
-                status: "completed",
-                result: { materializedAssetId: "saved-without-web-locks" },
-            });
-            expect(harness.lockRequests).toBe(0);
-            expect(harness.storageReads).toBeGreaterThan(0);
+            for (const required of [true, false]) {
+                const store = createProviderNeutralGenerationTaskEffectStore({ requireCrossRealmLock: required });
+                const effectKey = `materialize:fallback:${required}`;
+                const owner = await store.claim(effectKey, "fallback");
+                expect(owner.status).toBe("claimed");
+                if (owner.status !== "claimed") throw new Error("Expected a claimed lease");
+                await store.complete(effectKey, "fallback", { materializedAssetId: `saved-${required}` }, owner.binding);
+                await expect(store.claim(effectKey, "fallback")).resolves.toEqual({
+                    status: "completed",
+                    result: { materializedAssetId: `saved-${required}` },
+                });
+            }
         } finally {
-            harness.dispose();
-        }
-    });
-
-    test("未要求跨标签锁的现有调用仍可使用进程内降级", async () => {
-        const harness = sharedBrowserHarness();
-        try {
-            const realm = harness.createRealm();
-            await realm.invoke("initialize", { browserLocks: false, required: false });
-            const owner = await realm.invoke<GenerationTaskEffectClaim>("claim", "materialize:fallback:0", "fallback");
-            expect(owner.status).toBe("claimed");
-            if (owner.status !== "claimed") throw new Error("Expected a claimed lease");
-            await realm.invoke("complete", "materialize:fallback:0", "fallback", {}, owner.binding);
-            await expect(realm.invoke("claim", "materialize:fallback:0", "fallback")).resolves.toEqual({ status: "completed", result: {} });
-            expect(harness.lockRequests).toBe(0);
-        } finally {
-            harness.dispose();
+            if (windowDescriptor) Object.defineProperty(globalThis, "window", windowDescriptor);
+            else Reflect.deleteProperty(globalThis, "window");
+            if (navigatorDescriptor) Object.defineProperty(globalThis, "navigator", navigatorDescriptor);
+            else Reflect.deleteProperty(globalThis, "navigator");
         }
     });
 });

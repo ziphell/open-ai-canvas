@@ -244,22 +244,20 @@ describe("电商 Skills 文件上传", () => {
     });
 });
 
-test("普通用户没有电商技能入口，清除旧选择且不发技能请求", async () => {
+test("普通用户也保留电商技能入口并读取个人技能库", async () => {
     useUserStore.setState({ user: { id: "upload-owner", username: "member", displayName: "Member", role: "user", status: "active" }, hydrated: true });
     await render();
-    expect(host.textContent).toBe("");
-    expect(selected).toEqual([]);
-    expect(skills.listAddedSkills).not.toHaveBeenCalled();
+    expect(host.textContent).toContain("已选择 1 个 Skills");
+    expect(selected).toEqual(["existing-skill"]);
     expect(skills.listSkills).not.toHaveBeenCalled();
     expect(uploads).toHaveLength(0);
 });
 
-test("管理员降权后技能界面立即卸载且已有选择清空", async () => {
+test("管理员降权后普通用户仍能使用技能界面并保留选择", async () => {
     await render();
     expect(host.textContent).toContain("已选择 1 个 Skills");
     await act(async () => useUserStore.setState({ user: { ...useUserStore.getState().user!, role: "user" } }));
-    expect(host.textContent).toBe("");
-    expect(selected).toEqual([]);
-    expect(skills.listAddedSkills).not.toHaveBeenCalled();
+    expect(host.textContent).toContain("已选择 1 个 Skills");
+    expect(selected).toEqual(["existing-skill"]);
     expect(uploads).toHaveLength(0);
 });
