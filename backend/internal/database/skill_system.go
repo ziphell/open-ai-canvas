@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"strings"
 	"time"
 
 	"yingce/backend/internal/kernel"
@@ -298,6 +299,35 @@ func migrateSkillSystemFavorites(tx *gorm.DB, skillByID map[string]model.Skill, 
 	return nil
 }
 
+// dropSQLiteIndexesOnColumn 删除引用指定列的索引。SQLite 的 DROP COLUMN 会被这类索引挡住；
+// Postgres 删列时会连带删除索引，所以只在 sqlite 方言下处理。
+func dropSQLiteIndexesOnColumn(tx *gorm.DB, table, column string) error {
+	if tx.Dialector.Name() != "sqlite" {
+		return nil
+	}
+	var names []string
+	if err := tx.Raw("SELECT name FROM pragma_index_list(?) WHERE origin <> 'pk'", table).Scan(&names).Error; err != nil {
+		return err
+	}
+	for _, name := range names {
+		var columns []string
+		if err := tx.Raw("SELECT name FROM pragma_index_info(?)", name).Scan(&columns).Error; err != nil {
+			return err
+		}
+		for _, value := range columns {
+			if value != column {
+				continue
+			}
+			quoted := `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
+			if err := tx.Exec("DROP INDEX IF EXISTS " + quoted).Error; err != nil {
+				return err
+			}
+			break
+		}
+	}
+	return nil
+}
+
 // migrateSkillContentPointer 把公共目录的内容指针从 skill_versions 切到 skill_contents，
 // 然后删除已被内容快照取代的版本表。内容 BLOB 仍由启动导入任务从旧 ZIP 或 instruction 补齐。
 func migrateSkillContentPointer(tx *gorm.DB) error {
@@ -321,6 +351,11 @@ func migrateSkillContentPointer(tx *gorm.DB) error {
 			return err
 		}
 		if tx.Migrator().HasColumn("skills", "current_version_id") {
+			// SQLite 在索引仍引用该列时会拒绝 DROP COLUMN；旧模型曾给这列建过索引，
+			// 不先删索引会让升级在迁移 110 直接失败（Postgres 会随列自动删索引）。
+			if err := dropSQLiteIndexesOnColumn(tx, "skills", "current_version_id"); err != nil {
+				return err
+			}
 			if err := tx.Exec("ALTER TABLE skills DROP COLUMN current_version_id").Error; err != nil {
 				return err
 			}

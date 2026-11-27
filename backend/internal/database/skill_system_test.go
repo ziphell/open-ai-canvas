@@ -56,6 +56,48 @@ func TestSkillContentPointerMigrationBackfillsAndDropsVersionTables(t *testing.T
 	}
 }
 
+// 旧库的 skills 表在 current_version_id 上带索引；SQLite 会因此拒绝 DROP COLUMN，
+// 迁移 110 必须先把这些索引删掉，否则升级时后端会启动失败。
+func TestSkillContentPointerMigrationDropsLegacyColumnIndex(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "skill-pointer-index.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := db.AutoMigrate(&legacySkillRow{}); err != nil {
+		t.Fatalf("migrate legacy skills: %v", err)
+	}
+	if err := db.Exec("CREATE INDEX idx_skills_current_version_id ON skills(current_version_id)").Error; err != nil {
+		t.Fatalf("create legacy index: %v", err)
+	}
+	if err := db.Exec("CREATE TABLE skill_versions (id text primary key)").Error; err != nil {
+		t.Fatalf("create skill_versions: %v", err)
+	}
+	if err := db.Create(&legacySkillRow{ID: "skill-1", Name: "技能", CurrentVersionID: "content-1"}).Error; err != nil {
+		t.Fatalf("create skill: %v", err)
+	}
+
+	if err := migrateSkillContentPointer(db); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	if db.Migrator().HasColumn("skills", "current_version_id") {
+		t.Fatal("current_version_id column was not dropped")
+	}
+	var remaining int64
+	if err := db.Raw("SELECT count(*) FROM sqlite_master WHERE type = 'index' AND name = 'idx_skills_current_version_id'").Scan(&remaining).Error; err != nil {
+		t.Fatal(err)
+	}
+	if remaining != 0 {
+		t.Fatal("legacy index idx_skills_current_version_id was not dropped")
+	}
+	var skill model.Skill
+	if err := db.First(&skill, "id = ?", "skill-1").Error; err != nil {
+		t.Fatal(err)
+	}
+	if skill.ContentID != "content-1" {
+		t.Fatalf("content pointer = %q, want content-1", skill.ContentID)
+	}
+}
+
 func TestSkillSystemPhase1BackfillsRelations(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "skill-system.db")), &gorm.Config{})
 	if err != nil {
