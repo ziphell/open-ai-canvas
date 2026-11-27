@@ -5575,7 +5575,7 @@ components:
       properties:
         capability:
           type: string
-          enum: [text, image, video, audio]
+          enum: [text, image, video, audio, transcription]
         operation:
           type: string
           description: 可选生成操作，必须符合所选模型的能力合同

@@ -9,6 +9,7 @@ import { canvasOverlayBounds, observeCanvasOverlayBounds, placeCanvasNodePanel, 
 import { subscribeCanvasGraphicsViewportPreview, subscribeCanvasNodeDragPreview, subscribeCanvasViewportPreview } from "@/lib/canvas/canvas-live-viewport";
 import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
 import { CanvasNodeType, type CanvasNodeData, type ConnectionHandle, type Position, type ViewportTransform } from "@/types/canvas";
+import type { WorkflowProvider } from "@/lib/plugins/builtin/workflows";
 import { useCanvasNodeResizeMotion } from "./canvas-node-resize-motion";
 
 export type PendingConnectionCreate = {
@@ -235,11 +236,11 @@ export function CanvasConnectionCreateMenu({
     canCreateDrawing: boolean;
     getDisabledReason: (
         type: CanvasNodeType.Image | CanvasNodeType.Text | CanvasNodeType.Script | CanvasNodeType.BatchTable | CanvasNodeType.Video | CanvasNodeType.Audio | CanvasNodeType.Drawing | CanvasNodeType.Config | CanvasNodeType.MediaConversion,
-        provider?: "runninghub",
+        provider?: WorkflowProvider,
     ) => string;
     onCreate: (
         type: CanvasNodeType.Image | CanvasNodeType.Text | CanvasNodeType.Script | CanvasNodeType.BatchTable | CanvasNodeType.Video | CanvasNodeType.Audio | CanvasNodeType.Drawing | CanvasNodeType.Config | CanvasNodeType.MediaConversion,
-        provider?: "runninghub",
+        provider?: WorkflowProvider,
     ) => void;
     onClose: () => void;
 }) {

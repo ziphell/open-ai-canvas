@@ -245,6 +245,12 @@ func doBinary(req *http.Request) ([]byte, string, error) {
 // 渠道并发/熔断、SSRF、超时、响应大小、HTTP 状态和审计检查；onChunk 仅观察已读取的流片段，
 // 不会绕过完整响应的大小上限或错误判定。
 func doBinaryWithConsumer(req *http.Request, onChunk func(string, []byte)) ([]byte, string, error) {
+	return doBinaryWithObserver(req, onChunk, nil)
+}
+
+// doBinaryWithObserver 在通用安全边界之上额外把响应头交给调用方；
+// 仅用于协议宿主读取业务状态码，不改变响应大小、状态码和审计规则。
+func doBinaryWithObserver(req *http.Request, onChunk func(string, []byte), onHeaders func(http.Header)) ([]byte, string, error) {
 	startedAt := time.Now()
 	requestTimeout := providerHTTPTimeout
 	if deadline, ok := req.Context().Deadline(); ok {
@@ -317,6 +323,9 @@ func doBinaryWithConsumer(req *http.Request, onChunk func(string, []byte)) ([]by
 		return nil, "", err
 	}
 	defer resp.Body.Close()
+	if onHeaders != nil {
+		onHeaders(resp.Header.Clone())
+	}
 	if resp.ContentLength > responseLimit {
 		err = fmt.Errorf("上游响应超过 %s 限制", formatStorageLimit(responseLimit))
 		recordProviderRequest(req, startedAt, resp.StatusCode, nil, err)

@@ -194,7 +194,7 @@ func normalizedChannelModelCapability(channelModel *model.ChannelModel, registri
 		return nil, errors.New("渠道模型为空")
 	}
 	capability := normalizeCapability(channelModel.Capability)
-	if capability == "audio" {
+	if capability == "audio" || capability == "transcription" {
 		return nil, nil
 	}
 	if capability != "text" && capability != "image" && capability != "video" {
@@ -419,8 +419,8 @@ func applyModelSpecificVideoCapability(profile *VideoCapabilityConfig, protocol 
 // 渠道模型能力参数是唯一事实来源，前台模型供应线路直接引用该规格。
 func CapabilitySpecFromModelCapabilityConfig(config *ModelCapabilityConfig, capability string) (CapabilitySpec, error) {
 	spec := CapabilitySpec{Version: 1, Capability: capability, Inputs: map[string]InputConstraint{}, Options: map[string]OptionConstraint{}}
-	// 音频模型当前没有可编辑的渠道能力 JSON，使用空能力规格表示“无额外路由约束”。
-	if capability == "audio" {
+	// 音频与转写模型当前没有可编辑的渠道能力 JSON，使用空能力规格表示“无额外路由约束”。
+	if capability == "audio" || capability == "transcription" {
 		return spec, nil
 	}
 	if config == nil {

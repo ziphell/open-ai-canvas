@@ -19,7 +19,16 @@ describe("audio mode reference delivery", () => {
         const task = await prepareBackendGenerationTask({ mode: "audio", prompt: "朗读验收", config, referenceAudios: [{ id: "sample", name: "sample.mp3", type: "audio/mpeg", storageKey: "resource:sample" }] });
         expect((task.input as { referenceAudios: unknown[] }).referenceAudios).toHaveLength(0);
     });
-    for (const audioMode of ["auto", "unified_edit", "tts"]) {
+    test("generation mode without reference audio submits prompt-only generation", async () => {
+        const channel = createModelChannel({ id: "audio-test", name: "Audio", baseUrl: "https://example.com", apiKey: "test-key", interfaceType: "doubao-streaming-tts", models: ["jimeng-audio-seedaudio-1.0"] });
+        const task = await prepareBackendGenerationTask({
+            mode: "audio",
+            prompt: "低沉克制的男声旁白：风暴即将到来。",
+            config: { ...defaultConfig, channels: [channel], model: encodeChannelModel(channel.id, "jimeng-audio-seedaudio-1.0"), audioMode: "generation" },
+        });
+        expect((task.input as { referenceAudios: unknown[] }).referenceAudios).toHaveLength(0);
+    });
+    for (const audioMode of ["auto", "generation", "unified_edit", "tts"]) {
         test(`${audioMode} delivers the same references through preparation and execution`, async () => {
             const channel = createModelChannel({ id: "audio-test", name: "Audio", baseUrl: "https://example.com", apiKey: "test-key", interfaceType: "doubao-streaming-tts", models: ["jimeng-audio-seedaudio-1.0"] });
             const options = {

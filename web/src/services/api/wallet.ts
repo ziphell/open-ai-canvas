@@ -80,7 +80,7 @@ export type ChannelModel = {
     description?: string;
     sortOrder?: number;
     icon: string;
-    capability: "text" | "image" | "video" | "audio" | "";
+    capability: "text" | "image" | "video" | "audio" | "transcription" | "";
     protocol?: import("@/lib/model-protocols").ModelProtocol;
     billingMode: "fixed_request" | "per_second" | "token" | "image_usage";
     unitPriceMicrocredits: number;

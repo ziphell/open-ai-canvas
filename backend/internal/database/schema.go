@@ -151,6 +151,7 @@ func Models() []any {
 		&model.CanvasShare{},
 		&model.PromptTemplate{},
 		&model.UserPromptCustomization{},
+		&model.UserModelPreference{},
 		&model.Announcement{},
 		&model.UserAnnouncementRead{},
 		&model.BannerAnnouncement{},

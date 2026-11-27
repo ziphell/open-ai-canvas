@@ -325,6 +325,7 @@ type (
 	RunPaymentReconciliationRequest        = app.RunPaymentReconciliationRequest
 	RunningHubWorkflowFetchRequest         = app.RunningHubWorkflowFetchRequest
 	ComfyUIWorkflowImportRequest           = app.ComfyUIWorkflowImportRequest
+	UpdateUserModelDefaultsRequest         = app.UpdateUserModelDefaultsRequest
 	RuntimePolicySetting                   = app.RuntimePolicySetting
 	RuntimeRequestPolicy                   = app.RuntimeRequestPolicy
 	RuntimeResourcePolicy                  = app.RuntimeResourcePolicy

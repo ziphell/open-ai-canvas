@@ -1,7 +1,7 @@
 import type { ModelProtocolDefinition, ProtocolCapability } from "@/lib/model-protocols";
 import type { ChannelModel, ChannelModelProtocolGroup } from "@/services/api/wallet";
 
-export const protocolCapabilityLabels: Record<ProtocolCapability, string> = { text: "文本", image: "图片", video: "视频", audio: "音频" };
+export const protocolCapabilityLabels: Record<ProtocolCapability, string> = { text: "文本", image: "图片", video: "视频", audio: "音频", transcription: "转写" };
 export type ProtocolGroupSelection = Partial<Record<ProtocolCapability, string>>;
 
 export function channelModelProtocolGroups(items: ChannelModel[]) {

@@ -16,7 +16,7 @@ export type ProviderCatalogModel = {
     modelKey: string;
     providerModelKey: string;
     displayName: string;
-    capability: "text" | "image" | "video" | "audio";
+    capability: "text" | "image" | "video" | "audio" | "transcription";
     protocol: string;
     description?: string;
     icon?: string;

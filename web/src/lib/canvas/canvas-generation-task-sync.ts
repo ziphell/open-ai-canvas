@@ -116,6 +116,7 @@ function workflowMetadataForResultNode(): Partial<CanvasNodeMetadata> {
         workflowProvider: undefined,
         runningHubWorkflowId: undefined,
         runningHubWorkflowKind: undefined,
+        comfyUIWorkflowId: undefined,
         workflowParameters: undefined,
     };
 }

@@ -647,17 +647,17 @@ func validateCloudAgentMediaReferences(mode string, refs map[string]any, audioMo
 			return cloudAgentFieldError("referenceNodeIds", "invalid_combination", "图片生成仅支持图片参考资产；请移除视频或音频引用")
 		}
 	case "audio":
-		if audioMode != "" && audioMode != "tts" && audioMode != "unified_edit" {
-			return cloudAgentFieldError("audioMode", "invalid_value", "音频模式仅支持 tts 或 unified_edit")
+		if audioMode != "" && audioMode != "tts" && audioMode != "generation" && audioMode != "unified_edit" {
+			return cloudAgentFieldError("audioMode", "invalid_value", "音频模式仅支持 tts、generation 或 unified_edit")
 		}
 		if audioMode == "tts" && audioCount > 0 {
-			return cloudAgentFieldError("audioMode", "invalid_combination", "文本朗读不使用参考音频；请移除音频引用或改用全能配音，避免参考关系不明确")
+			return cloudAgentFieldError("audioMode", "invalid_combination", "文本朗读不使用参考音频；请移除音频引用或改用音频生成，避免参考关系不明确")
 		}
 		if audioMode == "unified_edit" && audioCount == 0 {
-			return cloudAgentFieldError("referenceNodeIds", "required", "全能配音必须连接参考音频；请先选择音频节点")
+			return cloudAgentFieldError("referenceNodeIds", "required", "参考配音必须连接参考音频；请先选择音频节点")
 		}
-		if audioMode != "unified_edit" && len(bindings) > 0 {
-			return cloudAgentFieldError("audioVoiceBindings", "invalid_combination", "角色音色对应仅在明确的全能配音模式下使用")
+		if (audioMode == "" || audioMode == "tts") && len(bindings) > 0 {
+			return cloudAgentFieldError("audioVoiceBindings", "invalid_combination", "角色音色对应仅在音频生成或参考配音模式下使用")
 		}
 		if videoCount > 0 {
 			return cloudAgentFieldError("referenceNodeIds", "invalid_combination", "音频生成不能使用参考视频；请移除视频引用")

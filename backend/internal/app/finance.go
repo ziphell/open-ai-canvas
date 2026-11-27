@@ -556,7 +556,7 @@ func (s *Service) newLogicalModelBillingOrder(userID string, task *model.Task, i
 		amount, err = creditAmount(logicalModel.UnitPriceMicrocredits, 1, groupBPS)
 	case "per_second":
 		quantity = requestedBillingQuantity(capability, config)
-		if (capability != "video" && capability != "audio") || quantity <= 0 {
+		if (capability != "video" && capability != "audio" && capability != "transcription") || quantity <= 0 {
 			return nil, BadAuthRequest("当前模型按时长计费，但请求未提供有效时长")
 		}
 		amount, err = creditAmount(logicalModel.UnitPriceMicrocredits, quantity, groupBPS)
@@ -706,8 +706,8 @@ func (s *Service) newBillingOrderWithPriceTierAt(pricedAt time.Time, userID stri
 		}
 	case "fixed_request":
 	case "per_second":
-		if (item.Capability != "video" && item.Capability != "audio") || capability != item.Capability {
-			return nil, BadAuthRequest("按秒计费仅适用于视频或音频生成")
+		if (item.Capability != "video" && item.Capability != "audio" && item.Capability != "transcription") || capability != item.Capability {
+			return nil, BadAuthRequest("按秒计费仅适用于视频、音频或转写")
 		}
 		if requestedQuantity <= 0 {
 			return nil, BadAuthRequest("生成时长无效，无法按秒计费")
@@ -1014,7 +1014,7 @@ func tokenEstimateAmount(item *model.ChannelModel, estimate tokenBillingEstimate
 }
 
 func billingQuantity(capability string, value any) int64 {
-	if capability != "video" && capability != "audio" {
+	if capability != "video" && capability != "audio" && capability != "transcription" {
 		return 1
 	}
 	quantity, err := strconv.ParseInt(strings.TrimSpace(fmt.Sprint(value)), 10, 64)
@@ -1030,11 +1030,14 @@ func billingQuantity(capability string, value any) int64 {
 // preauthorization unless the caller explicitly supplied audioSeconds.
 // Settlement must replace this estimate with the measured output duration.
 func requestedBillingQuantity(capability string, config map[string]any) int64 {
-	if capability == "audio" {
+	if capability == "audio" || capability == "transcription" {
 		if config == nil {
 			return 1
 		}
 		value, present := config["audioSeconds"]
+		if capability == "transcription" {
+			value, present = config["transcriptionSeconds"]
+		}
 		if !present || strings.TrimSpace(fmt.Sprint(value)) == "" {
 			return 1
 		}

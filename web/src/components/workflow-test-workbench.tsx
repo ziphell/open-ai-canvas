@@ -12,8 +12,8 @@ import { useConfigStore, type AiConfig, type RunningHubCapability, type Workflow
 import type { ReferenceImage } from "@/types/image";
 import type { ReferenceAudio, ReferenceVideo } from "@/types/media";
 import { Select } from "@/components/ui/base/select";
+import type { WorkflowProvider } from "@/lib/plugins/builtin/workflows";
 
-type WorkflowProvider = "runninghub";
 type MediaKind = "image" | "video" | "audio";
 type Point = { x: number; y: number };
 type NodePositionMap = Record<string, Point>;
@@ -194,7 +194,7 @@ export function WorkflowTestWorkbench({ provider, workflowId, workflowKind = "wo
                 <div className="min-w-0">
                     <strong>{title || workflowId || "未选择工作流"}</strong>
                     <span>
-                        {config.runningHub.connection === "comfyui" ? "ComfyUI" : "RunningHub"} · {capabilityName(capability)}工作流 · 测试值不会覆盖保存配置
+                        {provider === "comfyui" ? "ComfyUI" : "RunningHub"} · {capabilityName(capability)}工作流 · 测试值不会覆盖保存配置
                     </span>
                 </div>
                 <div className="workflow-test-toolbar-actions">
@@ -412,6 +412,14 @@ function buildTestConfig(config: AiConfig, provider: WorkflowProvider, workflowI
             workflowId,
             selectedKind: workflowKind,
             workflows: config.runningHub.workflows.map((item) => (item.workflowId.trim() === workflowId.trim() && (item.kind === "app" ? "app" : "workflow") === workflowKind ? { ...item, fields: patchedFields } : item)),
+        };
+    } else if (provider === "comfyui") {
+        next.comfyUI = {
+            ...config.comfyUI,
+            enabled: true,
+            workflowId,
+            selectedKind: "workflow",
+            workflows: config.comfyUI.workflows.map((item) => (item.workflowId.trim() === workflowId.trim() && (item.kind === "app" ? "app" : "workflow") === "workflow" ? { ...item, fields: patchedFields } : item)),
         };
     }
     return next;

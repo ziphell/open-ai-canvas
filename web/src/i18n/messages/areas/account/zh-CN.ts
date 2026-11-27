@@ -650,6 +650,7 @@ export const zhCN = {
             video: { title: "默认视频模型", description: "文生视频、图生视频与镜头延展", empty: "当前渠道中没有可用的视频模型" },
             text: { title: "默认文本模型", description: "提示词改写、脚本与结构化文本", empty: "当前渠道中没有可用的文本模型" },
             audio: { title: "默认音频模型", description: "语音、音效与音乐生成", empty: "当前渠道中没有可用的音频模型" },
+            transcription: { title: "默认转写服务", description: "时间线字幕与语音识别", empty: "当前渠道中没有可用的转写模型" },
             available: "{{count}} 个可用",
             uncategorized: "未分类",
             systemModel: "系统模型",
@@ -658,6 +659,7 @@ export const zhCN = {
             unitToken: "百万 Token",
             unitSecond: "秒",
             unitCall: "次",
+            saveFailed: "默认模型保存失败",
         },
         profile: {
             avatarType: "请选择 PNG 或 JPEG 图片",
@@ -768,8 +770,8 @@ export const zhCN = {
             fetchAll: "拉取全部",
             add: "新增渠道",
             workflowTitle: "个人工作流渠道",
-            workflowDescription: "独立工作流渠道支持 RunningHub 云端和自建 ComfyUI。",
-            runningHubDescription: "RunningHub 云端工作流、AI App 与自建 ComfyUI",
+            workflowDescription: "独立工作流渠道支持 RunningHub 云端。",
+            runningHubDescription: "RunningHub 云端工作流与 AI App",
             workflowsConfigured: "{{count}} 个工作流已配置",
             workflowPending: "待完成连接和工作流配置",
             disabled: "未启用",
@@ -988,6 +990,9 @@ export const zhCN = {
             notFilled: "尚未填写",
             runtimeTitle: "运行时强制追加",
             runtime: "当前剧情、项目画风、当前角色版本、画布资产与受保护输出契约。",
+        },
+        comfyui: {
+            description: "后端直连自建 ComfyUI，按导入的 API 格式工作流生成。",
         },
         runninghub: {
             webappIdRequired: "请先填写 webappId",

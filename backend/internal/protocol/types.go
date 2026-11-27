@@ -9,13 +9,23 @@ import (
 type Capability string
 
 const (
-	CapabilityText  Capability = "text"
-	CapabilityImage Capability = "image"
-	CapabilityVideo Capability = "video"
-	CapabilityAudio Capability = "audio"
+	CapabilityText          Capability = "text"
+	CapabilityImage         Capability = "image"
+	CapabilityVideo         Capability = "video"
+	CapabilityAudio         Capability = "audio"
+	CapabilityTranscription Capability = "transcription"
 )
 
 // Surface describes where an installed protocol may be selected.
+func isSupportedCapability(capability Capability) bool {
+	switch capability {
+	case CapabilityText, CapabilityImage, CapabilityVideo, CapabilityAudio, CapabilityTranscription:
+		return true
+	default:
+		return false
+	}
+}
+
 type Surface string
 
 const (
@@ -166,12 +176,25 @@ type PollResult struct {
 }
 
 type Result struct {
-	Images    []MediaReference `json:"images,omitempty"`
-	Videos    []MediaReference `json:"videos,omitempty"`
-	Audios    []MediaReference `json:"audios,omitempty"`
-	Text      string           `json:"text,omitempty"`
-	Reasoning string           `json:"reasoning,omitempty"`
-	Usage     map[string]any   `json:"usage,omitempty"`
+	Images        []MediaReference     `json:"images,omitempty"`
+	Videos        []MediaReference     `json:"videos,omitempty"`
+	Audios        []MediaReference     `json:"audios,omitempty"`
+	Text          string               `json:"text,omitempty"`
+	Reasoning     string               `json:"reasoning,omitempty"`
+	Usage         map[string]any       `json:"usage,omitempty"`
+	Transcription *TranscriptionResult `json:"transcription,omitempty"`
+}
+
+// TranscriptionResult 是转写协议的归一结果；时间统一为毫秒。
+type TranscriptionResult struct {
+	Segments []TranscriptionSegment `json:"segments"`
+	Language string                 `json:"language,omitempty"`
+}
+
+type TranscriptionSegment struct {
+	StartMs int64  `json:"startMs"`
+	EndMs   int64  `json:"endMs"`
+	Text    string `json:"text"`
 }
 
 type Parameter struct {

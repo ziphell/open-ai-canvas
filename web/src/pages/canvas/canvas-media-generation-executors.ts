@@ -9,7 +9,7 @@ import { buildAudioGenerationMetadata, buildVideoGenerationMetadata, generationR
 import { canvasGenerationPromptMetadata } from "@/lib/canvas/canvas-generation-submission";
 import { mediaVersionFieldsBeforeReplace } from "@/lib/canvas/canvas-media-versions";
 import { producedModelCandidateForGeneration } from "@/lib/canvas/produced-model";
-import { isDoubaoAudioConfig } from "@/lib/audio-generation";
+import { audioCapabilityForConfig, effectiveAudioMode } from "@/lib/audio-generation";
 import { CanvasNodeType, type CanvasNodeData } from "@/types/canvas";
 
 import type { CanvasGenerationExecution } from "./canvas-generation-executor-types";
@@ -233,8 +233,10 @@ export async function executeAudioGeneration({
 }
 
 function doubaoAudioPrompt(config: CanvasGenerationExecution["generationConfig"], prompt: string, audioCount: number, imageCount: number) {
-    if (config.audioMode === "tts") return prompt;
-    if (!isDoubaoAudioConfig(config)) return prompt;
+    if (effectiveAudioMode(config, audioCount) === "tts") return prompt;
+    const capability = audioCapabilityForConfig(config);
+    // 仅支持文本朗读的协议（如豆包语音合成 3.0）没有 references 合同。
+    if (capability.references.maxAudios === 0 && capability.references.maxImages === 0) return prompt;
     // 参考图片模式的 text_prompt 只保留要合成的文本，图片走 references。
     if (imageCount > 0)
         return prompt

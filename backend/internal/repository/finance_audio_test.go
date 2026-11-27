@@ -55,6 +55,39 @@ func TestSettleAudioPerSecondOrderUsesMeasuredDuration(t *testing.T) {
 	}
 }
 
+func TestSettleTranscriptionPerSecondOrderUsesMeasuredDuration(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:finance-transcription-settle?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.CreditAccount{}, &model.BillingOrder{}, &model.CreditLedgerEntry{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.CreditAccount{UserID: "user-transcription", AvailableMicrocredits: 1_000, ReservedMicrocredits: 100}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.BillingOrder{
+		ID: "transcription-order", UserID: "user-transcription", IdempotencyKey: "transcription-task", Capability: "transcription", BillingMode: "per_second",
+		UnitPriceMicrocredits: 100, MultiplierBasisPoints: 10_000, Quantity: 1, AmountMicrocredits: 100,
+		BillingCostSnapshot:        model.BillingCostSnapshot{CostBillingMode: "per_second", CostQuantity: 1},
+		ReservedAmountMicrocredits: 100, Status: model.BillingStatusRunning,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	repo := &Repository{db: db}
+	if err := repo.SettleBillingOrderWithAudioDuration("transcription-order", "", 2_100); err != nil {
+		t.Fatalf("SettleBillingOrderWithAudioDuration() error = %v", err)
+	}
+	var order model.BillingOrder
+	if err := db.First(&order, "id = ?", "transcription-order").Error; err != nil {
+		t.Fatal(err)
+	}
+	if order.Status != model.BillingStatusSettled || order.Quantity != 3 || order.ActualAmountMicrocredits != 300 || order.CostQuantity != 3 {
+		t.Fatalf("settled transcription order = %#v", order)
+	}
+}
+
 func TestSettleAudioPerSecondOrderRequiresMeasuredDuration(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:finance-audio-duration-required?mode=memory&cache=shared"), &gorm.Config{})
 	if err != nil {

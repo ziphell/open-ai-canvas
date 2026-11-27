@@ -41,16 +41,19 @@ type ManifestFilePart struct {
 }
 
 type ManifestResponse struct {
-	TaskIDPaths     []string `json:"taskIdPaths,omitempty"`
-	StatusPaths     []string `json:"statusPaths,omitempty"`
-	ErrorPaths      []string `json:"errorPaths,omitempty"`
-	MessagePaths    []string `json:"messagePaths,omitempty"`
-	TextPaths       []string `json:"textPaths,omitempty"`
-	ReasoningPaths  []string `json:"reasoningPaths,omitempty"`
-	ResultURLPaths  []string `json:"resultUrlPaths,omitempty"`
-	ResultPaths     []string `json:"resultPaths,omitempty"`
-	ResultKind      string   `json:"resultKind,omitempty"`
-	ResultEphemeral bool     `json:"resultEphemeral,omitempty"`
+	// Headers 把上游响应头映射为表达式变量 headers.*（值为字符串）。
+	// 火山引擎等协议把业务状态码放在 X-Api-Status-Code，而响应体为空或没有状态字段。
+	Headers         map[string]string `json:"headers,omitempty"`
+	TaskIDPaths     []string          `json:"taskIdPaths,omitempty"`
+	StatusPaths     []string          `json:"statusPaths,omitempty"`
+	ErrorPaths      []string          `json:"errorPaths,omitempty"`
+	MessagePaths    []string          `json:"messagePaths,omitempty"`
+	TextPaths       []string          `json:"textPaths,omitempty"`
+	ReasoningPaths  []string          `json:"reasoningPaths,omitempty"`
+	ResultURLPaths  []string          `json:"resultUrlPaths,omitempty"`
+	ResultPaths     []string          `json:"resultPaths,omitempty"`
+	ResultKind      string            `json:"resultKind,omitempty"`
+	ResultEphemeral bool              `json:"resultEphemeral,omitempty"`
 	// BinaryPayload 表示 create 同步返回二进制媒体（如 /audio/speech 的音频流）。
 	// 声明式解析会把整个响应体包装为对应能力的单个媒体结果，不做 JSON 路径提取。
 	BinaryPayload bool `json:"binaryPayload,omitempty"`
@@ -64,13 +67,21 @@ type ManifestResponse struct {
 	// Stage 映射上游可读的排队/生成阶段文案，宿主只用于任务进度展示。
 	Stage any `json:"stage,omitempty"`
 	// QueueAhead 映射排在本任务前面的条数；分离式回查据此拉长回查间隔，减少长队列下的无效查询。
-	QueueAhead any `json:"queueAhead,omitempty"`
-	Text       any `json:"text,omitempty"`
-	Reasoning  any `json:"reasoning,omitempty"`
-	Images     any `json:"images,omitempty"`
-	Videos     any `json:"videos,omitempty"`
-	Audios     any `json:"audios,omitempty"`
-	Usage      any `json:"usage,omitempty"`
+	QueueAhead    any                    `json:"queueAhead,omitempty"`
+	Text          any                    `json:"text,omitempty"`
+	Reasoning     any                    `json:"reasoning,omitempty"`
+	Images        any                    `json:"images,omitempty"`
+	Videos        any                    `json:"videos,omitempty"`
+	Audios        any                    `json:"audios,omitempty"`
+	Usage         any                    `json:"usage,omitempty"`
+	Transcription *ManifestTranscription `json:"transcription,omitempty"`
+}
+
+// ManifestTranscription 把上游转写响应映射为统一段落；segments 的每项可读取
+// start/end（秒）或 startMs/endMs（毫秒）以及 text。
+type ManifestTranscription struct {
+	Segments any `json:"segments,omitempty"`
+	Language any `json:"language,omitempty"`
 }
 
 // ManifestAgentResponse describes the provider response shape for a
@@ -156,7 +167,7 @@ func validatePluginMetadata(metadata Metadata) error {
 		return fmt.Errorf("protocol plugin metadata requires categories and scopes")
 	}
 	for _, capability := range metadata.Categories {
-		if capability != CapabilityText && capability != CapabilityImage && capability != CapabilityVideo && capability != CapabilityAudio {
+		if !isSupportedCapability(capability) {
 			return fmt.Errorf("unsupported protocol capability %q", capability)
 		}
 	}
@@ -331,7 +342,7 @@ func ValidateManifest(manifest Manifest) error {
 			return fmt.Errorf("unsupported provider kind %q", provider.Kind)
 		}
 		for _, capability := range provider.Capabilities {
-			if capability != CapabilityText && capability != CapabilityImage && capability != CapabilityVideo && capability != CapabilityAudio {
+			if !isSupportedCapability(capability) {
 				return fmt.Errorf("unsupported protocol capability %q", capability)
 			}
 		}

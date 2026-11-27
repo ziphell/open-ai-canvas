@@ -40,7 +40,7 @@ export function CanvasAudioSettingsPopover({ config, referenceAudioLabels = [], 
     const { t } = useTranslation();
     const theme = canvasThemes[useActiveTheme()];
     const source = canvasAudioSource(config, referenceAudioLabels);
-    const referenceVoice = source.mode === "unified_edit" && referenceAudioLabels.length > 0;
+    const referenceVoice = source.mode === "generation" && referenceAudioLabels.length > 0;
     const parts = [source.label, audioFormatLabelForConfig(config, config.audioFormat), ...(referenceVoice ? [] : [audioSpeedLabel(config.audioSpeed)])];
     return (
         <CanvasSettingsPopover {...popover} label={t("canvasA.audioSettings.label")} summary={parts.join(" · ")}>

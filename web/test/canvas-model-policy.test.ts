@@ -674,6 +674,28 @@ describe("画布连线能力", () => {
         const nodes = [node("voice", CanvasNodeType.Audio), node("target", CanvasNodeType.Audio)];
         expect(canvasConnectionError(config, nodes, [], { fromNodeId: "voice", toNodeId: "target" })).toContain("不支持参考音频");
     });
+
+    test("豆包语音合成 3.0 只接受文本，按协议能力拒绝参考音频与图片", () => {
+        const config = {
+            ...defaultConfig,
+            model: "doubao::doubao-seed-tts-3.0",
+            audioModel: "doubao::doubao-seed-tts-3.0",
+            channels: [
+                {
+                    id: "doubao",
+                    name: "豆包语音",
+                    baseUrl: "https://voice.cn-beijing.volces.com",
+                    apiKey: "test-key",
+                    apiFormat: "openai" as const,
+                    models: ["doubao-seed-tts-3.0"],
+                    modelCosts: [{ model: "doubao-seed-tts-3.0", capability: "audio" as const, protocol: "doubao-voice-tts-3-0", billingMode: "fixed_request" as const, unitPriceMicrocredits: 1 }],
+                },
+            ],
+        } satisfies AiConfig;
+        const target = { ...node("target", CanvasNodeType.Audio), metadata: { model: "doubao::doubao-seed-tts-3.0", generationMode: "audio" as const } };
+        expect(canvasConnectionError(config, [node("voice", CanvasNodeType.Audio), target], [], { fromNodeId: "voice", toNodeId: "target" })).toContain("不支持参考音频");
+        expect(canvasConnectionError(config, [node("picture", CanvasNodeType.Image), target], [], { fromNodeId: "picture", toNodeId: "target" })).toContain("不支持参考图片");
+    });
 });
 
 describe("图片参考图上限", () => {

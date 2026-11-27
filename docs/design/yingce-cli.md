@@ -89,10 +89,10 @@ curl -fsSL https://<host>/cli/install.sh | bash
 
 ### 3.2 版本
 
-| 命令 | 行为 |
-| --- | --- |
+| 命令               | 行为                             |
+| ---------------- | ------------------------------ |
 | `yingce version` | 输出 CLI 版本、契约版本、提交号；升级用安装脚本覆盖安装 |
-| `yingce doctor` | 检查 base URL、认证、服务端健康、契约兼容性 |
+| `yingce doctor`  | 检查 base URL、认证、服务端健康、契约兼容性     |
 
 `GET /api/cli/manifest` 返回最低服务端版本、契约版本和废弃命令列表，`doctor` 用它判断兼容性。
 
@@ -110,11 +110,11 @@ CLI 安装包进入前端构建流程，由 web 静态目录提供；发布和�
 
 ### 4.1 三种方式
 
-| 方式 | 场景 | 行为 |
-| --- | --- | --- |
-| 浏览器授权（默认） | 本机交互式 | `yingce login` 监听 loopback 并拉起浏览器，用户在授权页确认 |
-| 粘贴 token | CI、容器、无浏览器 | `yingce login --token-stdin`，从 stdin 读取 |
-| 环境变量 | 自动化 | `YINGCE_TOKEN`，不落盘 |
+| 方式        | 场景         | 行为                                         |
+| --------- | ---------- | ------------------------------------------ |
+| 浏览器授权（默认） | 本机交互式      | `yingce login` 监听 loopback 并拉起浏览器，用户在授权页确认 |
+| 粘贴 token  | CI、容器、无浏览器 | `yingce login --token-stdin`，从 stdin 读取    |
+| 环境变量      | 自动化        | `YINGCE_TOKEN`，不落盘                         |
 
 不接受网页 Cookie、账号密码、浏览器导出 JSON。
 
@@ -158,14 +158,14 @@ CLI                                后端                          浏览器
 }
 ```
 
-| scope | 允许 |
-| --- | --- |
-| `read` | 项目、画布、任务、模型、素材、额度、openapi |
-| `asset:upload` | 上传素材 |
-| `canvas:write` | 写画布 |
-| `generate:image` / `generate:video` / `generate:audio` | 对应类型生成 |
-| `task:write` | 取消任务 |
-| `agent:run` | 创建/取消云端 Agent 运行 |
+| scope                                                  | 允许                        |
+| ------------------------------------------------------ | ------------------------- |
+| `read`                                                 | 项目、画布、任务、模型、素材、额度、openapi |
+| `asset:upload`                                         | 上传素材                      |
+| `canvas:write`                                         | 写画布                       |
+| `generate:image` / `generate:video` / `generate:audio` | 对应类型生成                    |
+| `task:write`                                           | 取消任务                      |
+| `agent:run`                                            | 创建/取消云端 Agent 运行          |
 
 `projectIds` 和 `models` 为空表示不额外限制。
 
@@ -180,40 +180,40 @@ CLI                                后端                          浏览器
 
 ### 5.1 辅助命令
 
-| 命令 | 端点 | 说明 |
-| --- | --- | --- |
-| `yingce version` | 本地 | 版本信息 |
-| `yingce doctor [--json]` | `GET /health/live`、`GET /health/ready`、`GET /agent/capabilities` | 诊断 |
-| `yingce login [--no-browser]` | 浏览器授权三个端点（新增） | 登录 |
-| `yingce login --token-stdin` | 无 | 粘贴 token |
-| `yingce logout` | `DELETE /auth/tokens/current`（新增） | 撤销当前 token |
-| `yingce whoami` | `GET /auth/session`（需兼容 Bearer） | 当前用户与 scope |
-| `yingce skill` | 本地 | 输出 SKILL.md 原文，由调用方保存或注入 |
+| 命令                            | 端点                                                               | 说明                       |
+| ----------------------------- | ---------------------------------------------------------------- | ------------------------ |
+| `yingce version`              | 本地                                                               | 版本信息                     |
+| `yingce doctor [--json]`      | `GET /health/live`、`GET /health/ready`、`GET /agent/capabilities` | 诊断                       |
+| `yingce login [--no-browser]` | 浏览器授权三个端点（新增）                                                    | 登录                       |
+| `yingce login --token-stdin`  | 无                                                                | 粘贴 token                 |
+| `yingce logout`               | `DELETE /auth/tokens/current`（新增）                                | 撤销当前 token               |
+| `yingce whoami`               | `GET /auth/session`（需兼容 Bearer）                                  | 当前用户与 scope              |
+| `yingce skill`                | 本地                                                               | 输出 SKILL.md 原文，由调用方保存或注入 |
 
 ### 5.2 核心命令
 
-| # | 命令 | 端点 | 必需 scope | 状态 |
-| --- | --- | --- | --- | --- |
-| 1 | `yingce project list` | `GET /projects` | read | 已有 |
-| 2 | `yingce project get <id>` | `GET /projects/:id`、`/overview` | read | 已有 |
-| 3 | `yingce canvas list` | `GET /canvas-projects` | read | 已有 |
-| 4 | `yingce canvas get <id>` | `GET /canvas-projects/:id` | read | 已有 |
-| 5 | `yingce canvas apply <id>` | `PATCH /canvas-projects/:id/operations` | canvas:write | 已有 |
-| 6 | `yingce task list` | `GET /tasks` | read | 已有 |
-| 7 | `yingce task get <id>` | `GET /tasks/:id` | read | 已有 |
-| 8 | `yingce task wait <id>` | `GET /tasks/:id` 轮询 | read | 已有 |
-| 9 | `yingce task cancel <id>` | `POST /tasks/:id/cancel` | task:write | 已有 |
-| 10 | `yingce model list` | `GET /model-catalog` | read | 已有 |
-| 11 | `yingce model quote` | `POST /models/:id/quote`（逻辑模型）、`POST /model-catalog/quote`（渠道模型） | read | 已有 |
-| 12 | `yingce asset list` | `GET /projects/:id/assets` | read | 已有 |
-| 13 | `yingce asset upload` | `POST /resources`（小文件）、`POST /resources/uploads`（分片） | asset:upload | 已有 |
-| 14 | `yingce generate` | `POST /tasks` | generate:* | 已有，需补幂等键 |
-| 15 | `yingce credit` | `GET /wallet` | read | 已有 |
-| 16 | `yingce run create` | `POST /agent/runs` | agent:run | 已有 |
-| 17 | `yingce run get <id>` | `GET /agent/runs/:id` | read | 已有 |
-| 18 | `yingce run events <id>` | `GET /agent/runs/:id/events` | read | 已有 |
-| 19 | `yingce run cancel <id>` | `POST /agent/runs/:id/cancel` | agent:run | 已有 |
-| 20 | `yingce openapi` | `GET /openapi.yaml` | read | 已有 |
+| #  | 命令                         | 端点                                                               | 必需 scope     | 状态       |
+| -- | -------------------------- | ---------------------------------------------------------------- | ------------ | -------- |
+| 1  | `yingce project list`      | `GET /projects`                                                  | read         | 已有       |
+| 2  | `yingce project get <id>`  | `GET /projects/:id`、`/overview`                                  | read         | 已有       |
+| 3  | `yingce canvas list`       | `GET /canvas-projects`                                           | read         | 已有       |
+| 4  | `yingce canvas get <id>`   | `GET /canvas-projects/:id`                                       | read         | 已有       |
+| 5  | `yingce canvas apply <id>` | `PATCH /canvas-projects/:id/operations`                          | canvas:write | 已有       |
+| 6  | `yingce task list`         | `GET /tasks`                                                     | read         | 已有       |
+| 7  | `yingce task get <id>`     | `GET /tasks/:id`                                                 | read         | 已有       |
+| 8  | `yingce task wait <id>`    | `GET /tasks/:id` 轮询                                              | read         | 已有       |
+| 9  | `yingce task cancel <id>`  | `POST /tasks/:id/cancel`                                         | task:write   | 已有       |
+| 10 | `yingce model list`        | `GET /model-catalog`                                             | read         | 已有       |
+| 11 | `yingce model quote`       | `POST /models/:id/quote`（逻辑模型）、`POST /model-catalog/quote`（渠道模型） | read         | 已有       |
+| 12 | `yingce asset list`        | `GET /projects/:id/assets`                                       | read         | 已有       |
+| 13 | `yingce asset upload`      | `POST /resources`（小文件）、`POST /resources/uploads`（分片）             | asset:upload | 已有       |
+| 14 | `yingce generate`          | `POST /tasks`                                                    | generate:\*  | 已有，需补幂等键 |
+| 15 | `yingce credit`            | `GET /wallet`                                                    | read         | 已有       |
+| 16 | `yingce run create`        | `POST /agent/runs`                                               | agent:run    | 已有       |
+| 17 | `yingce run get <id>`      | `GET /agent/runs/:id`                                            | read         | 已有       |
+| 18 | `yingce run events <id>`   | `GET /agent/runs/:id/events`                                     | read         | 已有       |
+| 19 | `yingce run cancel <id>`   | `POST /agent/runs/:id/cancel`                                    | agent:run    | 已有       |
+| 20 | `yingce openapi`           | `GET /openapi.yaml`                                              | read         | 已有       |
 
 `run create` 的 `permissionMode` 只允许 `read_only` 和 `auto`。`request_approval` 不对外开放，因为外部没有审批面。
 
@@ -245,19 +245,19 @@ CLI                                后端                          浏览器
 
 ### 6.2 退出码
 
-| 退出码 | 含义 |
-| --- | --- |
-| 0 | 成功 |
-| 2 | 参数错误 |
-| 3 | 未认证 / token 失效 |
-| 4 | 权限或 scope 不足 |
-| 5 | 资源不存在 |
-| 6 | 冲突（revision、幂等键、状态机） |
-| 7 | 限流 |
-| 8 | 额度不足 |
-| 9 | 服务端或上游错误 |
-| 10 | 超时（不代表失败） |
-| 11 | 结果不确定，需要核对 |
+| 退出码 | 含义                   |
+| --- | -------------------- |
+| 0   | 成功                   |
+| 2   | 参数错误                 |
+| 3   | 未认证 / token 失效       |
+| 4   | 权限或 scope 不足         |
+| 5   | 资源不存在                |
+| 6   | 冲突（revision、幂等键、状态机） |
+| 7   | 限流                   |
+| 8   | 额度不足                 |
+| 9   | 服务端或上游错误             |
+| 10  | 超时（不代表失败）            |
+| 11  | 结果不确定，需要核对           |
 
 `reason` 映射为退出码，不解析 `msg`。例如 `agent_conversation_stale_parent` → 6，`quota_exceeded` → 8。
 
@@ -366,16 +366,16 @@ MCP 留作后续可选形态，不进入 v1 契约。
 
 ## 12. 后端缺口
 
-| 缺口 | 内容 | 优先级 |
-| --- | --- | --- |
-| Bearer 鉴权 | `api_tokens` 表、哈希校验、`lastUsedAt`、撤销 | P0 |
-| 浏览器授权 | `GET/POST /api/auth/cli/authorize`、`POST /api/auth/cli/token`、`cli_auth_codes` 表 | P0 |
-| token 管理 | Web 页面 + `GET/POST/DELETE /auth/tokens` | P0 |
-| scope 强制 | 按路由与任务模式校验 | P0 |
-| 任务幂等 | `POST /tasks` 接受 `X-Idempotency-Key`；已实现 | P1 |
-| 上传去重 | 按用户 + SHA-256 复用资源 | P1 |
-| CLI manifest | `GET /cli/manifest` 返回契约、最低版本与废弃命令；`doctor` 已接入 | 已实现 |
-| OpenAPI 子集 | 只文档化白名单端点 | P2 |
+| 缺口           | 内容                                                                               | 优先级 |
+| ------------ | -------------------------------------------------------------------------------- | --- |
+| Bearer 鉴权    | `api_tokens` 表、哈希校验、`lastUsedAt`、撤销                                              | P0  |
+| 浏览器授权        | `GET/POST /api/auth/cli/authorize`、`POST /api/auth/cli/token`、`cli_auth_codes` 表 | P0  |
+| token 管理     | Web 页面 + `GET/POST/DELETE /auth/tokens`                                          | P0  |
+| scope 强制     | 按路由与任务模式校验                                                                       | P0  |
+| 任务幂等         | `POST /tasks` 接受 `X-Idempotency-Key`；已实现                                         | P1  |
+| 上传去重         | 按用户 + SHA-256 复用资源                                                               | P1  |
+| CLI manifest | `GET /cli/manifest` 返回契约、最低版本与废弃命令；`doctor` 已接入                                  | 已实现 |
+| OpenAPI 子集   | 只文档化白名单端点                                                                        | P2  |
 
 ## 13. 落地顺序与验收
 

@@ -19,7 +19,7 @@ import "./provider-catalog-wizard.css";
 
 type Step = "pick" | "connect" | "pricing";
 
-const capabilityLabels: Record<ProviderCatalogModel["capability"], string> = { text: "文本", image: "图片", video: "视频", audio: "音频" };
+const capabilityLabels: Record<ProviderCatalogModel["capability"], string> = { text: "文本", image: "图片", video: "视频", audio: "音频", transcription: "转写" };
 const stepLabels: Array<{ key: Step; label: string }> = [
     { key: "pick", label: "选择服务商" },
     { key: "connect", label: "填写 Key" },

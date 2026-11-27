@@ -433,6 +433,19 @@ type UserPromptCustomization struct {
 	UpdatedAt      time.Time `json:"updatedAt"`
 }
 
+// UserModelPreference 保存账号级默认模型选择；模型值沿用前端渠道限定引用，跨浏览器按账号恢复。
+type UserModelPreference struct {
+	UserID     string `json:"userId" gorm:"primaryKey;size:36"`
+	ImageModel string `json:"imageModel" gorm:"size:256"`
+	VideoModel string `json:"videoModel" gorm:"size:256"`
+	TextModel  string `json:"textModel" gorm:"size:256"`
+	AudioModel string `json:"audioModel" gorm:"size:256"`
+	// TranscriptionModel 是账号默认转写服务；为空时由后端选择第一个可用转写模型。
+	TranscriptionModel string    `json:"transcriptionModel" gorm:"size:256"`
+	CreatedAt          time.Time `json:"createdAt"`
+	UpdatedAt          time.Time `json:"updatedAt"`
+}
+
 type Announcement struct {
 	ID              string             `json:"id" gorm:"primaryKey;size:36"`
 	Title           string             `json:"title" gorm:"size:120"`

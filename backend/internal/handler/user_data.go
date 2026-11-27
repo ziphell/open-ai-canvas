@@ -76,6 +76,38 @@ func RegisterUserDataRoutes(r *gin.RouterGroup, svc *service.Service) {
 		}
 		ok(c, gin.H{"assets": assets})
 	})
+	r.GET("/settings/model-defaults", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		preference, err := svc.UserModelDefaults(user)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, gin.H{"defaults": preference})
+	})
+	r.PATCH("/settings/model-defaults", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4<<10)
+		var req service.UpdateUserModelDefaultsRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			fail(c, http.StatusBadRequest, err)
+			return
+		}
+		preference, err := svc.UpdateUserModelDefaults(user, req)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, gin.H{"defaults": preference})
+	})
 	r.GET("/settings/prompt-templates", func(c *gin.Context) {
 		user, err := currentUser(c, svc)
 		if err != nil {

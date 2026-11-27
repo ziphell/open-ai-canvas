@@ -1,4 +1,4 @@
-import { AudioLines, Check, Film, Image, MessageSquareText } from "lucide-react";
+import { AudioLines, Captions, Check, Film, Image, MessageSquareText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { ModelIcon } from "@/components/model-picker";
@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { filterModelsByCapability, modelOptionName, resolveModelChannel, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
 import { useUserStore } from "@/stores/use-user-store";
 
-type DefaultModelKey = "imageModel" | "videoModel" | "textModel" | "audioModel";
+type DefaultModelKey = "imageModel" | "videoModel" | "textModel" | "audioModel" | "transcriptionModel";
 
 const groups: Array<{
     capability: ModelCapability;
@@ -20,6 +20,7 @@ const groups: Array<{
     { capability: "video", modelKey: "videoModel", icon: Film },
     { capability: "text", modelKey: "textModel", icon: MessageSquareText },
     { capability: "audio", modelKey: "audioModel", icon: AudioLines },
+    { capability: "transcription", modelKey: "transcriptionModel", icon: Captions },
 ];
 
 export function ModelDefaultGrid({ config, onChange }: { config: AiConfig; onChange: (key: DefaultModelKey, model: string) => void }) {
@@ -28,7 +29,7 @@ export function ModelDefaultGrid({ config, onChange }: { config: AiConfig; onCha
     return (
         <div className="space-y-1">
             {groups.map((group) => {
-                const models = filterModelsByCapability(config.models, group.capability, config.channels);
+                const models = filterModelsByCapability(config.models, group.capability, config.channels).filter((model) => group.capability !== "transcription" || resolveModelChannel(config, model).scope === "system");
                 const Icon = group.icon;
                 const title = t(`account.settings.models.${group.capability}.title`);
                 return (

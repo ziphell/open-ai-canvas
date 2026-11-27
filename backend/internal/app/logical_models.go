@@ -450,8 +450,8 @@ func (s *Service) logicalModelBundle(actor *model.User, id string, req LogicalMo
 	} else if billingMode != "fixed_request" && billingMode != "per_second" && billingMode != "token" && billingMode != imagebilling.Mode {
 		return nil, nil, nil, false, BadAuthRequest("前台模型计费方式仅支持按次、按秒、Token 或图片用量")
 	}
-	if pricePolicy == "unified" && billingMode == "per_second" && capability != "video" && capability != "audio" {
-		return nil, nil, nil, false, BadAuthRequest("只有视频或音频前台模型可以按秒计费")
+	if pricePolicy == "unified" && billingMode == "per_second" && capability != "video" && capability != "audio" && capability != "transcription" {
+		return nil, nil, nil, false, BadAuthRequest("只有视频、音频或转写前台模型可以按秒计费")
 	}
 	if pricePolicy == "unified" && billingMode == "token" {
 		if err := validateTokenPrices(capability, req.InputPriceMicrocredits, req.OutputPriceMicrocredits, req.CachedPriceMicrocredits, req.CacheWritePriceMicrocredits); err != nil {

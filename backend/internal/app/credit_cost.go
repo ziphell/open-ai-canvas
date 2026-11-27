@@ -72,10 +72,15 @@ func billingCreditCost(order model.BillingOrder) (*int64, error) {
 	case "token":
 		input, output, cached, cacheWrite := order.InputTokens, order.OutputTokens, order.CachedTokens, order.CacheWriteTokens
 		if !order.UsageAvailable {
-			if order.Capability != "video" || order.CostVideoFormulaTokens <= 0 {
+			if order.Capability == "video" && order.CostVideoFormulaTokens > 0 {
+				input, cached, cacheWrite, output = 0, 0, 0, order.CostVideoFormulaTokens
+			} else if tokenCostIsZero(cost, order.Capability) {
+				// 成本价全为 0 时不依赖用量即可确定成本为 0，仍要写入成本台账。
+				zero := int64(0)
+				return &zero, nil
+			} else {
 				return nil, nil
 			}
-			input, cached, cacheWrite, output = 0, 0, 0, order.CostVideoFormulaTokens
 		}
 		amount, err = kernel.TokenBillingAmount(10_000,
 			kernel.TokenBillingTerm{Tokens: max(0, input-cached-cacheWrite), PriceMicrocredits: cost.InputTokenPriceMicrocredits},
@@ -90,4 +95,13 @@ func billingCreditCost(order model.BillingOrder) (*int64, error) {
 		return nil, err
 	}
 	return &amount, nil
+}
+
+// tokenCostIsZero 判断 Token 成本是否与用量无关地确定为 0；视频 Token 只按输出价计成本。
+func tokenCostIsZero(cost model.CreditCostPricing, capability string) bool {
+	if capability == "video" {
+		return cost.OutputTokenPriceMicrocredits == 0
+	}
+	return cost.InputTokenPriceMicrocredits == 0 && cost.OutputTokenPriceMicrocredits == 0 &&
+		cost.CachedTokenPriceMicrocredits == 0 && cost.CacheWriteTokenPriceMicrocredits == 0
 }

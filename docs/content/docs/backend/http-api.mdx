@@ -635,7 +635,7 @@ Token 报价的 `estimated` 为 `true`，`quantity` 是预留 Token 数。`inten
 
 `GET/POST /admin/channels/:id/models` 与 `PATCH /admin/channels/:id/models/:modelId` 的 `priceTiers[]` 增加 `costPricing`：`configured`、`unitPriceMicrocredits`、`inputTokenPriceMicrocredits`、`outputTokenPriceMicrocredits`、`cachedTokenPriceMicrocredits`、`cacheWriteTokenPriceMicrocredits`。成本沿用该价格档的计费方式；按次/秒使用单位价，文本 Token 按输入/输出/缓存命中/缓存写入分别定价（缓存写入默认 0），视频 Token 只使用输出价。价格档售价同样新增 `cacheWriteTokenPriceMicrocredits`，公开模型目录随价格档返回。价格为整数微积分，范围为 0 到 1000000000000；`configured=false` 表示未配置，`true` 且价格为 0 表示显式零成本。
 
-成本保存到下单时的内部账单快照，不受售价倍率或扣费上限影响，后续改价不重算旧订单。历史逻辑模型任务切换备用线路时，成本更新为实际执行线路的快照，独立于用户售价策略。管理员请求列表、详情与 CSV 分列展示预授权、实收及成本金额；JSON 返回 `billingReservedMicrocredits`（订单预授权额）、可选 `billingSettledMicrocredits`（仅已结算订单返回实收）、`creditCostConfigured` 和可选 `creditCostMicrocredits`。预授权、待核对和已退回订单不返回实收，不能把预授权额当作扣费额；CSV 对应列为“预授权(微积分)”“实收(微积分)”。成功结算后按实际计费数量、Token 用量或视频公式快照核算；未结算、已退回、历史无快照或缺少有效用量时不编造成本金额。
+成本保存到下单时的内部账单快照，不受售价倍率或扣费上限影响，后续改价不重算旧订单。历史逻辑模型任务切换备用线路时，成本更新为实际执行线路的快照，独立于用户售价策略。管理员请求列表、详情与 CSV 分列展示预授权、实收及成本金额；JSON 返回 `billingReservedMicrocredits`（订单预授权额）、可选 `billingSettledMicrocredits`（仅已结算订单返回实收）、`creditCostConfigured` 和可选 `creditCostMicrocredits`。预授权、待核对和已退回订单不返回实收，不能把预授权额当作扣费额；CSV 对应列为“预授权(微积分)”“实收(微积分)”。成功结算后按实际计费数量、Token 用量或视频公式快照核算；未结算、已退回、历史无快照或缺少有效用量时不编造成本金额。售价为 0 的订单仍记录真实 Token 用量并核算成本，成本价显式为 0 时即使缺少用量也按 0 计入成本台账。
 
 成本字段仅通过经过管理员权限校验的接口显式返回；普通用户的模型目录、会话模型信息、报价、任务与账单 JSON 均不包含成本配置、成本快照或成本金额。底层价格档和账单成本字段禁止 JSON 序列化，不以页面隐藏代替接口隔离。
 

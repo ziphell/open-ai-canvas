@@ -646,6 +646,12 @@ docker compose -f docker-compose.deploy.yml up -d backend web
 
 启动时 `EnsureDefaultPromptTemplates` 只为尚无任何版本的操作写入内置默认稿。新增操作（当前包括短剧大纲 `short_drama_outline` 和技能草稿 `skill_draft`）会在下次启动补种，不改已有操作的启用版本。
 
+## 账号默认模型
+
+| 表 | 用途 | 关键边界 |
+| --- | --- | --- |
+| `user_model_preferences` | 保存账号维度的默认图片、视频、文本、音频和转写模型选择 | 主键 `user_id`；模型值沿用前端渠道限定引用，登录后按服务端值恢复并跨浏览器共享；模型下架或渠道不在当前设备时前端保留本地选择；`transcription_model` 为空时由后端选择第一个可用转写模型 |
+
 ## 短剧分镜生产
 
 | 表 | 用途 | 关键边界 |

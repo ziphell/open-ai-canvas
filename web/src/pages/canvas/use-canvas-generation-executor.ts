@@ -285,8 +285,8 @@ export function useCanvasGenerationExecutor({
                             generationConfig.taskWorkflowProvider && generationConfig.taskWorkflowProvider !== "model"
                                 ? {
                                       provider: generationConfig.taskWorkflowProvider,
-                                      workflowId: generationConfig.runningHub.workflowId,
-                                      workflowKind: generationConfig.runningHub.selectedKind,
+                                      workflowId: generationConfig.taskWorkflowProvider === "comfyui" ? generationConfig.comfyUI.workflowId : generationConfig.runningHub.workflowId,
+                                      workflowKind: generationConfig.taskWorkflowProvider === "comfyui" ? "workflow" : generationConfig.runningHub.selectedKind,
                                       parameters: sourceNode?.metadata?.workflowParameters,
                                   }
                                 : undefined,

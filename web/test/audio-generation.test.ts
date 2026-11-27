@@ -1,5 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { doubaoAudioVoiceOptions, isDoubaoAudioConfig, normalizeAudioSpeedValue, normalizeAudioVoiceForConfig, normalizeAudioVoiceValue } from "../src/lib/audio-generation";
+import {
+    audioCapabilityForConfig,
+    audioFormatOptionsForConfig,
+    audioModeOptionsForConfig,
+    effectiveAudioMode,
+    doubaoAudioVoiceOptions,
+    isDoubaoAudioConfig,
+    normalizeAudioSpeedValue,
+    normalizeAudioVoiceForConfig,
+    normalizeAudioVoiceValue,
+} from "../src/lib/audio-generation";
 
 const config = (protocol: string) =>
     ({
@@ -53,5 +63,22 @@ describe("audio voice protocol handling", () => {
     test("preserves manually entered official Doubao speaker IDs", () => {
         const doubao = { ...config("doubao-streaming-tts"), model: "seed-audio-1.0", audioModel: "seed-audio-1.0" } as any;
         expect(normalizeAudioVoiceForConfig(doubao, "zh_male_custom_official_speaker")).toBe("zh_male_custom_official_speaker");
+    });
+
+    test("seed-audio declares both audio modes and reference capacity", () => {
+        const doubao = { ...config("doubao-streaming-tts"), model: "seed-audio-1.0", audioModel: "seed-audio-1.0" } as any;
+        expect(audioModeOptionsForConfig(doubao).map((option) => option.value)).toEqual(["tts", "generation"]);
+        expect(effectiveAudioMode(doubao)).toBe("generation");
+        expect(audioCapabilityForConfig(doubao).references).toEqual({ maxAudios: 3, maxImages: 1 });
+        expect(audioFormatOptionsForConfig(doubao).map((option) => option.value)).toEqual(["mp3", "wav", "ogg_opus", "pcm"]);
+    });
+
+    test("Doubao TTS 3.0 only supports speech synthesis without references", () => {
+        const tts3 = { ...config("doubao-voice-tts-3-0"), model: "doubao-seed-tts-3.0", audioModel: "doubao-seed-tts-3.0" } as any;
+        expect(isDoubaoAudioConfig(tts3)).toBe(true);
+        expect(audioModeOptionsForConfig(tts3).map((option) => option.value)).toEqual(["tts"]);
+        expect(effectiveAudioMode(tts3)).toBe("tts");
+        expect(audioCapabilityForConfig(tts3).references).toEqual({ maxAudios: 0, maxImages: 0 });
+        expect(audioFormatOptionsForConfig(tts3).map((option) => option.value)).toEqual(["mp3", "pcm", "ogg_opus"]);
     });
 });

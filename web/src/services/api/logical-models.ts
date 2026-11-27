@@ -15,7 +15,7 @@ export type CapabilityImageSize = {
 export type CapabilitySpec = {
     imageParameters?: import("@/lib/image-parameters").ImageParameter[];
     version: 1;
-    capability: "text" | "image" | "video" | "audio";
+    capability: "text" | "image" | "video" | "audio" | "transcription";
     operations?: string[];
     inputs?: Record<string, InputConstraint>;
     options?: Record<string, OptionConstraint>;

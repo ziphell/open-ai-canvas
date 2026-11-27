@@ -49,7 +49,7 @@ export function PriceTierFields({
     const resolutionOptions = Array.from(new Set([...(video?.resolutions || []), ...(protocol === "autodl-comfyui" ? video?.fixedScreenSpec?.resolutions || [] : [])]));
     const tokenEnabled = modelProtocolSupportsTokenBilling(capability, protocol);
     const isVideo = capability === "video";
-    const isAudio = capability === "audio";
+    const isAudio = capability === "audio" || capability === "transcription";
     const isDurationPriced = isVideo || isAudio;
     const isImage = capability === "image";
     const referenceVideoBillingValue = Form.useWatch("referenceVideoBilling", form);
@@ -318,5 +318,6 @@ function operationOptions(capability: EditableCapability | undefined) {
     if (capability === "video")
         return [...options, { label: "文生视频", value: "text_to_video" }, { label: "图生视频", value: "image_to_video" }, { label: "视频生视频", value: "video_to_video" }, { label: "画质增强", value: "enhance" }, { label: "相对深度", value: "depth" }];
     if (capability === "text") return [...options, { label: "文本生成", value: "text_generation" }];
+    if (capability === "transcription") return [...options, { label: "语音转写", value: "transcription" }];
     return options;
 }

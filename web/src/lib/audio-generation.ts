@@ -1,4 +1,5 @@
 import { doubaoAudioVoiceOptions, doubaoDefaultAudioVoice } from "@/lib/doubao-audio-voices";
+import { defaultModelCapabilityConfig, type AudioCapabilityConfig, type AudioMode } from "@/lib/model-capabilities";
 import { resolveModelRequestConfig } from "@/stores/use-config-store";
 import type { AiConfig } from "@/stores/use-config-store";
 
@@ -76,15 +77,50 @@ export const openAIAudioFormatOptions = [
     { value: "pcm", label: "PCM" },
 ];
 
-export const doubaoAudioFormatOptions = [
-    { value: "mp3", label: "MP3" },
-    { value: "wav", label: "WAV" },
-    { value: "ogg_opus", label: "OGG Opus" },
-    { value: "pcm", label: "PCM" },
-];
+const audioFormatLabels: Record<string, string> = {
+    mp3: "MP3",
+    wav: "WAV",
+    opus: "Opus",
+    ogg_opus: "OGG Opus",
+    aac: "AAC",
+    flac: "FLAC",
+    pcm: "PCM",
+};
+
+export function audioCapabilityForConfig(config: AiConfig): AudioCapabilityConfig {
+    const requestConfig = resolveModelRequestConfig(config, config.model || config.audioModel);
+    return defaultModelCapabilityConfig(requestConfig.interfaceType, requestConfig.model).audio!;
+}
 
 export function isDoubaoAudioConfig(config: AiConfig) {
-    return resolveModelRequestConfig(config, config.model || config.audioModel).interfaceType === "doubao-streaming-tts";
+    return audioCapabilityForConfig(config).voice === "free";
+}
+
+export function audioModeOptionsForConfig(config: AiConfig) {
+    const modes = audioCapabilityForConfig(config).modes;
+    return [
+        { value: "tts" as const, label: "语音合成" },
+        { value: "generation" as const, label: "音频生成" },
+    ].filter((option) => modes.includes(option.value));
+}
+
+/** 未显式指定时，支持音频生成的模型默认按提示词生成，其余模型默认文本朗读。 */
+export function defaultAudioModeForConfig(config: AiConfig): AudioMode {
+    return audioCapabilityForConfig(config).modes.includes("generation") ? "generation" : "tts";
+}
+
+export function normalizeAudioModeForConfig(config: AiConfig, value?: string): AudioMode {
+    const modes = audioCapabilityForConfig(config).modes;
+    if (value === "tts" && modes.includes("tts")) return "tts";
+    if ((value === "generation" || value === "unified_edit") && modes.includes("generation")) return "generation";
+    return modes.includes("generation") ? "generation" : "tts";
+}
+
+export function effectiveAudioMode(config: AiConfig, referenceCount = 0): AudioMode {
+    const modes = audioCapabilityForConfig(config).modes;
+    if (config.audioMode === "tts" || config.audioMode === "generation" || config.audioMode === "unified_edit") return normalizeAudioModeForConfig(config, config.audioMode);
+    if (referenceCount > 0 && modes.includes("generation")) return "generation";
+    return modes.includes("generation") ? "generation" : "tts";
 }
 
 export function audioVoiceOptionsForConfig(config: AiConfig) {
@@ -92,7 +128,8 @@ export function audioVoiceOptionsForConfig(config: AiConfig) {
 }
 
 export function audioFormatOptionsForConfig(config: AiConfig) {
-    return isDoubaoAudioConfig(config) ? doubaoAudioFormatOptions : openAIAudioFormatOptions;
+    const formats = audioCapabilityForConfig(config).formats;
+    return formats.map((value) => ({ value, label: audioFormatLabels[value] || value.toUpperCase() }));
 }
 
 export function normalizeAudioVoiceForConfig(config: AiConfig, value: string) {
@@ -107,8 +144,8 @@ export function normalizeAudioVoiceForConfig(config: AiConfig, value: string) {
 }
 
 export function normalizeAudioFormatForConfig(config: AiConfig, value: string) {
-    const options = audioFormatOptionsForConfig(config);
-    return options.some((item) => item.value === value) ? value : "mp3";
+    const formats = audioCapabilityForConfig(config).formats;
+    return formats.includes(value) ? value : formats[0] || "mp3";
 }
 
 export function audioVoiceLabelForConfig(config: AiConfig, value: string) {
@@ -118,12 +155,12 @@ export function audioVoiceLabelForConfig(config: AiConfig, value: string) {
 }
 
 export function canvasAudioSource(config: AiConfig, referenceLabels: string[]) {
-    const mode = config.audioMode === "tts" || config.audioMode === "unified_edit" ? config.audioMode : referenceLabels.length ? "unified_edit" : "tts";
-    if (mode === "unified_edit" && referenceLabels.length) {
+    const mode = effectiveAudioMode(config, referenceLabels.length);
+    if (mode === "generation" && referenceLabels.length) {
         return { mode, label: referenceLabels.length === 1 ? `参考音色：${referenceLabels[0]}` : `参考音色：${referenceLabels.length} 段` };
     }
     const voice = audioVoiceLabelForConfig(config, config.audioVoice);
-    return { mode, label: voice ? `音色：${voice}` : mode === "tts" ? "文本朗读" : "配音待选音色" };
+    return { mode, label: voice ? `音色：${voice}` : mode === "tts" ? "文本朗读" : "音频生成" };
 }
 
 export function audioFormatLabelForConfig(config: AiConfig, value: string) {

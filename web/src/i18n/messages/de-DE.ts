@@ -286,7 +286,8 @@ export const deDE: Messages = {
         sections: {
             profile: { label: "Profil", description: "Avatar, Passwort und E-Mail" },
             channels: { label: "Meine Kanäle", description: "Modelldienste und persönliche Workflows" },
-            runninghub: { label: "Workflow-App", description: "RunningHub Cloud und selbst gehostetes ComfyUI" },
+            runninghub: { label: "RunningHub-Workflow", description: "RunningHub-Cloud-Workflow-Einstellungen" },
+            comfyui: { label: "ComfyUI-Workflow", description: "Backend-Direktverbindung zu selbst gehostetem ComfyUI" },
             models: { label: "Modelle", description: "Standardmodelle nach Kategorie" },
             preferences: { label: "Präferenzen", description: "Darstellung, Sprache, Hinweise und Standards" },
             prompts: { label: "Prompt-Präferenzen", description: "Plattformvorlagen pro Aufgabe anpassen" },

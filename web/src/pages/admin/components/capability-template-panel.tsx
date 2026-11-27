@@ -61,7 +61,7 @@ function ScopedCapabilityTemplates({ form, protocols, channelMediaTransport, dis
         reason = error instanceof Error ? error.message : "模板不可用";
     }
     const conflicts = preview ? priceSelectorIssues({ ...values, ...preview, protocols }) : [];
-    const unavailable = disabled || Boolean(library.error) || values.capability === "audio";
+    const unavailable = disabled || Boolean(library.error) || values.capability === "audio" || values.capability === "transcription";
     useEffect(() => {
         const refresh = () => setLibrary(load(scope));
         const changed = (event: Event) => {

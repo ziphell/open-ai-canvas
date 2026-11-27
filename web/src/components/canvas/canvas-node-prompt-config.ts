@@ -2,6 +2,7 @@
 
 import { type CanvasNodeData, CanvasNodeType } from "@/types/canvas";
 import { Video } from "lucide-react";
+import { normalizeAudioModeForConfig } from "@/lib/audio-generation";
 import { type AiConfig, defaultConfig } from "@/stores/use-config-store";
 import { type ModelRequirements, resolveCompatibleModel, resolveModelGenerationDefaults } from "@/lib/model-selection";
 import { canonicalGenerationMetadata } from "@/lib/canvas/generation-contract";
@@ -77,7 +78,7 @@ export function buildNodeConfig(globalConfig: AiConfig, node: CanvasNodeData, mo
         vquality: defaults.vquality ?? normalizeVideoResolution(globalConfig.vquality || defaultConfig.vquality),
         videoGenerateAudio: defaults.videoGenerateAudio ?? globalConfig.videoGenerateAudio ?? defaultConfig.videoGenerateAudio,
         videoWatermark: defaults.videoWatermark ?? globalConfig.videoWatermark ?? defaultConfig.videoWatermark,
-        audioMode: node.metadata?.audioMode || "auto",
+        audioMode: normalizeAudioModeForConfig({ ...globalConfig, model }, node.metadata?.audioMode || (globalConfig.audioMode !== "auto" ? globalConfig.audioMode : undefined)),
         videoArkPrivateAssetUpload: node.metadata?.arkPrivateAssetUpload ?? globalConfig.videoArkPrivateAssetUpload ?? defaultConfig.videoArkPrivateAssetUpload,
         audioVoice: node.metadata?.audioVoice ?? globalConfig.audioVoice ?? defaultConfig.audioVoice,
         audioFormat: node.metadata?.audioFormat || globalConfig.audioFormat || defaultConfig.audioFormat,

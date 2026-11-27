@@ -5,7 +5,7 @@ import { usePluginStore } from "@/stores/use-plugin-store";
 export type GenerationWorkflowMode = "text" | "image" | "video" | "audio";
 
 export type GenerationWorkflowExecution = {
-    provider: "runninghub";
+    provider: "runninghub" | "comfyui";
     kind: RunningHubWorkflowKind;
     capability: RunningHubCapability;
     interfaceType: string;
@@ -26,32 +26,55 @@ export function resolveGenerationWorkflowExecution(config: AiConfig, mode: Gener
     if (workflowProvider === "runninghub") {
         if (!workflowProviderPluginEnabled(usePluginStore.getState().runtimeStatuses, "runninghub")) throw new Error("工作流插件未启用");
         const runningHub = config.runningHub;
-        const connection = runningHub.connection === "comfyui" ? "comfyui" : "runninghub";
-        const providerLabel = connection === "comfyui" ? "ComfyUI" : "RunningHub";
         const workflowId = runningHub.workflowId.trim();
-        // 自建 ComfyUI 没有 App 概念，也不要求积分 Key；只有用户套了鉴权反代时才填 Key。
-        const kind: RunningHubWorkflowKind = connection === "comfyui" ? "workflow" : runningHub.selectedKind === "app" ? "app" : "workflow";
-        const apiKeyReady = connection === "comfyui" || Boolean(runningHub.apiKey.trim());
-        if (!runningHub.enabled || !runningHub.baseUrl.trim() || !apiKeyReady || !workflowId) {
-            throw new Error(connection === "comfyui" ? "ComfyUI 工作流配置不完整，请填写 Base URL 并选择已导入的工作流" : "RunningHub 工作流配置不完整，请填写积分 API Key 并选择已保存条目");
+        const kind: RunningHubWorkflowKind = runningHub.selectedKind === "app" ? "app" : "workflow";
+        if (!runningHub.enabled || !runningHub.baseUrl.trim() || !runningHub.apiKey.trim() || !workflowId) {
+            throw new Error("RunningHub 工作流配置不完整，请填写积分 API Key 并选择已保存条目");
         }
         const workflow = runningHub.workflows.find((item) => item.workflowId.trim() === workflowId && (item.kind === "app" ? "app" : "workflow") === kind);
-        if (!workflow) throw new Error(`当前 ${providerLabel} 工作流条目不存在，请重新选择已保存条目`);
-        if (connection === "comfyui" && !workflow.workflowJson) throw new Error("当前 ComfyUI 条目缺少 API 格式工作流 JSON，请重新导入");
+        if (!workflow) throw new Error("当前 RunningHub 工作流条目不存在，请重新选择已保存条目");
         const capability = normalizeRunningHubCapability(workflow.capability, normalizeRunningHubCapability(runningHub.capability));
-        assertWorkflowCapability(providerLabel, capability, mode);
+        assertWorkflowCapability("RunningHub", capability, mode);
         const webappId = kind === "app" ? (workflow.webappId || workflow.workflowId).trim() : "";
         const name = workflow.title?.trim() || webappId || workflowId;
         return {
             provider: "runninghub",
             kind,
             capability,
-            interfaceType: `${connection === "comfyui" ? "comfyui" : "runninghub"}-workflow-${capability}`,
+            interfaceType: `runninghub-workflow-${capability}`,
             name,
-            taskModel: workflowTaskModel(`${providerLabel} · `, name),
+            taskModel: workflowTaskModel("RunningHub · ", name),
             providerModel: workflowId,
             workflowId: kind === "workflow" ? workflowId : "",
             webappId,
+            workflowJson: workflow.workflowJson || {},
+            workflowFields: workflow.fields || [],
+        };
+    }
+
+    if (workflowProvider === "comfyui") {
+        if (!workflowProviderPluginEnabled(usePluginStore.getState().runtimeStatuses, "comfyui")) throw new Error("工作流插件未启用");
+        const comfyUI = config.comfyUI;
+        const workflowId = comfyUI.workflowId.trim();
+        if (!comfyUI.enabled || !comfyUI.baseUrl.trim() || !workflowId) {
+            throw new Error("ComfyUI 工作流配置不完整，请填写 Base URL 并选择已导入的工作流");
+        }
+        const workflow = comfyUI.workflows.find((item) => item.workflowId.trim() === workflowId && (item.kind === "app" ? "app" : "workflow") === "workflow");
+        if (!workflow) throw new Error("当前 ComfyUI 工作流条目不存在，请重新选择已保存条目");
+        if (!workflow.workflowJson) throw new Error("当前 ComfyUI 条目缺少 API 格式工作流 JSON，请重新导入");
+        const capability = normalizeRunningHubCapability(workflow.capability, normalizeRunningHubCapability(comfyUI.capability));
+        assertWorkflowCapability("ComfyUI", capability, mode);
+        const name = workflow.title?.trim() || workflowId;
+        return {
+            provider: "comfyui",
+            kind: "workflow",
+            capability,
+            interfaceType: `comfyui-workflow-${capability}`,
+            name,
+            taskModel: workflowTaskModel("ComfyUI · ", name),
+            providerModel: workflowId,
+            workflowId,
+            webappId: "",
             workflowJson: workflow.workflowJson || {},
             workflowFields: workflow.fields || [],
         };

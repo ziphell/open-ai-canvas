@@ -1,7 +1,7 @@
 import { CollectionToolbar } from "@/components/layout/collection-toolbar";
 import { App, Button, Input, Modal, Typography } from "antd";
 import { Switch } from "@/components/ui/base/switch";
-import { AudioLines, CalendarDays, CheckCircle2, Clock3, CreditCard, ExternalLink, Film, FolderOpen, Image as ImageIcon, MessageSquareText, PlugZap, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { AudioLines, CalendarDays, Captions, CheckCircle2, Clock3, CreditCard, ExternalLink, Film, FolderOpen, Image as ImageIcon, MessageSquareText, PlugZap, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
@@ -65,6 +65,7 @@ const protocolSectionMeta = [
     { key: "image", label: "图片协议", description: "生成、编辑与参考图", icon: ImageIcon },
     { key: "video", label: "视频协议", description: "视频生成与媒体处理", icon: Film },
     { key: "audio", label: "音频协议", description: "语音与异步音频任务", icon: AudioLines },
+    { key: "transcription", label: "转写协议", description: "语音识别与字幕时间戳", icon: Captions },
     { key: "payment", label: "支付协议", description: "支付、查单、关单与对账", icon: CreditCard },
 ] as const;
 
@@ -654,11 +655,11 @@ function pluginMatchesCategory(manifest: PluginManifest | PluginManifestV2, cate
     const isPaymentProtocol = Boolean(manifest.contributes.paymentProviders?.length);
     if (category === "payment") return isPaymentProtocol;
     if (category === "other") return !isPaymentProtocol && providerCapabilities.length === 0;
-    return providerCapabilities.includes(category as "text" | "image" | "video" | "audio");
+    return providerCapabilities.includes(category as "text" | "image" | "video" | "audio" | "transcription");
 }
 
 function capabilityLabel(value: string) {
-    return ({ text: "文本", image: "图片", video: "视频", audio: "音频" } as Record<string, string>)[value] || value;
+    return ({ text: "文本", image: "图片", video: "视频", audio: "音频", transcription: "转写" } as Record<string, string>)[value] || value;
 }
 
 function eagleFolderOptions(folders: EagleFolder[]) {

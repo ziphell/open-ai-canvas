@@ -41,7 +41,7 @@ describe("canvas audio settings", () => {
         expect(canvasAudioSource({ ...config, audioMode: "auto" }, ["音频1"]).label).toBe("参考音色：音频1");
         expect(canvasAudioSource({ ...config, audioMode: "unified_edit" }, ["音频1", "音频2"]).label).toBe("参考音色：2 段");
         expect(canvasAudioSource({ ...config, audioMode: "tts" }, ["音频1"]).label).toBe("文本朗读");
-        expect(canvasAudioSource({ ...config, audioMode: "unified_edit" }, []).label).toBe("配音待选音色");
+        expect(canvasAudioSource({ ...config, audioMode: "unified_edit" }, []).label).toBe("音频生成");
     });
     test("reference voice mode explains the source and hides unused voice and speed inputs", () => {
         const html = renderToStaticMarkup(<AudioSettingsPanel config={{ ...config, audioMode: "unified_edit" }} referenceAudioLabels={["音频1"]} theme={theme} onConfigChange={() => {}} />);

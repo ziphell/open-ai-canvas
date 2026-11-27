@@ -252,11 +252,11 @@ export function CanvasVideoSegmentDialog({ node, nodes, connections, open, mode,
                                 <span className="min-w-0 flex-1">
                                     {hasEligibleModels
                                         ? `当前默认模型${defaultModel ? `「${modelDisplayName(config, defaultModel)}」` : ""}不支持参考视频，已自动切换到「${modelDisplayName(config, firstEligibleModel)}」。`
-                                        : "当前配置中没有支持参考视频的视频模型，请先到设置里配置 Seedance / Agent Plan / NewAPI 渠道。"}
+                                        : "当前配置中没有支持参考视频的视频模型，请先到设置里选择可用的视频模型。"}
                                 </span>
                                 {!hasEligibleModels ? (
-                                    <Button size="small" type="primary" onClick={() => navigateToSettings({ section: "channels", continueCreation: true })}>
-                                        去设置配置渠道
+                                    <Button size="small" type="primary" onClick={() => navigateToSettings({ section: "models", continueCreation: true })}>
+                                        去设置选择模型
                                     </Button>
                                 ) : null}
                             </div>

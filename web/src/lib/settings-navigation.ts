@@ -1,7 +1,7 @@
-export type SettingsSection = "profile" | "channels" | "models" | "preferences" | "prompts" | "storage";
+export type SettingsSection = "profile" | "models" | "preferences" | "prompts";
 
 export function settingsPath(section?: SettingsSection, continueCreation = false) {
-    const params = new URLSearchParams({ section: section ?? (continueCreation ? "channels" : "profile") });
+    const params = new URLSearchParams({ section: section ?? (continueCreation ? "models" : "profile") });
     if (continueCreation) params.set("continue", "1");
     return `/settings?${params.toString()}`;
 }

@@ -285,7 +285,8 @@ export const enUS: Messages = {
         sections: {
             profile: { label: "Profile", description: "Avatar, password and email" },
             channels: { label: "My channels", description: "Model services and personal workflows" },
-            runninghub: { label: "Workflow app", description: "RunningHub Cloud and self-hosted ComfyUI workflow settings" },
+            runninghub: { label: "RunningHub workflow", description: "RunningHub Cloud workflow settings" },
+            comfyui: { label: "ComfyUI workflow", description: "Backend direct connection to self-hosted ComfyUI" },
             models: { label: "Models", description: "Default models by category" },
             preferences: { label: "Preferences", description: "Appearance, language, alerts and defaults" },
             prompts: { label: "Prompt preferences", description: "Customize platform templates per task" },

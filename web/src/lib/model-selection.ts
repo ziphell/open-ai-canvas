@@ -38,31 +38,31 @@ export type ModelReferenceLimits = {
     maxAudios: number;
 };
 
-/**
- * 普通音频模型只接受文本或音色 ID。豆包音频生成可以连接最多 3 段参考音频，
- * 或 1 张参考图片，两者不能同时使用。
- */
-export function audioReferenceCapacity(config: AiConfig, model: string) {
-    return audioProtocol(config, model) === "doubao-streaming-tts" ? 3 : 0;
+/** 音频模型能力由渠道模型配置或协议默认值声明，不再按模型名白名单判断。 */
+export function audioCapabilityForModel(config: AiConfig, model: string) {
+    return modelCapabilityConfigFor(config, model).audio!;
 }
 
-export function isDoubaoAudioModel(config: AiConfig, model: string) {
+export function audioReferenceCapacity(config: AiConfig, model: string) {
+    return audioCapabilityForModel(config, model).references.maxAudios;
+}
+
+export function audioModelSupportsMode(config: AiConfig, model: string, mode: "tts" | "generation") {
     if (!String(model || "").trim()) return false;
-    if (audioProtocol(config, model) === "doubao-streaming-tts") return true;
-    // seed-audio-1.0 与 seed-audio-1.0-multilingual 共用同一套 references 合同。
-    return modelOptionName(model).toLowerCase().startsWith("seed-audio");
+    return audioCapabilityForModel(config, model).modes.includes(mode);
 }
 
 export function audioModelForConnection(config: AiConfig, explicit = "") {
     const selected = String(explicit || "").trim();
     if (selected) return selected;
     if (String(config.audioModel || "").trim()) return config.audioModel;
-    return (config.audioModels || []).find((item) => isDoubaoAudioModel(config, item)) || "";
+    const candidates = config.audioModels?.length ? config.audioModels : selectableModelsByCapability(config, "audio");
+    return candidates.find((item) => audioModelSupportsMode(config, item, "generation")) || candidates[0] || "";
 }
 
 /**
  * 从连线新建音频节点时选模型：默认音频模型接得住当前输入就用它，
- * 否则改用第一个接得住的音频模型（例如图片连过来时改用豆包音频）。
+ * 否则改用第一个接得住的音频模型（例如图片连过来时改用支持参考图的音频模型）。
  */
 export function audioModelForConnectionInput(config: AiConfig, input: ModelInputSummary) {
     const preferred = audioModelForConnection(config);
@@ -72,18 +72,16 @@ export function audioModelForConnectionInput(config: AiConfig, input: ModelInput
     return candidates.find((model) => !modelCompatibilityError(config, model, requirements)) || preferred;
 }
 
-export function doubaoAudioInputError(input: ModelInputSummary) {
+export function audioInputError(config: AiConfig, model: string, input: ModelInputSummary) {
+    const capacity = audioCapabilityForModel(config, model).references;
     if (input.videoCount > 0) return "音频生成不能连接参考视频";
-    if (input.imageCount > 0 && input.audioCount > 0) return "参考图片和参考音频不能同时连接";
-    if (input.imageCount > 1) return "最多连接 1 张参考图片";
-    if (input.audioCount > 3) return "最多连接 3 段参考音频";
+    if (input.characterCount > 1) return "角色配音一次只能引用一个角色卡";
+    if (capacity.maxImages === 0 && input.imageCount > 0) return "当前音频模型不支持参考图片";
+    if (input.imageCount > capacity.maxImages) return `最多连接 ${capacity.maxImages} 张参考图片`;
+    if (capacity.maxAudios === 0 && input.audioCount > 0) return "当前音频模型不支持参考音频";
+    if (input.audioCount > capacity.maxAudios) return `最多连接 ${capacity.maxAudios} 段参考音频`;
+    if (capacity.maxImages > 0 && capacity.maxAudios > 0 && input.imageCount > 0 && input.audioCount > 0) return "参考图片和参考音频不能同时连接";
     return "";
-}
-
-function audioProtocol(config: AiConfig, model: string) {
-    const channel = resolveModelChannel(config, model);
-    const cost = channel.modelCosts?.find((item) => item.model === modelOptionName(model));
-    return cost?.protocol || channel.interfaceType;
 }
 
 export function isDirectSystemModel(config: AiConfig, value: string) {
@@ -164,14 +162,7 @@ export function modelCompatibilityError(config: AiConfig, model: string, require
         return "";
     }
 
-    if (isDoubaoAudioModel(config, model)) return doubaoAudioInputError(input);
-    if (input.imageCount > 0 || input.videoCount > 0) return "音频模型不能连接参考图片或参考视频";
-    if (input.characterCount > 1) return "角色配音一次只能引用一个角色卡";
-    const maxAudios = audioReferenceCapacity(config, model);
-    if (input.audioCount > maxAudios) {
-        return maxAudios > 0 ? `当前音频模型最多支持 ${maxAudios} 个参考音频` : "当前音频模型不支持参考音频";
-    }
-    return "";
+    return audioInputError(config, model, input);
 }
 
 export function modelPromptLengthError(config: AiConfig, model: string, capability: ModelCapability, prompt: string) {

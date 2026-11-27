@@ -114,7 +114,7 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
                 : [createModelChannel({ id: "default", name: t("account.layout.clientInit.defaultChannel"), baseUrl: baseUrl || undefined })],
         );
         if (baseUrl) updateConfig("baseUrl", baseUrl);
-        navigateToSettings({ section: "channels" });
+        navigateToSettings({ section: "models" });
         if (ignoredApiKey) message.warning(t("account.layout.clientInit.apiKeyIgnored"));
         else message.success(t("account.layout.clientInit.baseUrlImported"));
     }, [config.channels, message, t, updateConfig]);

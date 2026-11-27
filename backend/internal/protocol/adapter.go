@@ -1,6 +1,9 @@
 package protocol
 
-import "context"
+import (
+	"context"
+	"net/http"
+)
 
 // Adapter owns only protocol translation. The host owns credentials, outbound
 // security, polling leases, billing, result downloads and task recovery.
@@ -15,6 +18,17 @@ type Adapter interface {
 
 type RequestAwareCreateParser interface {
 	ParseCreateWithRequest(context.Context, GenerationRequest, []byte) (CreateResult, error)
+}
+
+// HeaderAwareCreateParser 让声明式协议读取上游响应头。火山引擎录音文件识别把
+// 提交结果放在 X-Api-Status-Code，响应体为空，只能通过响应头判断成功或失败。
+type HeaderAwareCreateParser interface {
+	ParseCreateWithRequestAndHeaders(context.Context, GenerationRequest, http.Header, []byte) (CreateResult, error)
+}
+
+// HeaderAwarePollParser 是查询阶段的响应头读取接口，语义同上。
+type HeaderAwarePollParser interface {
+	ParsePollWithHeaders(context.Context, PollContext, http.Header, []byte) (PollResult, error)
 }
 
 // AgentAdapter is the optional protocol surface for tool-capable text calls.

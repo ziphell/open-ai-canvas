@@ -260,7 +260,7 @@ func publicChannel(channel model.ModelChannel, admin bool, channelModels []model
 	modelCosts := make([]PublicChannelModelPrice, 0, len(channelModels))
 	var capabilities []string
 	if admin {
-		for _, capability := range []string{"text", "video", "image", "audio"} {
+		for _, capability := range []string{"text", "video", "image", "audio", "transcription"} {
 			for _, item := range channelModels {
 				if item.Capability == capability {
 					capabilities = append(capabilities, capability)

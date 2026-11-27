@@ -28,10 +28,19 @@ export function ChannelModelSettings({ channel, onChange }: { channel: ModelChan
 
     useEffect(() => {
         let active = true;
-        void fetchPluginProviderCatalog("user.custom-channel").then((items) => { if (active) setAvailableProtocols(items); })
-            .catch((error) => { if (active) setProtocolError(error instanceof Error ? error.message : t("account.settings.modelConfig.protocolLoadFailed")); })
-            .finally(() => { if (active) setProtocolLoading(false); });
-        return () => { active = false; };
+        void fetchPluginProviderCatalog("user.custom-channel")
+            .then((items) => {
+                if (active) setAvailableProtocols(items);
+            })
+            .catch((error) => {
+                if (active) setProtocolError(error instanceof Error ? error.message : t("account.settings.modelConfig.protocolLoadFailed"));
+            })
+            .finally(() => {
+                if (active) setProtocolLoading(false);
+            });
+        return () => {
+            active = false;
+        };
     }, []);
 
     if (!channel.models.length) return null;
@@ -102,7 +111,16 @@ export function ChannelModelSettings({ channel, onChange }: { channel: ModelChan
                                     </span>
                                 </div>
                             </div>
-                            <Button type="text" size="small" icon={<ChevronRight className="size-4" />} iconPosition="end" onClick={() => { setEditorTab("protocol"); setActiveModel(model); }}>
+                            <Button
+                                type="text"
+                                size="small"
+                                icon={<ChevronRight className="size-4" />}
+                                iconPosition="end"
+                                onClick={() => {
+                                    setEditorTab("protocol");
+                                    setActiveModel(model);
+                                }}
+                            >
                                 {t("account.settings.modelConfig.configure")}
                             </Button>
                         </div>
@@ -125,73 +143,97 @@ export function ChannelModelSettings({ channel, onChange }: { channel: ModelChan
                                 icon={<FlaskConical className="size-4" />}
                                 loading={Boolean(testingModel)}
                                 disabled={!activeProtocol || protocolLoading || Boolean(protocolError)}
-                                onClick={() => { if (activeModel && activeProtocol) void testModel(activeModel, activeCapability, activeProtocol); }}
+                                onClick={() => {
+                                    if (activeModel && activeProtocol) void testModel(activeModel, activeCapability, activeProtocol);
+                                }}
                             >
                                 {t("account.settings.modelConfig.test")}
                             </Button>
-                            <Button type="primary" disabled={Boolean(testingModel)} onClick={() => setActiveModel(null)}>{t("account.payment.done")}</Button>
+                            <Button type="primary" disabled={Boolean(testingModel)} onClick={() => setActiveModel(null)}>
+                                {t("account.payment.done")}
+                            </Button>
                         </div>
                     </div>
                 }
-                items={activeModel ? [
-                    {
-                        key: "protocol",
-                        label: t("account.settings.modelConfig.tabBasic"),
-                        children: <div className="space-y-4" inert={Boolean(testingModel)}>
-                            <section className="space-y-2">
-                                <div className="text-xs font-medium">{t("account.settings.modelConfig.capability")}</div>
-                                <Segmented<ModelCapabilityChoice>
-                                    block
-                                    options={[{ label: t("account.settings.modelConfig.capabilities.text"), value: "text" }, { label: t("account.settings.modelConfig.capabilities.image"), value: "image" }, { label: t("account.settings.modelConfig.capabilities.video"), value: "video" }, { label: t("account.settings.modelConfig.capabilities.audio"), value: "audio" }]}
-                                    value={activeCapability}
-                                    onChange={(nextCapability) => {
-                                        const nextProtocol = availableProtocols.find((item) => item.value === activeProtocol && item.capability === nextCapability)?.value || availableProtocols.find((item) => item.capability === nextCapability && item.enabled !== false)?.value || defaultProtocolForCapability(nextCapability, availableProtocols);
-                                        updateCost(activeModel, {
-                                            protocol: nextProtocol,
-                                            capability: nextCapability,
-                                            billingMode: "fixed_request",
-                                            unitPriceMicrocredits: 0,
-                                            capabilityConfig: nextCapability === "text" || nextCapability === "image" || nextCapability === "video" ? defaultModelCapabilityConfig(nextProtocol, activeModel) : undefined,
-                                        });
-                                    }}
-                                />
-                            </section>
-                            <section className="space-y-2">
-                                <div className="text-xs font-medium">{t("account.settings.modelConfig.protocol")}</div>
-                                <ModelProtocolBrowser
-                                    loading={protocolLoading}
-                                    error={protocolError}
-                                    capability={activeCapability}
-                                    value={activeProtocol}
-                                    protocols={availableProtocols}
-                                    onChange={(nextProtocol) => updateCost(activeModel, {
-                                        protocol: nextProtocol,
-                                        billingMode: "fixed_request",
-                                        unitPriceMicrocredits: 0,
-                                        capabilityConfig: activeCapability === "text" || activeCapability === "image" || activeCapability === "video" ? defaultModelCapabilityConfig(nextProtocol, activeModel) : undefined,
-                                    })}
-                                />
-                            </section>
-                        </div>,
-                    },
-                    {
-                        key: "capabilities",
-                        label: t("account.settings.modelConfig.tabCapabilities"),
-                        children: <div inert={Boolean(testingModel)}>
-                            {activeCapability === "text" || activeCapability === "image" || activeCapability === "video" ? (
-                                <ModelCapabilityEditor
-                                    capability={activeCapability}
-                                    model={activeModel}
-                                    value={activeModelCost?.capabilityConfig || defaultModelCapabilityConfig(activeProtocol, activeModel)}
-                                    protocol={activeProtocol}
-                                    workflows={modelProtocolDefinition(activeProtocol, availableProtocols)?.workflows}
-                                    imageParameters={modelProtocolDefinition(activeProtocol, availableProtocols)?.imageParameters}
-                                    onChange={(capabilityConfig) => updateCost(activeModel, { capabilityConfig })}
-                                />
-                            ) : <p className="text-xs text-foreground/50">{t("account.settings.modelConfig.noParameters")}</p>}
-                        </div>,
-                    },
-                ] : []}
+                items={
+                    activeModel
+                        ? [
+                              {
+                                  key: "protocol",
+                                  label: t("account.settings.modelConfig.tabBasic"),
+                                  children: (
+                                      <div className="space-y-4" inert={Boolean(testingModel)}>
+                                          <section className="space-y-2">
+                                              <div className="text-xs font-medium">{t("account.settings.modelConfig.capability")}</div>
+                                              <Segmented<ModelCapabilityChoice>
+                                                  block
+                                                  options={[
+                                                      { label: t("account.settings.modelConfig.capabilities.text"), value: "text" },
+                                                      { label: t("account.settings.modelConfig.capabilities.image"), value: "image" },
+                                                      { label: t("account.settings.modelConfig.capabilities.video"), value: "video" },
+                                                      { label: t("account.settings.modelConfig.capabilities.audio"), value: "audio" },
+                                                  ]}
+                                                  value={activeCapability}
+                                                  onChange={(nextCapability) => {
+                                                      const nextProtocol =
+                                                          availableProtocols.find((item) => item.value === activeProtocol && item.capability === nextCapability)?.value ||
+                                                          availableProtocols.find((item) => item.capability === nextCapability && item.enabled !== false)?.value ||
+                                                          defaultProtocolForCapability(nextCapability, availableProtocols);
+                                                      updateCost(activeModel, {
+                                                          protocol: nextProtocol,
+                                                          capability: nextCapability,
+                                                          billingMode: "fixed_request",
+                                                          unitPriceMicrocredits: 0,
+                                                          capabilityConfig: nextCapability === "text" || nextCapability === "image" || nextCapability === "video" ? defaultModelCapabilityConfig(nextProtocol, activeModel) : undefined,
+                                                      });
+                                                  }}
+                                              />
+                                          </section>
+                                          <section className="space-y-2">
+                                              <div className="text-xs font-medium">{t("account.settings.modelConfig.protocol")}</div>
+                                              <ModelProtocolBrowser
+                                                  loading={protocolLoading}
+                                                  error={protocolError}
+                                                  capability={activeCapability}
+                                                  value={activeProtocol}
+                                                  protocols={availableProtocols}
+                                                  onChange={(nextProtocol) =>
+                                                      updateCost(activeModel, {
+                                                          protocol: nextProtocol,
+                                                          billingMode: "fixed_request",
+                                                          unitPriceMicrocredits: 0,
+                                                          capabilityConfig: activeCapability === "text" || activeCapability === "image" || activeCapability === "video" ? defaultModelCapabilityConfig(nextProtocol, activeModel) : undefined,
+                                                      })
+                                                  }
+                                              />
+                                          </section>
+                                      </div>
+                                  ),
+                              },
+                              {
+                                  key: "capabilities",
+                                  label: t("account.settings.modelConfig.tabCapabilities"),
+                                  children: (
+                                      <div inert={Boolean(testingModel)}>
+                                          {activeCapability === "text" || activeCapability === "image" || activeCapability === "video" ? (
+                                              <ModelCapabilityEditor
+                                                  capability={activeCapability}
+                                                  model={activeModel}
+                                                  value={activeModelCost?.capabilityConfig || defaultModelCapabilityConfig(activeProtocol, activeModel)}
+                                                  protocol={activeProtocol}
+                                                  workflows={modelProtocolDefinition(activeProtocol, availableProtocols)?.workflows}
+                                                  imageParameters={modelProtocolDefinition(activeProtocol, availableProtocols)?.imageParameters}
+                                                  onChange={(capabilityConfig) => updateCost(activeModel, { capabilityConfig })}
+                                              />
+                                          ) : (
+                                              <p className="text-xs text-foreground/50">{t("account.settings.modelConfig.noParameters")}</p>
+                                          )}
+                                      </div>
+                                  ),
+                              },
+                          ]
+                        : []
+                }
             />
         </div>
     );
@@ -229,14 +271,7 @@ function inferCapabilityFromModel(model: string): ModelCapabilityChoice {
     ) {
         return "video";
     }
-    if (
-        lower.includes("audio") ||
-        lower.includes("tts") ||
-        lower.includes("voice") ||
-        lower.includes("speech") ||
-        lower.includes("sound") ||
-        lower.includes("music")
-    ) {
+    if (lower.includes("audio") || lower.includes("tts") || lower.includes("voice") || lower.includes("speech") || lower.includes("sound") || lower.includes("music")) {
         return "audio";
     }
     return "text";
@@ -272,5 +307,5 @@ function defaultProtocolForModel(model: string, availableProtocols: ModelProtoco
 }
 
 function capabilityLabel(value: ModelCost["capability"]) {
-    return translate(value && ["text", "image", "video", "audio"].includes(value) ? `account.settings.modelConfig.capabilities.${value}` : "account.settings.modelConfig.capabilities.pending");
+    return translate(value && ["text", "image", "video", "audio", "transcription"].includes(value) ? `account.settings.modelConfig.capabilities.${value}` : "account.settings.modelConfig.capabilities.pending");
 }

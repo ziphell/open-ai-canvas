@@ -21,7 +21,7 @@ import { isDrawingEngineAvailable, type CanvasDrawingEngine } from "@/lib/canvas
 import { normalizeRunningHubCapability, type AiConfig } from "@/stores/use-config-store";
 import { useUserStore } from "@/stores/use-user-store";
 import { CanvasNodeType, type CanvasConnection, type CanvasNodeData, type CanvasNodeMetadata, type ConnectionHandle, type ContextMenuState, type Position, type ViewportTransform } from "@/types/canvas";
-import { workflowProviderPluginEnabled } from "@/lib/plugins/builtin/workflows";
+import { workflowProviderPluginEnabled, type WorkflowProvider } from "@/lib/plugins/builtin/workflows";
 import { usePluginStore } from "@/stores/use-plugin-store";
 
 type UseCanvasConnectionControllerOptions = {
@@ -64,12 +64,25 @@ const NODE_STATUS_IDLE = "idle" as const;
 
 function selectRunningHubWorkflow(config: AiConfig) {
     const capability = normalizeRunningHubCapability(config.runningHub.capability);
-    // 自建 ComfyUI 没有 AI App，回退选择时不能落到 App 条目上。
-    const workflows = config.runningHub.connection === "comfyui" ? config.runningHub.workflows.filter((item) => (item.kind === "app" ? "app" : "workflow") === "workflow") : config.runningHub.workflows;
+    const workflows = config.runningHub.workflows;
     return workflows.find((item) => item.workflowId.trim() === config.runningHub.workflowId.trim()
         && (item.kind === "app" ? "app" : "workflow") === config.runningHub.selectedKind)
         || workflows.find((item) => normalizeRunningHubCapability(item.capability, capability) === capability)
         || workflows[0];
+}
+
+function selectComfyUIWorkflow(config: AiConfig) {
+    const capability = normalizeRunningHubCapability(config.comfyUI.capability);
+    const workflows = config.comfyUI.workflows.filter((item) => (item.kind === "app" ? "app" : "workflow") === "workflow");
+    return workflows.find((item) => item.workflowId.trim() === config.comfyUI.workflowId.trim())
+        || workflows.find((item) => normalizeRunningHubCapability(item.capability, capability) === capability)
+        || workflows[0];
+}
+
+function defaultWorkflowProvider(statuses: Record<string, string>): WorkflowProvider | undefined {
+    if (workflowProviderPluginEnabled(statuses, "runninghub")) return "runninghub";
+    if (workflowProviderPluginEnabled(statuses, "comfyui")) return "comfyui";
+    return undefined;
 }
 
 export function useCanvasConnectionController({
@@ -256,7 +269,7 @@ export function useCanvasConnectionController({
         setContextMenu(null);
     }, [config, connectionsRef, message, nodesRef, onBatchCellConnect, setConnections, setContextMenu, setNodes]);
 
-    const createConnectedNode = useCallback(async (type: CanvasNodeType.Image | CanvasNodeType.Text | CanvasNodeType.Script | CanvasNodeType.BatchTable | CanvasNodeType.Video | CanvasNodeType.Audio | CanvasNodeType.Drawing | CanvasNodeType.Config | CanvasNodeType.MediaConversion, pending: PendingConnectionCreate, workflowProvider?: "runninghub") => {
+    const createConnectedNode = useCallback(async (type: CanvasNodeType.Image | CanvasNodeType.Text | CanvasNodeType.Script | CanvasNodeType.BatchTable | CanvasNodeType.Video | CanvasNodeType.Audio | CanvasNodeType.Drawing | CanvasNodeType.Config | CanvasNodeType.MediaConversion, pending: PendingConnectionCreate, workflowProvider?: WorkflowProvider) => {
         const nodeType = type;
         if (nodeType === CanvasNodeType.Drawing && !isDrawingEngineAvailable(defaultDrawingEngine, tldrawLicenseKey)) {
             message.error(translate("canvasPage.connection.tldrawLicenseMissing"));
@@ -279,25 +292,28 @@ export function useCanvasConnectionController({
         const scriptPrompt = nodeType === CanvasNodeType.Script
             ? batchSourceNodeIds.length ? batchScriptPrompt : sourceNode?.type === CanvasNodeType.Text ? (sourceNode.metadata?.content || sourceNode.metadata?.prompt || "").trim() : ""
             : "";
-        const selectedWorkflowProvider = nodeType === CanvasNodeType.Config
-            ? workflowProvider || (workflowProviderPluginEnabled(runtimeStatuses, "runninghub") ? "runninghub" : undefined)
-            : undefined;
+        const selectedWorkflowProvider = nodeType === CanvasNodeType.Config ? workflowProvider || defaultWorkflowProvider(runtimeStatuses) : undefined;
         if (selectedWorkflowProvider && !workflowProviderPluginEnabled(runtimeStatuses, selectedWorkflowProvider)) {
             message.error(translate("canvasPage.connection.runningHubDisabled"));
             closeConnectionCreateMenu();
             setConnecting(null);
             return;
         }
-        const runningHubWorkflow = selectedWorkflowProvider === "runninghub" ? selectRunningHubWorkflow(config) : undefined;
-        const workflowCapability = normalizeRunningHubCapability(runningHubWorkflow?.capability, normalizeRunningHubCapability(config.runningHub.capability));
+        const workflowConfig = selectedWorkflowProvider === "comfyui" ? config.comfyUI : config.runningHub;
+        const workflowEntry = selectedWorkflowProvider === "runninghub" ? selectRunningHubWorkflow(config) : selectedWorkflowProvider === "comfyui" ? selectComfyUIWorkflow(config) : undefined;
+        const workflowCapability = normalizeRunningHubCapability(workflowEntry?.capability, normalizeRunningHubCapability(workflowConfig.capability));
         const metadata: CanvasNodeMetadata | undefined = nodeType === CanvasNodeType.Config
             ? {
                 generationMode: selectedWorkflowProvider ? workflowCapability === "video" ? "video" as const : workflowCapability === "audio" ? "audio" as const : "image" as const : "image" as const,
                 workflowProvider: selectedWorkflowProvider || "model",
                 status: NODE_STATUS_IDLE,
-                ...(selectedWorkflowProvider === "runninghub" ? {
-                    workflowTitle: translate(config.runningHub.connection === "comfyui" ? "canvasPage.connection.comfyUIWorkflow" : "canvasPage.connection.runningHubWorkflow"),
-                    ...(runningHubWorkflow ? { runningHubWorkflowId: runningHubWorkflow.workflowId, runningHubWorkflowKind: runningHubWorkflow.kind === "app" ? "app" as const : "workflow" as const } : {}),
+                ...(selectedWorkflowProvider ? {
+                    workflowTitle: translate(selectedWorkflowProvider === "comfyui" ? "canvasPage.connection.comfyUIWorkflow" : "canvasPage.connection.runningHubWorkflow"),
+                    ...(workflowEntry
+                        ? selectedWorkflowProvider === "comfyui"
+                            ? { comfyUIWorkflowId: workflowEntry.workflowId }
+                            : { runningHubWorkflowId: workflowEntry.workflowId, runningHubWorkflowKind: workflowEntry.kind === "app" ? "app" as const : "workflow" as const }
+                        : {}),
                 } : {})
               }
             : nodeType === CanvasNodeType.Drawing
@@ -336,7 +352,7 @@ export function useCanvasConnectionController({
             const model = input ? audioModelForConnectionInput(config, input) : audioModelForConnectionInput(config, { textCount: 0, imageCount: 0, videoCount: 0, audioCount: 0, characterCount: 0 });
             if (model) newNode.metadata = { ...newNode.metadata, model, generationMode: "audio" };
         }
-        if (nodeType === CanvasNodeType.Config && selectedWorkflowProvider) newNode.title = translate("canvasPage.connection.runningHubWorkflow");
+        if (nodeType === CanvasNodeType.Config && selectedWorkflowProvider) newNode.title = translate(selectedWorkflowProvider === "comfyui" ? "canvasPage.connection.comfyUIWorkflow" : "canvasPage.connection.runningHubWorkflow");
         if (storyboardRow) newNode.title = translate("canvasPage.storyboard.shotVideoTitle", { shot: storyboardRow.shotNumber });
         if (batchSourceNodeIds.length && nodeType === CanvasNodeType.Drawing) {
             message.error(translate("canvasPage.connection.batchNoDrawing"));
@@ -436,7 +452,7 @@ export function useCanvasConnectionController({
         setConnecting(null);
     }, [closeConnectionCreateMenu, config, connectionsRef, defaultDrawingEngine, message, nodesRef, projectId, runtimeStatuses, setConnecting, setConnections, setDialogNodeId, setDrawingNodeId, setNodes, setSelectedConnectionId, setSelectedNodeIds, tldrawLicenseKey]);
 
-    const getConnectionCreateDisabledReason = useCallback((type: CanvasNodeType.Image | CanvasNodeType.Text | CanvasNodeType.Script | CanvasNodeType.BatchTable | CanvasNodeType.Video | CanvasNodeType.Audio | CanvasNodeType.Drawing | CanvasNodeType.Config | CanvasNodeType.MediaConversion, pending: PendingConnectionCreate, workflowProvider?: "runninghub") => {
+    const getConnectionCreateDisabledReason = useCallback((type: CanvasNodeType.Image | CanvasNodeType.Text | CanvasNodeType.Script | CanvasNodeType.BatchTable | CanvasNodeType.Video | CanvasNodeType.Audio | CanvasNodeType.Drawing | CanvasNodeType.Config | CanvasNodeType.MediaConversion, pending: PendingConnectionCreate, workflowProvider?: WorkflowProvider) => {
         const nodeType = type;
         if (nodeType === CanvasNodeType.Config) {
             if (workflowProvider && !workflowProviderPluginEnabled(runtimeStatuses, workflowProvider)) return translate("canvasPage.connection.runningHubDisabled");

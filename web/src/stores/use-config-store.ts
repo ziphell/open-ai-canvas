@@ -35,8 +35,6 @@ export type ChannelInterfaceType = ModelProtocol;
 export type ChannelHeader = { name: string; value: string };
 export type RunningHubCapability = "image" | "video" | "audio";
 export type RunningHubWorkflowKind = "workflow" | "app";
-/** 工作流应用的接入方式：RunningHub 云，或用户自建的 ComfyUI 服务。 */
-export type WorkflowProviderConnection = "runninghub" | "comfyui";
 export type RunningHubWorkflow = {
     kind?: RunningHubWorkflowKind;
     capability?: RunningHubCapability;
@@ -51,7 +49,6 @@ export type RunningHubWorkflow = {
 };
 
 export type RunningHubConfig = {
-    connection: WorkflowProviderConnection;
     enabled: boolean;
     baseUrl: string;
     apiKey: string;
@@ -64,6 +61,8 @@ export type RunningHubConfig = {
     workflowId: string;
     workflows: RunningHubWorkflow[];
 };
+
+export type ComfyUIConfig = RunningHubConfig;
 
 export type WorkflowGraphPreview = {
     nodes: Array<{ id: string; title?: string; classType?: string }>;
@@ -141,13 +140,16 @@ export type AiConfig = {
     apiFormat: ApiCallFormat;
     channels: ModelChannel[];
     runningHub: RunningHubConfig;
+    comfyUI: ComfyUIConfig;
     /** 仅用于单次生成任务路由，不属于全局渠道启用状态。 */
-    taskWorkflowProvider?: "model" | "runninghub";
+    taskWorkflowProvider?: "model" | "runninghub" | "comfyui";
     model: string;
     imageModel: string;
     videoModel: string;
     textModel: string;
     audioModel: string;
+    /** 默认转写服务；空值由后端选择第一个可用转写模型。 */
+    transcriptionModel: string;
     audioMode?: string;
     audioVoice: string;
     audioFormat: string;
@@ -176,6 +178,7 @@ export type AiConfig = {
     videoModels: string[];
     textModels: string[];
     audioModels: string[];
+    transcriptionModels: string[];
     quality: string;
     imageResolution: string;
     imageParameters?: string;
@@ -186,7 +189,7 @@ export type AiConfig = {
 };
 
 export const CONFIG_STORE_KEY = "open_ai_canvas:ai_config_store";
-export type ModelCapability = "image" | "video" | "text" | "audio";
+export type ModelCapability = "image" | "video" | "text" | "audio" | "transcription";
 const OPENAI_BASE_URL = "https://api.openai.com";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
 const LEGACY_DEFAULT_MODEL_NAMES = new Set(["gpt-image-2", "grok-imagine-video", "gpt-5.5", "gpt-4o-mini-tts"]);
@@ -198,13 +201,15 @@ export const defaultConfig: AiConfig = {
     apiFormat: "openai",
     // 创作端模型目录只能来自后台公开逻辑模型和用户自定义渠道，不能内置供应商模型。
     channels: [],
-    runningHub: { connection: "runninghub", enabled: false, baseUrl: "https://www.runninghub.cn", apiKey: "", walletApiKey: "", uploadApiKey: "", useWallet: false, capability: "image", selectedKind: "workflow", workflowId: "", workflows: [] },
+    runningHub: { enabled: false, baseUrl: "https://www.runninghub.cn", apiKey: "", walletApiKey: "", uploadApiKey: "", useWallet: false, capability: "image", selectedKind: "workflow", workflowId: "", workflows: [] },
+    comfyUI: { enabled: false, baseUrl: "http://127.0.0.1:8188", apiKey: "", walletApiKey: "", uploadApiKey: "", useWallet: false, capability: "image", selectedKind: "workflow", workflowId: "", workflows: [] },
     taskWorkflowProvider: "model",
     model: "",
     imageModel: "",
     videoModel: "",
     textModel: "",
     audioModel: "",
+    transcriptionModel: "",
     audioVoice: "alloy",
     audioFormat: "mp3",
     audioSpeed: "1",
@@ -232,6 +237,7 @@ export const defaultConfig: AiConfig = {
     videoModels: [],
     textModels: [],
     audioModels: [],
+    transcriptionModels: [],
     quality: "auto",
     imageResolution: "auto",
     size: "1:1",
@@ -310,8 +316,13 @@ function isAudioModelName(model: string) {
     return value.includes("audio") || value.includes("tts") || value.includes("speech") || value.includes("voice") || value.includes("music") || value.includes("sound");
 }
 
+function isTranscriptionModelName(model: string) {
+    const value = modelOptionName(model).toLowerCase();
+    return value.includes("whisper") || value.includes("transcri") || value.includes("asr");
+}
+
 function isTextModelName(model: string) {
-    return !isImageModelName(model) && !isVideoModelName(model) && !isAudioModelName(model);
+    return !isImageModelName(model) && !isVideoModelName(model) && !isAudioModelName(model) && !isTranscriptionModelName(model);
 }
 
 export function modelMatchesCapability(model: string, capability?: ModelCapability) {
@@ -319,6 +330,7 @@ export function modelMatchesCapability(model: string, capability?: ModelCapabili
     if (capability === "image") return isImageModelName(model);
     if (capability === "video") return isVideoModelName(model);
     if (capability === "audio") return isAudioModelName(model);
+    if (capability === "transcription") return isTranscriptionModelName(model);
     return isTextModelName(model);
 }
 
@@ -363,9 +375,12 @@ export function configuredModelMatchesCapability(config: AiConfig, model: string
 function isAiConfigReady(config: AiConfig, model: string) {
     if (config.taskWorkflowProvider === "runninghub") {
         const workflow = config.runningHub;
-        // 自建 ComfyUI 默认无鉴权；只有用户套了带鉴权的反向代理时才需要 Key。
-        const keyReady = workflow.connection === "comfyui" || Boolean(workflow.apiKey.trim());
+        const keyReady = Boolean(workflow.apiKey.trim());
         return Boolean(workflow.enabled && workflow.baseUrl.trim() && keyReady && workflow.workflowId.trim());
+    }
+    if (config.taskWorkflowProvider === "comfyui") {
+        const workflow = config.comfyUI;
+        return Boolean(workflow.enabled && workflow.baseUrl.trim() && workflow.workflowId.trim());
     }
     const channel = resolveModelChannel(config, model);
     return Boolean(model.trim() && channel.baseUrl.trim() && channel.apiKey.trim());
@@ -435,7 +450,23 @@ export function normalizeConfigSnapshot(snapshot: ConfigStoreSnapshot | undefine
         : [];
     const runningHubWorkflowID = String(persistedRunningHub?.workflowId || "").trim();
     const runningHubSelectedKind = persistedRunningHub?.selectedKind ? normalizeRunningHubWorkflowKind(persistedRunningHub.selectedKind) : normalizeRunningHubWorkflowKind(runningHubWorkflows.find((item) => item.workflowId === runningHubWorkflowID)?.kind);
-    const runningHubConnection = persistedRunningHub?.connection === "comfyui" ? ("comfyui" as const) : ("runninghub" as const);
+    const persistedComfyUI = persistedConfig.comfyUI;
+    const comfyUICapability = normalizeRunningHubCapability(persistedComfyUI?.capability, defaultConfig.comfyUI.capability);
+    const comfyUIWorkflows = Array.isArray(persistedComfyUI?.workflows)
+        ? persistedComfyUI.workflows
+              .filter((item): item is RunningHubWorkflow => Boolean(item && typeof item === "object" && String(item.workflowId || "").trim()))
+              .map((item) => {
+                  const capability = normalizeRunningHubCapability(item.capability, comfyUICapability);
+                  return {
+                      ...item,
+                      kind: "workflow" as const,
+                      workflowId: String(item.workflowId || "").trim(),
+                      capability,
+                      fields: normalizeSavedWorkflowFields(item, capability),
+                  };
+              })
+        : [];
+    const comfyUIWorkflowID = String(persistedComfyUI?.workflowId || "").trim();
     const config = {
         ...defaultConfig,
         ...persistedConfig,
@@ -443,12 +474,18 @@ export function normalizeConfigSnapshot(snapshot: ConfigStoreSnapshot | undefine
         runningHub: {
             ...defaultConfig.runningHub,
             ...(persistedRunningHub || {}),
-            connection: runningHubConnection,
             capability: runningHubCapability,
-            // 自建 ComfyUI 没有 AI App，旧配置里的 App 选择不能继续沿用。
-            selectedKind: runningHubConnection === "comfyui" ? "workflow" : runningHubSelectedKind,
-            workflowId: runningHubConnection === "comfyui" && runningHubSelectedKind === "app" ? "" : runningHubWorkflowID,
+            selectedKind: runningHubSelectedKind,
+            workflowId: runningHubWorkflowID,
             workflows: runningHubWorkflows,
+        },
+        comfyUI: {
+            ...defaultConfig.comfyUI,
+            ...(persistedComfyUI || {}),
+            capability: comfyUICapability,
+            selectedKind: "workflow" as const,
+            workflowId: comfyUIWorkflowID,
+            workflows: comfyUIWorkflows,
         },
     };
     const hasPersistedChannels = Array.isArray(persistedConfig.channels);
@@ -459,6 +496,7 @@ export function normalizeConfigSnapshot(snapshot: ConfigStoreSnapshot | undefine
     const videoModels = filterModelsByCapability(models, "video", channels);
     const textModels = filterModelsByCapability(models, "text", channels);
     const audioModels = filterModelsByCapability(models, "audio", channels);
+    const transcriptionModels = filterModelsByCapability(models, "transcription", channels).filter((item) => resolveModelChannel({ channels } as AiConfig, item).scope === "system");
     const model = normalizeSelectedModel(config.model || config.imageModel || config.textModel, channels, models);
     return {
         config: {
@@ -472,6 +510,7 @@ export function normalizeConfigSnapshot(snapshot: ConfigStoreSnapshot | undefine
             videoModel: normalizeSelectedModel(config.videoModel, channels, videoModels),
             textModel: normalizeSelectedModel(config.textModel || model, channels, textModels),
             audioModel: normalizeSelectedModel(config.audioModel || defaultConfig.audioModel, channels, audioModels),
+            transcriptionModel: normalizeSelectedModel(config.transcriptionModel, channels, transcriptionModels),
             audioVoice: config.audioVoice || defaultConfig.audioVoice,
             audioFormat: config.audioFormat || defaultConfig.audioFormat,
             audioSpeed: config.audioSpeed || defaultConfig.audioSpeed,
@@ -501,6 +540,7 @@ export function normalizeConfigSnapshot(snapshot: ConfigStoreSnapshot | undefine
             videoModels,
             textModels,
             audioModels,
+            transcriptionModels,
         },
     };
 }

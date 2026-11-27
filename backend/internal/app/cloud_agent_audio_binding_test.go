@@ -16,6 +16,15 @@ func TestCloudAgentAudioModeRequiresClearReferenceIntent(t *testing.T) {
 	if err := validateCloudAgentMediaReferences("audio", audioRefs, "unified_edit", nil); err != nil {
 		t.Fatalf("valid reference mode rejected: %v", err)
 	}
+	if err := validateCloudAgentMediaReferences("audio", nil, "generation", nil); err != nil {
+		t.Fatalf("prompt-only generation rejected: %v", err)
+	}
+	if err := validateCloudAgentMediaReferences("audio", audioRefs, "generation", []cloudAgentAudioVoiceBinding{{CharacterNodeID: "character-1", AudioNodeID: "audio-1"}}); err != nil {
+		t.Fatalf("generation with optional references rejected: %v", err)
+	}
+	if err := validateCloudAgentMediaReferences("audio", audioRefs, "tts", []cloudAgentAudioVoiceBinding{{CharacterNodeID: "character-1", AudioNodeID: "audio-1"}}); err == nil {
+		t.Fatal("tts must reject reference audio bindings")
+	}
 }
 
 func TestCloudAgentAudioVoiceBindingsUseActualAudioOrder(t *testing.T) {

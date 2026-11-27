@@ -295,6 +295,15 @@ describe("pricing write validation", () => {
         };
         expect(() => validateChannelModelPrices(audioDraft)).not.toThrow();
     });
+    test("accepts transcription per-second pricing", () => {
+        const transcriptionDraft = {
+            ...initialChannelModelValues(null, protocolsWithAudio),
+            capability: "transcription" as const,
+            protocol: "openai-transcription",
+            priceTiers: [{ ...defaultPriceTier(), billingMode: "per_second" as const, unitPrice: 1 }],
+        };
+        expect(() => validateChannelModelPrices(transcriptionDraft)).not.toThrow();
+    });
     test("requires prices and exactly one or zero fallback tiers", () => {
         expect(() => validateChannelModelPrices({ ...draft, priceTiers: [] })).toThrow("至少");
         expect(() => validateChannelModelPrices({ ...draft, priceTiers: [defaultPriceTier(), defaultPriceTier()] })).toThrow("只能");

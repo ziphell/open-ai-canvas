@@ -48,6 +48,57 @@ func TestBillingUsageReadsAsyncVideoPollUsage(t *testing.T) {
 	}
 }
 
+func TestSettleZeroPricedTokenOrderRecordsUsageWithoutCharging(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:finance-token-zero-price?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.CreditAccount{}, &model.BillingOrder{}, &model.ApiCallLog{}, &model.CreditLedgerEntry{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.CreditAccount{UserID: "user-1", AvailableMicrocredits: 500}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.BillingOrder{
+		ID: "free-order", UserID: "user-1", IdempotencyKey: "task:free-task", Capability: "text", BillingMode: "token",
+		Status: model.BillingStatusRunning, MultiplierBasisPoints: 10_000,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ApiCallLog{
+		ID: "free-log", BillingOrderID: "free-order", RequestKind: "create", Billable: true,
+		Status: model.ApiCallStatusSucceeded, UsageAvailable: true, InputTokens: 120, OutputTokens: 80,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	repo := &Repository{db: db}
+	if err := repo.SettleBillingOrder("free-order", "provider-request"); err != nil {
+		t.Fatalf("SettleBillingOrder() error = %v", err)
+	}
+	var order model.BillingOrder
+	if err := db.First(&order, "id = ?", "free-order").Error; err != nil {
+		t.Fatal(err)
+	}
+	if order.Status != model.BillingStatusSettled || order.ActualAmountMicrocredits != 0 || order.InputTokens != 120 || order.OutputTokens != 80 || !order.UsageAvailable || order.UsageSource != billingUsageSourceProvider {
+		t.Fatalf("zero-priced order usage not recorded: %#v", order)
+	}
+	var account model.CreditAccount
+	if err := db.First(&account, "user_id = ?", "user-1").Error; err != nil {
+		t.Fatal(err)
+	}
+	if account.AvailableMicrocredits != 500 || account.ReservedMicrocredits != 0 {
+		t.Fatalf("zero-priced account changed: %#v", account)
+	}
+	var entry model.CreditLedgerEntry
+	if err := db.First(&entry, "billing_order_id = ? AND type = ?", "free-order", model.CreditLedgerConsume).Error; err != nil {
+		t.Fatal(err)
+	}
+	if entry.AmountMicrocredits != 0 {
+		t.Fatalf("zero-priced consume entry = %#v", entry)
+	}
+}
+
 func TestTokenUsageAmountRejectsVideoWithoutOutputUsage(t *testing.T) {
 	_, _, err := tokenUsageAmount(model.BillingOrder{Capability: "video", OutputTokenPriceMicrocredits: 16_000_000, MultiplierBasisPoints: 10_000}, &BillingUsage{})
 	if !errors.Is(err, ErrBillingUsageUnavailable) {

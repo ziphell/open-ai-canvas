@@ -586,6 +586,7 @@ export default function ChannelsPage() {
                                         { label: "图片", value: "image" },
                                         { label: "视频", value: "video" },
                                         { label: "音频", value: "audio" },
+                                        { label: "转写", value: "transcription" },
                                     ]}
                                 />
                                 <Select

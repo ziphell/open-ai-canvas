@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const CurrentSchemaVersion int64 = 112
+const CurrentSchemaVersion int64 = 114
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -381,6 +381,8 @@ var schemaMigrations = []migration{
 	{version: 110, name: "skill_content_pointer", checksum: "sha256:skill-content-pointer-v110-20261126", apply: migrateSkillContentPointer},
 	{version: 111, name: "api_tokens", checksum: "sha256:api-tokens-v111-20261126", apply: migrateAPITokens},
 	{version: 112, name: "task_idempotency", checksum: "sha256:task-idempotency-v112-20261126", apply: migrateTaskIdempotency},
+	{version: 113, name: "user_model_preferences", checksum: "sha256:user-model-preferences-v113-20261127", apply: func(tx *gorm.DB) error { return tx.AutoMigrate(&model.UserModelPreference{}) }},
+	{version: 114, name: "user_model_preferences_transcription", checksum: "sha256:user-model-preferences-transcription-v114-20261127", apply: func(tx *gorm.DB) error { return tx.AutoMigrate(&model.UserModelPreference{}) }},
 }
 
 func migrateAPILogGenerationContent(tx *gorm.DB) error {

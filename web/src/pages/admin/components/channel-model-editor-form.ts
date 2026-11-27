@@ -50,7 +50,7 @@ export function initialChannelModelValues(item: ChannelModel | null, protocols: 
     const upstreamModel = item?.providerModelKey || item?.modelKey || "";
     const rawCapabilityConfig = item?.capabilityConfig || defaultModelCapabilityConfig(protocol, upstreamModel);
     let capabilityConfig =
-        capability === "audio"
+        capability === "audio" || capability === "transcription"
             ? undefined
             : (() => {
                   const normalized = normalizeModelCapabilityConfig(rawCapabilityConfig);
@@ -94,7 +94,7 @@ export function changeChannelModelCapability(values: ChannelModelFormValues, pro
     const capability = values.capability;
     const protocol = protocols.find((p) => p.value === values.protocol && p.capability === capability && p.enabled !== false)?.value || protocols.find((p) => p.capability === capability && p.enabled !== false)?.value;
     const upstreamModel = values.providerModelKey?.trim() || values.modelKey.trim();
-    const capabilityConfig = capability === "audio" ? undefined : defaultModelCapabilityConfig(protocol, upstreamModel);
+    const capabilityConfig = capability === "audio" || capability === "transcription" ? undefined : defaultModelCapabilityConfig(protocol, upstreamModel);
     const definitions = protocols.find((p) => p.value === protocol)?.imageParameters;
     if (capabilityConfig?.image && definitions && (!definitions.length || definitions.some((field) => imageParameterAppliesTo(field, upstreamModel)))) {
         capabilityConfig.image.parameters = [];
@@ -126,7 +126,7 @@ export function changeChannelModelProtocol(values: ChannelModelFormValues, proto
     const next: ChannelModelFormValues = {
         ...values,
         protocol,
-        capabilityConfig: values.capabilityConfig || (values.capability === "audio" ? undefined : defaultModelCapabilityConfig(protocol, values.providerModelKey?.trim() || values.modelKey.trim())),
+        capabilityConfig: values.capabilityConfig || (values.capability === "audio" || values.capability === "transcription" ? undefined : defaultModelCapabilityConfig(protocol, values.providerModelKey?.trim() || values.modelKey.trim())),
     };
     const resolved = updateChannelModelUpstreamCapabilities(next, protocols);
     if (values.capability === "image" && resolved.capabilityConfig?.image?.parameters && !values.capabilityConfig?.image?.parameters) {
@@ -198,6 +198,7 @@ export function validateChannelModelPrices(values: Pick<ChannelModelFormValues, 
         image: ["text_to_image", "image_to_image"],
         video: ["text_to_video", "image_to_video", "video_to_video", ...(values.capabilityConfig?.video?.processing ? ["enhance", "depth"] : [])],
         audio: [],
+        transcription: ["transcription"],
     };
     priceTiers.forEach((tier, index) => {
         const fail = (text: string) => {
@@ -206,7 +207,7 @@ export function validateChannelModelPrices(values: Pick<ChannelModelFormValues, 
         if (!["fixed_request", "per_second", "token", "image_usage"].includes(tier.billingMode)) fail("请选择计费方式");
         if (tier.billingMode === "image_usage" && (capability !== "image" || !validImagePricingForm(tier.imagePricing))) fail("请配置完整有效的图片用量价格");
         if (tier.billingMode === "image_usage" && tier.costConfigured && !validImagePricingForm(tier.costImagePricing)) fail("请配置完整有效的图片用量成本价");
-        if (tier.billingMode === "per_second" && capability !== "video" && capability !== "audio") fail("按秒计费仅支持视频或音频，请重新选择计费方式并核对价格");
+        if (tier.billingMode === "per_second" && capability !== "video" && capability !== "audio" && capability !== "transcription") fail("按秒计费仅支持视频、音频或转写，请重新选择计费方式并核对价格");
         if (tier.billingMode === "token" && !modelProtocolSupportsTokenBilling(capability, protocol)) fail("当前模型能力不支持 Token 计费，请重新选择计费方式并核对价格");
         if (tier.matchMode === "advanced") {
             if (tier.operation && tier.operation !== "*" && !operations[capability]?.includes(tier.operation)) fail("生成方式与模型能力不匹配");

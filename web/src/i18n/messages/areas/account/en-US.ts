@@ -656,6 +656,7 @@ export const enUS: DeepStringRecord<typeof zhCN> = {
             video: { title: "Default video model", description: "Text-to-video, image-to-video and shot extension", empty: "No video models available in current channels" },
             text: { title: "Default text model", description: "Prompt rewriting, scripts and structured text", empty: "No text models available in current channels" },
             audio: { title: "Default audio model", description: "Speech, sound effects and music generation", empty: "No audio models available in current channels" },
+            transcription: { title: "Default transcription service", description: "Timeline subtitles and speech recognition", empty: "No transcription models available in current channels" },
             available: "{{count}} available",
             uncategorized: "Uncategorized",
             systemModel: "System model",
@@ -664,6 +665,7 @@ export const enUS: DeepStringRecord<typeof zhCN> = {
             unitToken: "1M tokens",
             unitSecond: "sec",
             unitCall: "call",
+            saveFailed: "Failed to save default model",
         },
         profile: {
             avatarType: "Choose a PNG or JPEG image",
@@ -774,8 +776,8 @@ export const enUS: DeepStringRecord<typeof zhCN> = {
             fetchAll: "Fetch all",
             add: "Add channel",
             workflowTitle: "Personal workflow channels",
-            workflowDescription: "The standalone workflow channel supports RunningHub Cloud and self-hosted ComfyUI.",
-            runningHubDescription: "RunningHub cloud workflows and apps, plus self-hosted ComfyUI",
+            workflowDescription: "The standalone workflow channel supports RunningHub Cloud.",
+            runningHubDescription: "RunningHub cloud workflows and apps",
             workflowsConfigured: "{{count}} workflows configured",
             workflowPending: "Connection and workflow setup pending",
             disabled: "Disabled",
@@ -994,6 +996,9 @@ export const enUS: DeepStringRecord<typeof zhCN> = {
             notFilled: "Not filled in yet",
             runtimeTitle: "Appended at runtime",
             runtime: "Current plot, project art style, current character versions, canvas assets and the protected output contract.",
+        },
+        comfyui: {
+            description: "Connect the backend directly to self-hosted ComfyUI and run imported API-format workflows.",
         },
         runninghub: {
             webappIdRequired: "Enter a webappId first",

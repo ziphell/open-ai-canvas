@@ -12,6 +12,7 @@ import { WorkflowGraphEditor } from "@/components/workflow-graph-editor";
 import { WorkflowTestWorkbench } from "@/components/workflow-test-workbench";
 import { importComfyUIWorkflow } from "@/services/api/comfyui";
 import { fetchRunningHubApp, fetchRunningHubWorkflow } from "@/services/api/runninghub";
+import type { WorkflowProvider } from "@/lib/plugins/builtin/workflows";
 import {
     normalizeRunningHubCapability,
     normalizeRunningHubWorkflowKind,
@@ -56,13 +57,21 @@ function workflowNeedsMediaUpload(fields: WorkflowFieldMapping[]) {
 }
 
 export function RunningHubSettingsPane() {
+    return <WorkflowSettingsPane provider="runninghub" />;
+}
+
+export function ComfyUISettingsPane() {
+    return <WorkflowSettingsPane provider="comfyui" />;
+}
+
+function WorkflowSettingsPane({ provider }: { provider: WorkflowProvider }) {
     const { t } = useTranslation();
     const { message } = App.useApp();
     const capabilityOptions = useMemo(() => CAPABILITIES.map((value) => ({ label: capabilityLabel(value), value })), []);
     const config = useConfigStore((state) => state.config);
     const updateConfig = useConfigStore((state) => state.updateConfig);
-    const runningHub = config.runningHub;
-    const comfyUI = runningHub.connection === "comfyui";
+    const comfyUI = provider === "comfyui";
+    const runningHub = comfyUI ? config.comfyUI : config.runningHub;
     const selectableWorkflows = useMemo(() => (comfyUI ? runningHub.workflows.filter((item) => workflowKind(item) === "workflow") : runningHub.workflows), [comfyUI, runningHub.workflows]);
     const selected = runningHub.workflows.find((item) => item.workflowId.trim() === runningHub.workflowId.trim() && workflowKind(item) === runningHub.selectedKind);
     const selectedKey = selected ? workflowEntryKey(selected) : undefined;
@@ -83,7 +92,7 @@ export function RunningHubSettingsPane() {
         setCapability(workflowCapability(selected, runningHub.capability));
     }, [selectedKey, selected?.workflowJson, selected?.title, selected?.capability, runningHub.capability]);
 
-    const update = (patch: Partial<RunningHubConfig>) => updateConfig("runningHub", { ...runningHub, ...patch });
+    const update = (patch: Partial<RunningHubConfig>) => updateConfig(comfyUI ? "comfyUI" : "runningHub", { ...runningHub, ...patch });
     const draftMatchesSelected = Boolean(selected && workflowEntryKey(selected) === `${kind}:${draftId.trim()}`);
 
     const persistWorkflow = (workflow: RunningHubWorkflow, nextCapability = capability) => {
@@ -225,21 +234,6 @@ export function RunningHubSettingsPane() {
         setCapability(nextCapability);
     };
 
-    const changeConnection = (next: "runninghub" | "comfyui") => {
-        if (next === runningHub.connection) return;
-        const localBase = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(runningHub.baseUrl.trim());
-        setKind("workflow");
-        setDraftId("");
-        setWorkflowText("");
-        setTitle("");
-        update({
-            connection: next,
-            baseUrl: next === "comfyui" ? (localBase ? runningHub.baseUrl : "http://127.0.0.1:8188") : localBase ? "https://www.runninghub.cn" : runningHub.baseUrl,
-            selectedKind: "workflow",
-            workflowId: "",
-        });
-    };
-
     const changeKind = (nextKind: RunningHubWorkflowKind) => {
         if (comfyUI) return;
         setKind(nextKind);
@@ -277,23 +271,12 @@ export function RunningHubSettingsPane() {
         <Form layout="vertical" requiredMark={false}>
             <div className="settings-pane-header">
                 <div className="min-w-0">
-                    <h2>{t("settings.sections.runninghub.label")}</h2>
-                    <p>{t("account.settings.runninghub.description")}</p>
+                    <h2>{t(comfyUI ? "settings.sections.comfyui.label" : "settings.sections.runninghub.label")}</h2>
+                    <p>{t(comfyUI ? "account.settings.comfyui.description" : "account.settings.runninghub.description")}</p>
                 </div>
                 <Switch checked={runningHub.enabled} checkedChildren={t("account.layout.oss.switchOn")} unCheckedChildren={t("account.layout.oss.switchOff")} onChange={(enabled) => update({ enabled })} />
             </div>
             <div className="settings-section grid gap-3 lg:grid-cols-12">
-                <Form.Item label={t("account.settings.runninghub.connection")} className="mb-0 lg:col-span-12" extra={comfyUI ? t("account.settings.runninghub.comfyConnectionHint") : undefined}>
-                    <SegmentedControl
-                        block
-                        value={runningHub.connection}
-                        options={[
-                            { label: t("account.settings.runninghub.connectionRunningHub"), value: "runninghub" },
-                            { label: t("account.settings.runninghub.connectionComfyUI"), value: "comfyui" },
-                        ]}
-                        onChange={(value) => changeConnection(value as "runninghub" | "comfyui")}
-                    />
-                </Form.Item>
                 <Form.Item label="Base URL" className="mb-0 lg:col-span-6" extra={comfyUI ? t("account.settings.runninghub.comfyBaseUrlHint") : undefined}>
                     <AutoComplete
                         className="w-full"

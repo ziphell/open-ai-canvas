@@ -44,7 +44,7 @@ export function ChannelSettingsPane({ onOpenModels, onOpenRunningHub }: ChannelS
     const runningHubReady = Boolean(
         config.runningHub.enabled &&
             config.runningHub.baseUrl.trim() &&
-            (config.runningHub.connection === "comfyui" || config.runningHub.apiKey.trim()) &&
+            config.runningHub.apiKey.trim() &&
             config.runningHub.workflowId.trim(),
     );
 
@@ -205,7 +205,7 @@ export function ChannelSettingsPane({ onOpenModels, onOpenRunningHub }: ChannelS
                     {onOpenRunningHub ? (
                         <WorkflowChannelEntry
                             icon={<Workflow className="size-4" />}
-                            title={config.runningHub.connection === "comfyui" ? "ComfyUI" : "RunningHub"}
+                            title="RunningHub"
                             description={t("account.settings.channels.runningHubDescription")}
                             status={runningHubReady ? t("account.settings.channels.workflowsConfigured", { count: config.runningHub.workflows.length }) : config.runningHub.enabled ? t("account.settings.channels.workflowPending") : t("account.settings.channels.disabled")}
                             ready={runningHubReady}

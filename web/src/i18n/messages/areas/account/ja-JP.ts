@@ -657,6 +657,7 @@ export const jaJP: DeepStringRecord<typeof zhCN> = {
             video: { title: "デフォルト動画モデル", description: "テキストから動画、画像から動画、カットの延長", empty: "現在のチャネルに利用可能な動画モデルがありません" },
             text: { title: "デフォルトテキストモデル", description: "プロンプトの書き換え、脚本、構造化テキスト", empty: "現在のチャネルに利用可能なテキストモデルがありません" },
             audio: { title: "デフォルト音声モデル", description: "音声、効果音、音楽の生成", empty: "現在のチャネルに利用可能な音声モデルがありません" },
+            transcription: { title: "デフォルト文字起こしサービス", description: "タイムライン字幕と音声認識", empty: "現在のチャネルに利用可能な文字起こしモデルがありません" },
             available: "{{count}} 件利用可能",
             uncategorized: "未分類",
             systemModel: "システムモデル",
@@ -665,6 +666,7 @@ export const jaJP: DeepStringRecord<typeof zhCN> = {
             unitToken: "100 万 Token",
             unitSecond: "秒",
             unitCall: "回",
+            saveFailed: "デフォルトモデルの保存に失敗しました",
         },
         profile: {
             avatarType: "PNG または JPEG 画像を選択してください",
@@ -775,8 +777,8 @@ export const jaJP: DeepStringRecord<typeof zhCN> = {
             fetchAll: "すべて取得",
             add: "チャネルを追加",
             workflowTitle: "個人ワークフローチャネル",
-            workflowDescription: "独立したワークフローチャネルは RunningHub クラウドとセルフホスト ComfyUI に対応します。",
-            runningHubDescription: "RunningHub クラウドのワークフローと App、およびセルフホスト ComfyUI",
+            workflowDescription: "独立したワークフローチャネルは RunningHub クラウドに対応します。",
+            runningHubDescription: "RunningHub クラウドのワークフローと App",
             workflowsConfigured: "{{count}} 件のワークフローを設定済み",
             workflowPending: "接続とワークフローの設定が未完了",
             disabled: "未有効",
@@ -995,6 +997,9 @@ export const jaJP: DeepStringRecord<typeof zhCN> = {
             notFilled: "未入力",
             runtimeTitle: "実行時に強制追加",
             runtime: "現在のストーリー、プロジェクトの画風、現在のキャラクターバージョン、キャンバスのアセット、保護された出力契約。",
+        },
+        comfyui: {
+            description: "バックエンドからセルフホスト ComfyUI に直接接続し、インポートした API 形式ワークフローを実行します。",
         },
         runninghub: {
             webappIdRequired: "先に webappId を入力してください",

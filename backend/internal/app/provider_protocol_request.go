@@ -223,29 +223,42 @@ func executeProtocolRequest(ctx context.Context, config providerConfig, spec pro
 	return data, err
 }
 
+// executeProtocolRequestWithHeaders 返回上游响应头，供把业务状态码放在响应头里的
+// 协议（如火山引擎录音文件识别）判断任务状态。
+func executeProtocolRequestWithHeaders(ctx context.Context, config providerConfig, spec protocol.RequestSpec) ([]byte, http.Header, error) {
+	data, _, headers, err := executeProtocolBinaryRequestObserved(ctx, config, spec, nil, true)
+	return data, headers, err
+}
+
 // executeProtocolBinaryRequest 是声明式插件与宿主网络能力之间的边界。manifest 只能声明
 // method/path/body/auth；最终 URL 校验、凭证注入、SSRF、超时、大小限制和审计仍由宿主统一执行，
 // 插件不能通过自定义请求规格绕过这些安全约束。
 func executeProtocolBinaryRequest(ctx context.Context, config providerConfig, spec protocol.RequestSpec) ([]byte, string, error) {
-	return executeProtocolBinaryRequestWithConsumer(ctx, config, spec, nil)
+	data, mimeType, _, err := executeProtocolBinaryRequestObserved(ctx, config, spec, nil, false)
+	return data, mimeType, err
 }
 
 func executeProtocolBinaryRequestWithConsumer(ctx context.Context, config providerConfig, spec protocol.RequestSpec, consume func(string, []byte)) ([]byte, string, error) {
+	data, mimeType, _, err := executeProtocolBinaryRequestObserved(ctx, config, spec, consume, false)
+	return data, mimeType, err
+}
+
+func executeProtocolBinaryRequestObserved(ctx context.Context, config providerConfig, spec protocol.RequestSpec, consume func(string, []byte), captureHeaders bool) ([]byte, string, http.Header, error) {
 	if err := spec.Validate(); err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 	method := strings.ToUpper(strings.TrimSpace(spec.Method))
 	body, contentType, err := protocolRequestBody(ctx, config, spec)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 	requestURL, err := protocolRequestURL(config.BaseURL, spec)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 	req, err := http.NewRequestWithContext(ctx, method, requestURL, body)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
@@ -255,13 +268,18 @@ func executeProtocolBinaryRequestWithConsumer(ctx context.Context, config provid
 	}
 	ApplyOutboundHeaders(req, config.Headers)
 	if err := applyProtocolAuth(req, config, spec.Auth); err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 	if consume != nil {
 		req.Header.Set("Accept", "text/event-stream")
-		return doBinaryWithConsumer(req, consume)
 	}
-	return doBinary(req)
+	if !captureHeaders {
+		data, mimeType, err := doBinaryWithConsumer(req, consume)
+		return data, mimeType, nil, err
+	}
+	var headers http.Header
+	data, mimeType, err := doBinaryWithObserver(req, consume, func(value http.Header) { headers = value })
+	return data, mimeType, headers, err
 }
 
 func protocolRequestBody(ctx context.Context, config providerConfig, spec protocol.RequestSpec) (io.Reader, string, error) {

@@ -778,3 +778,52 @@ func storageTestDigest(value ossSettingValue) string {
 	sum := sha256.Sum256([]byte(payload))
 	return hex.EncodeToString(sum[:])
 }
+
+type UpdateUserModelDefaultsRequest struct {
+	ImageModel         string `json:"imageModel"`
+	VideoModel         string `json:"videoModel"`
+	TextModel          string `json:"textModel"`
+	AudioModel         string `json:"audioModel"`
+	TranscriptionModel string `json:"transcriptionModel"`
+}
+
+// UserModelDefaults 返回账号级默认模型；没有记录时返回空选择，由前端保留当前可用默认。
+func (s *Service) UserModelDefaults(actor *model.User) (*model.UserModelPreference, error) {
+	if actor == nil || actor.ID == "" {
+		return nil, Unauthorized("请先登录")
+	}
+	preference, err := s.repo.UserModelPreference(actor.ID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &model.UserModelPreference{UserID: actor.ID}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return preference, nil
+}
+
+func (s *Service) UpdateUserModelDefaults(actor *model.User, req UpdateUserModelDefaultsRequest) (*model.UserModelPreference, error) {
+	if actor == nil || actor.ID == "" {
+		return nil, Unauthorized("请先登录")
+	}
+	values := []*string{&req.ImageModel, &req.VideoModel, &req.TextModel, &req.AudioModel, &req.TranscriptionModel}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(*value)
+		if len([]rune(trimmed)) > 256 {
+			return nil, BadAuthRequest("模型标识过长")
+		}
+		*value = trimmed
+	}
+	preference := &model.UserModelPreference{
+		UserID:             actor.ID,
+		ImageModel:         req.ImageModel,
+		VideoModel:         req.VideoModel,
+		TextModel:          req.TextModel,
+		AudioModel:         req.AudioModel,
+		TranscriptionModel: req.TranscriptionModel,
+	}
+	if err := s.repo.SaveUserModelPreference(preference); err != nil {
+		return nil, err
+	}
+	return s.UserModelDefaults(actor)
+}

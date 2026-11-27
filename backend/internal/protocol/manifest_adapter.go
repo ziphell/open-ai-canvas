@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"regexp"
 	"strings"
@@ -133,7 +134,13 @@ func (a manifestAdapter) ParseCreate(ctx context.Context, body []byte) (CreateRe
 	return a.ParseCreateWithRequest(ctx, GenerationRequest{}, body)
 }
 
-func (a manifestAdapter) ParseCreateWithRequest(_ context.Context, request GenerationRequest, body []byte) (CreateResult, error) {
+func (a manifestAdapter) ParseCreateWithRequest(ctx context.Context, request GenerationRequest, body []byte) (CreateResult, error) {
+	return a.ParseCreateWithRequestAndHeaders(ctx, request, nil, body)
+}
+
+// ParseCreateWithRequestAndHeaders 是带响应头的创建响应解析；空响应体按空对象处理，
+// 供只在响应头返回任务状态的上游协议使用。
+func (a manifestAdapter) ParseCreateWithRequestAndHeaders(_ context.Context, request GenerationRequest, headers http.Header, body []byte) (CreateResult, error) {
 	if a.manifest.Response.StreamedJSONAudio {
 		format := ""
 		if request.Extra != nil {
@@ -144,12 +151,12 @@ func (a manifestAdapter) ParseCreateWithRequest(_ context.Context, request Gener
 	if a.manifest.Response.BinaryPayload {
 		return binaryPayloadCreateResult(a.manifest.Response.ResultKind, body)
 	}
-	payload, err := decodeObject(body)
+	payload, err := a.decodeBody(body)
 	if err != nil {
 		return CreateResult{}, err
 	}
 	// 响应映射可读取 request.*（如以宿主幂等键作为上游任务 ID 的协议）。
-	return a.parse(payload, PollContext{Model: request.Model, Request: request}), nil
+	return a.parseWithEnv(payload, PollContext{Model: request.Model, Request: request}, a.responseHeaderEnv(headers)), nil
 }
 
 // streamedJSONAudioCreateResult decodes the chunked JSON response used by
@@ -172,6 +179,17 @@ func streamedJSONAudioCreateResult(body []byte, resultKind string, format string
 	var audio bytes.Buffer
 	var usage map[string]any
 	for _, frame := range frames {
+		if event := strings.ToLower(strings.TrimSpace(manifestString(firstNonNilPathValue(frame, "event")))); event == "error" {
+			message := strings.TrimSpace(manifestString(firstNonNilPathValue(frame, "error.message", "message", "msg")))
+			if message == "" {
+				message = "上游返回失败状态"
+			}
+			code := strings.TrimSpace(manifestString(firstNonNilPathValue(frame, "error.code", "code")))
+			if code != "" {
+				return CreateResult{}, fmt.Errorf("流式音频合成失败（code %s）：%s", code, message)
+			}
+			return CreateResult{}, fmt.Errorf("流式音频合成失败：%s", message)
+		}
 		code := strings.ToLower(strings.TrimSpace(manifestString(firstNonNilPathValue(frame, "code", "status_code", "statusCode"))))
 		if code != "" && code != "0" && code != "ok" && code != "success" && code != "succeeded" {
 			message := strings.TrimSpace(manifestString(firstNonNilPathValue(frame, "message", "msg", "error.message")))
@@ -302,13 +320,39 @@ func (a manifestAdapter) BuildPoll(_ context.Context, c PollContext) (RequestSpe
 	return buildManifestOperation(*a.manifest.Poll, a.manifest.Auth, request, c.TaskID)
 }
 
-func (a manifestAdapter) ParsePoll(_ context.Context, c PollContext, body []byte) (PollResult, error) {
-	payload, err := decodeObject(body)
+func (a manifestAdapter) ParsePoll(ctx context.Context, c PollContext, body []byte) (PollResult, error) {
+	return a.ParsePollWithHeaders(ctx, c, nil, body)
+}
+
+// ParsePollWithHeaders 允许查询响应通过 headers.* 映射业务状态（如 X-Api-Status-Code）。
+func (a manifestAdapter) ParsePollWithHeaders(_ context.Context, c PollContext, headers http.Header, body []byte) (PollResult, error) {
+	payload, err := a.decodeBody(body)
 	if err != nil {
 		return PollResult{}, err
 	}
-	result := a.parse(payload, c)
+	result := a.parseWithEnv(payload, c, a.responseHeaderEnv(headers))
 	return PollResult{TaskID: result.TaskID, ResultID: result.ResultID, Status: result.Status, Result: result.Result, Message: result.Message, Stage: result.Stage, QueueAhead: result.QueueAhead}, nil
+}
+
+// responseHeaderEnv 按清单的 response.headers 映射读取响应头，值统一为去空白字符串。
+func (a manifestAdapter) responseHeaderEnv(headers http.Header) map[string]any {
+	if len(a.manifest.Response.Headers) == 0 {
+		return nil
+	}
+	values := make(map[string]any, len(a.manifest.Response.Headers))
+	for name, header := range a.manifest.Response.Headers {
+		values[name] = strings.TrimSpace(headers.Get(header))
+	}
+	return map[string]any{"headers": values}
+}
+
+// decodeBody 只对声明了响应头映射的协议容忍空响应体：这类上游（火山引擎）
+// 把状态码放在响应头，成功和失败的 body 都可能为空；普通协议仍要求 JSON 响应。
+func (a manifestAdapter) decodeBody(body []byte) (map[string]any, error) {
+	if len(bytes.TrimSpace(body)) == 0 && len(a.manifest.Response.Headers) > 0 {
+		return map[string]any{}, nil
+	}
+	return decodeObject(body)
 }
 
 func (a manifestAdapter) BuildCancel(_ context.Context, c PollContext) (RequestSpec, error) {
@@ -330,8 +374,17 @@ func (a manifestAdapter) BuildResult(_ context.Context, c PollContext) (RequestS
 }
 
 func (a manifestAdapter) parse(payload map[string]any, c PollContext) CreateResult {
+	return a.parseWithEnv(payload, c, nil)
+}
+
+func (a manifestAdapter) parseWithEnv(payload map[string]any, c PollContext, extra map[string]any) CreateResult {
 	response := a.manifest.Response
 	env := map[string]any{"response": payload, "taskId": c.TaskID, "request": manifestRequestValues(c.Request)}
+	for key, value := range extra {
+		if _, reserved := env[key]; !reserved {
+			env[key] = value
+		}
+	}
 	id := manifestResponseString(response.TaskID, env)
 	if id == "" {
 		id = firstPathValue(payload, response.TaskIDPaths...)
@@ -380,6 +433,9 @@ func (a manifestAdapter) parse(payload map[string]any, c PollContext) CreateResu
 			result.Usage = manifestObject(value)
 		}
 	}
+	if response.Transcription != nil {
+		result.Transcription = manifestTranscription(response.Transcription, env)
+	}
 	paths := append([]string{}, a.manifest.Response.ResultURLPaths...)
 	paths = append(paths, a.manifest.Response.ResultPaths...)
 	for _, path := range paths {
@@ -400,7 +456,7 @@ func (a manifestAdapter) parse(payload map[string]any, c PollContext) CreateResu
 	}
 	// 独立下载接口稍后提供媒体时，保留轮询中的实际时长和清晰度。
 	keepUsageForDownload := a.manifest.ResultOperation != nil && len(result.Usage) > 0
-	if result.Text == "" && result.Reasoning == "" && len(result.Images) == 0 && len(result.Videos) == 0 && len(result.Audios) == 0 && !keepUsageForDownload {
+	if result.Text == "" && result.Reasoning == "" && len(result.Images) == 0 && len(result.Videos) == 0 && len(result.Audios) == 0 && result.Transcription == nil && !keepUsageForDownload {
 		result = nil
 	}
 	return CreateResult{TaskID: id, ResultID: resultID, Status: status, Result: result, Message: message, Stage: stage, QueueAhead: queueAhead}
@@ -439,6 +495,50 @@ func manifestResponseString(template any, env map[string]any) string {
 		}
 	}
 	return strings.Join(parts, "")
+}
+
+func manifestTranscription(template *ManifestTranscription, env map[string]any) *TranscriptionResult {
+	if template == nil {
+		return nil
+	}
+	language := strings.TrimSpace(manifestResponseString(template.Language, env))
+	if template.Segments == nil {
+		if language == "" {
+			return nil
+		}
+		return &TranscriptionResult{Language: language}
+	}
+	value, err := evaluateManifestValue(template.Segments, env)
+	if err != nil {
+		return nil
+	}
+	segments := make([]TranscriptionSegment, 0)
+	for _, item := range manifestArray(value) {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		text := strings.TrimSpace(firstString(entry, "text", "content"))
+		if text == "" {
+			continue
+		}
+		startMs := int64(math.Round(manifestFloat(firstNonNilPathValue(entry, "start", "startTime")) * 1000))
+		endMs := int64(math.Round(manifestFloat(firstNonNilPathValue(entry, "end", "endTime")) * 1000))
+		if raw := firstNonNilPathValue(entry, "startMs", "start_ms"); raw != nil {
+			startMs = int64(manifestInt(raw))
+		}
+		if raw := firstNonNilPathValue(entry, "endMs", "end_ms"); raw != nil {
+			endMs = int64(manifestInt(raw))
+		}
+		if endMs < startMs {
+			endMs = startMs
+		}
+		segments = append(segments, TranscriptionSegment{StartMs: startMs, EndMs: endMs, Text: text})
+	}
+	if len(segments) == 0 {
+		return nil
+	}
+	return &TranscriptionResult{Segments: segments, Language: language}
 }
 
 func manifestResponseMedia(template any, env map[string]any, kind string, ephemeral bool) []MediaReference {

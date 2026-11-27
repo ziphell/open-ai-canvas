@@ -1,22 +1,23 @@
 import { App, Button } from "antd";
-import { ArrowLeft, Boxes, Bug, Cloud, Inbox, KeyRound, MessageSquareText, RadioTower, ShieldCheck, SlidersHorizontal, UserRound, Workflow, BookMarked } from "lucide-react";
+import { ArrowLeft, Boxes, Bug, Inbox, KeyRound, MessageSquareText, ShieldCheck, SlidersHorizontal, UserRound, Workflow, BookMarked } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 
-import { UserOSSSettingsForm } from "@/components/layout/user-oss-settings-form";
 import { secretKeyProtocolIds, useUserProtocolCatalog } from "@/hooks/use-user-protocol-catalog";
 import { refreshSystemChannels } from "@/lib/user-session";
+import { updateUserModelDefaults } from "@/services/api/auth";
 import { useConfigStore, useEffectiveConfig } from "@/stores/use-config-store";
 import { useUserStore } from "@/stores/use-user-store";
-import { ChannelSettingsPane, channelValidationError, focusInvalidChannelField, isChannelReady } from "./channel-settings-pane";
+import { isChannelReady } from "./channel-settings-pane";
 import { ModelDefaultGrid } from "./model-default-grid";
 import { PromptPreferencesPane } from "./prompt-preferences-pane";
 import DiagnosticsPanel from "./diagnostics-panel";
 import AgentMemoryPane from "./agent-memory-pane";
 const RunningHubSettingsPane = lazy(() => import("./runninghub-settings-pane").then((module) => ({ default: module.RunningHubSettingsPane })));
-import { RUNNINGHUB_PLUGIN_ID } from "@/lib/plugins/builtin/workflows";
+const ComfyUISettingsPane = lazy(() => import("./runninghub-settings-pane").then((module) => ({ default: module.ComfyUISettingsPane })));
+import { COMFYUI_PLUGIN_ID, RUNNINGHUB_PLUGIN_ID } from "@/lib/plugins/builtin/workflows";
 import { usePluginStore } from "@/stores/use-plugin-store";
 import { ProfilePane } from "./profile-pane";
 import { FeedbackInboxPane } from "./feedback-inbox-pane";
@@ -26,7 +27,7 @@ import { CliTokensPane } from "./cli-tokens-pane";
 import { arkPortraitOverviewQueryKey, getArkPortraitOverview } from "@/services/api/ark-portraits";
 import "./settings-page.css";
 
-type ConfigSectionKey = "profile" | "preferences" | "cli-tokens" | "channels" | "models" | "runninghub" | "prompts" | "agent-memory" | "storage" | "ark-assets" | "diagnostics" | "feedbacks";
+type ConfigSectionKey = "profile" | "preferences" | "cli-tokens" | "models" | "runninghub" | "comfyui" | "prompts" | "agent-memory" | "ark-assets" | "diagnostics" | "feedbacks";
 type ConfigSectionGroup = "general" | "creation" | "integrations" | "support";
 
 const configSectionGroups: ConfigSectionGroup[] = ["general", "creation", "integrations", "support"];
@@ -42,9 +43,8 @@ const configSections: Array<{ key: ConfigSectionKey; group: ConfigSectionGroup; 
     { key: "models", group: "creation", icon: <Boxes className="size-4" /> },
     { key: "prompts", group: "creation", icon: <MessageSquareText className="size-4" /> },
     { key: "agent-memory", group: "creation", icon: <BookMarked className="size-4" /> },
-    { key: "channels", group: "integrations", icon: <RadioTower className="size-4" /> },
     { key: "runninghub", group: "integrations", icon: <Workflow className="size-4" /> },
-    { key: "storage", group: "integrations", icon: <Cloud className="size-4" /> },
+    { key: "comfyui", group: "integrations", icon: <Workflow className="size-4" /> },
     { key: "ark-assets", group: "integrations", icon: <ShieldCheck className="size-4" /> },
     { key: "feedbacks", group: "support", icon: <Inbox className="size-4" /> },
     { key: "diagnostics", group: "support", icon: <Bug className="size-4" /> },
@@ -63,15 +63,15 @@ export default function SettingsPage() {
     const customChannelsEnabled = useUserStore((state) => state.features.customChannelsEnabled);
     const runtimeStatuses = usePluginStore((state) => state.runtimeStatuses);
     const runningHubPluginEnabled = runtimeStatuses[RUNNINGHUB_PLUGIN_ID] === "enabled";
-    const requestedSectionEnabled = requestedSection !== "runninghub" || runningHubPluginEnabled;
+    const comfyUIPluginEnabled = runtimeStatuses[COMFYUI_PLUGIN_ID] === "enabled";
+    const requestedSectionEnabled = (requestedSection !== "runninghub" || runningHubPluginEnabled) && (requestedSection !== "comfyui" || comfyUIPluginEnabled);
     const initialSection = isConfigSection(requestedSection) && requestedSectionEnabled ? requestedSection : "profile";
-    const [activeTab, setActiveTab] = useState<ConfigSectionKey>(initialSection === "channels" && !customChannelsEnabled ? "models" : initialSection);
+    const [activeTab, setActiveTab] = useState<ConfigSectionKey>(initialSection);
     const config = useConfigStore((state) => state.config);
     const effectiveConfig = useEffectiveConfig();
     const updateConfig = useConfigStore((state) => state.updateConfig);
     const shouldPromptContinue = searchParams.get("continue") === "1";
     const userId = useUserStore((state) => state.user?.id);
-    const userChannels = config.channels.filter((channel) => channel.scope !== "system");
     const protocolCatalog = useUserProtocolCatalog(customChannelsEnabled);
     const secretKeyProtocols = useMemo(() => secretKeyProtocolIds(protocolCatalog), [protocolCatalog]);
     // 方舟素材库只在管理员开放后显示；读取中或读取失败时，仅在链接直达该分类时保留入口，由分类内展示加载与重试。
@@ -79,10 +79,11 @@ export default function SettingsPage() {
     const arkAssetsVisible = arkOverviewQuery.data ? arkOverviewQuery.data.enabled : requestedSection === "ark-assets";
     const visibleConfigSections = useMemo(
         () =>
-            (customChannelsEnabled ? configSections : configSections.filter((section) => section.key !== "channels"))
+            configSections
                 .filter((section) => section.key !== "runninghub" || runningHubPluginEnabled)
+                .filter((section) => section.key !== "comfyui" || comfyUIPluginEnabled)
                 .filter((section) => section.key !== "ark-assets" || arkAssetsVisible),
-        [arkAssetsVisible, customChannelsEnabled, runningHubPluginEnabled],
+        [arkAssetsVisible, comfyUIPluginEnabled, runningHubPluginEnabled],
     );
 
     const isVisibleConfigSection = (value: string | null): value is ConfigSectionKey => isConfigSection(value) && visibleConfigSections.some((section) => section.key === value);
@@ -92,8 +93,8 @@ export default function SettingsPage() {
             setActiveTab(requestedSection);
             return;
         }
-        setActiveTab(requestedSection === "channels" && !customChannelsEnabled ? "models" : "profile");
-    }, [customChannelsEnabled, requestedSection, visibleConfigSections]);
+        setActiveTab("profile");
+    }, [requestedSection, visibleConfigSections]);
 
     useEffect(() => {
         if (!userId) return;
@@ -108,6 +109,7 @@ export default function SettingsPage() {
 
     const selectSection = (section: ConfigSectionKey) => {
         if (section === "runninghub" && !runningHubPluginEnabled) return;
+        if (section === "comfyui" && !comfyUIPluginEnabled) return;
         setActiveTab(section);
         const next = new URLSearchParams(searchParams);
         next.set("section", section);
@@ -115,17 +117,12 @@ export default function SettingsPage() {
     };
 
     const finishConfig = () => {
-        const invalidChannel = customChannelsEnabled ? userChannels.find((channel) => channelValidationError(channel, secretKeyProtocols)) : undefined;
-        if (invalidChannel) {
-            selectSection("channels");
-            message.warning(t("account.settings.channelError", { name: invalidChannel.name || t("account.settings.channels.unnamed"), error: channelValidationError(invalidChannel, secretKeyProtocols) }));
-            focusInvalidChannelField(invalidChannel, secretKeyProtocols);
-            return;
-        }
-        const workflowReady = Boolean(runningHubPluginEnabled && config.runningHub.enabled && config.runningHub.workflowId.trim() && config.runningHub.baseUrl.trim() && (config.runningHub.connection === "comfyui" || config.runningHub.apiKey.trim()));
+        const workflowReady =
+            Boolean(runningHubPluginEnabled && config.runningHub.enabled && config.runningHub.workflowId.trim() && config.runningHub.baseUrl.trim() && config.runningHub.apiKey.trim()) ||
+            Boolean(comfyUIPluginEnabled && config.comfyUI.enabled && config.comfyUI.workflowId.trim() && config.comfyUI.baseUrl.trim());
         if (!effectiveConfig.channels.some((channel) => isChannelReady(channel, secretKeyProtocols)) && !workflowReady) {
-            selectSection(customChannelsEnabled ? "channels" : "models");
-            message.error(customChannelsEnabled ? (shouldPromptContinue ? t("account.settings.needChannel") : t("account.settings.noChannel")) : t("account.settings.noSystemModel"));
+            selectSection("models");
+            message.error(t("account.settings.noSystemModel"));
             return;
         }
         message.success(t("account.settings.saved"));
@@ -138,11 +135,6 @@ export default function SettingsPage() {
                 <ProfilePane key={userId} />
             </SettingsPane>
         ),
-        channels: (
-            <SettingsPane>
-                <ChannelSettingsPane onOpenModels={() => selectSection("models")} onOpenRunningHub={runningHubPluginEnabled ? () => selectSection("runninghub") : undefined} />
-            </SettingsPane>
-        ),
         models: (
             <SettingsPane>
                 <div className="settings-pane-header">
@@ -152,7 +144,21 @@ export default function SettingsPage() {
                     </div>
                 </div>
                 <div className="settings-section">
-                    <ModelDefaultGrid config={effectiveConfig} onChange={(key, model) => updateConfig(key, model)} />
+                    <ModelDefaultGrid
+                        config={effectiveConfig}
+                        onChange={(key, model) => {
+                            updateConfig(key, model);
+                            if (!userId) return;
+                            const next = useConfigStore.getState().config;
+                            void updateUserModelDefaults({
+                                imageModel: next.imageModel,
+                                videoModel: next.videoModel,
+                                textModel: next.textModel,
+                                audioModel: next.audioModel,
+                                transcriptionModel: next.transcriptionModel,
+                            }).catch((error) => message.error(error instanceof Error ? error.message : t("account.settings.models.saveFailed")));
+                        }}
+                    />
                 </div>
             </SettingsPane>
         ),
@@ -160,6 +166,13 @@ export default function SettingsPage() {
             <SettingsPane>
                 <Suspense fallback={<span role="status">正在加载工作流配置…</span>}>
                     <RunningHubSettingsPane />
+                </Suspense>
+            </SettingsPane>
+        ) : null,
+        comfyui: comfyUIPluginEnabled ? (
+            <SettingsPane>
+                <Suspense fallback={<span role="status">正在加载工作流配置…</span>}>
+                    <ComfyUISettingsPane />
                 </Suspense>
             </SettingsPane>
         ) : null,
@@ -202,13 +215,6 @@ export default function SettingsPage() {
         diagnostics: (
             <SettingsPane>
                 <DiagnosticsPanel taskId={searchParams.get("taskId") || undefined} projectId={searchParams.get("projectId") || undefined} />
-            </SettingsPane>
-        ),
-        storage: (
-            <SettingsPane>
-                <div className="settings-section">
-                    <UserOSSSettingsForm />
-                </div>
             </SettingsPane>
         ),
         "ark-assets": (

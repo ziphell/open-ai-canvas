@@ -657,6 +657,7 @@ export const deDE: DeepStringRecord<typeof zhCN> = {
             video: { title: "Standard-Videomodell", description: "Text-zu-Video, Bild-zu-Video und Einstellungsverlängerung", empty: "In den aktuellen Kanälen ist kein Videomodell verfügbar" },
             text: { title: "Standard-Textmodell", description: "Prompt-Umformulierung, Drehbücher und strukturierter Text", empty: "In den aktuellen Kanälen ist kein Textmodell verfügbar" },
             audio: { title: "Standard-Audiomodell", description: "Sprache, Soundeffekte und Musikgenerierung", empty: "In den aktuellen Kanälen ist kein Audiomodell verfügbar" },
+            transcription: { title: "Standard-Transkriptionsdienst", description: "Timeline-Untertitel und Spracherkennung", empty: "In den aktuellen Kanälen ist kein Transkriptionsmodell verfügbar" },
             available: "{{count}} verfügbar",
             uncategorized: "Ohne Kategorie",
             systemModel: "Systemmodell",
@@ -665,6 +666,7 @@ export const deDE: DeepStringRecord<typeof zhCN> = {
             unitToken: "1 Mio. Token",
             unitSecond: "Sek.",
             unitCall: "Aufruf",
+            saveFailed: "Standardmodell konnte nicht gespeichert werden",
         },
         profile: {
             avatarType: "Bitte wählen Sie ein PNG- oder JPEG-Bild",
@@ -775,8 +777,8 @@ export const deDE: DeepStringRecord<typeof zhCN> = {
             fetchAll: "Alle abrufen",
             add: "Kanal hinzufügen",
             workflowTitle: "Persönliche Workflow-Kanäle",
-            workflowDescription: "Der eigenständige Workflow-Kanal unterstützt RunningHub Cloud und selbst gehostetes ComfyUI.",
-            runningHubDescription: "RunningHub-Cloud-Workflows und Apps sowie selbst gehostetes ComfyUI",
+            workflowDescription: "Der eigenständige Workflow-Kanal unterstützt RunningHub Cloud.",
+            runningHubDescription: "RunningHub-Cloud-Workflows und Apps",
             workflowsConfigured: "{{count}} Workflows konfiguriert",
             workflowPending: "Verbindung und Workflows noch einzurichten",
             disabled: "Nicht aktiviert",
@@ -995,6 +997,9 @@ export const deDE: DeepStringRecord<typeof zhCN> = {
             notFilled: "Noch nicht ausgefüllt",
             runtimeTitle: "Zur Laufzeit erzwungen angefügt",
             runtime: "Aktuelle Handlung, Projektstil, aktuelle Figurenversion, Leinwand-Assets und geschützter Ausgabevertrag.",
+        },
+        comfyui: {
+            description: "Backend verbindet sich direkt mit selbst gehostetem ComfyUI und führt importierte API-Workflows aus.",
         },
         runninghub: {
             webappIdRequired: "Bitte geben Sie zuerst die webappId ein",

@@ -261,7 +261,7 @@ func (s *Service) FetchChannelModelCatalog(ctx context.Context, actor *model.Use
 func normalizeCatalogModelType(value string) string {
 	normalized := strings.ToLower(strings.TrimSpace(value))
 	switch normalized {
-	case "text", "image", "video", "audio":
+	case "text", "image", "video", "audio", "transcription":
 		return normalized
 	default:
 		return ""

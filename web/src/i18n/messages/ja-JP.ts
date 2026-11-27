@@ -286,7 +286,8 @@ export const jaJP: Messages = {
         sections: {
             profile: { label: "プロフィール", description: "アバター、パスワード、メール" },
             channels: { label: "個人チャネル", description: "モデルサービスと個人ワークフロー" },
-            runninghub: { label: "ワークフローアプリ", description: "RunningHub クラウドとセルフホスト ComfyUI の設定" },
+            runninghub: { label: "RunningHub ワークフロー", description: "RunningHub クラウドのワークフロー設定" },
+            comfyui: { label: "ComfyUI ワークフロー", description: "バックエンドからセルフホスト ComfyUI に直接接続" },
             models: { label: "モデル選択", description: "分野ごとの既定モデル" },
             preferences: { label: "環境設定", description: "外観、言語、通知と生成の既定値" },
             prompts: { label: "プロンプト設定", description: "タスクごとにテンプレートを調整" },

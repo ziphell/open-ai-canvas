@@ -9,6 +9,9 @@ export type TimelineTranscriptionCreateRequest = {
     resourceId: string;
     language?: string;
     projectId?: string;
+    /** 用户设置中的默认转写服务；为空时后端回退到第一个可用转写模型。 */
+    channelId?: string;
+    model?: string;
 };
 
 export type TimelineTranscriptionResult = {
@@ -23,10 +26,7 @@ export type TimelineTranscriptionSegment = {
     text: string;
 };
 
-export async function createTimelineTranscriptionTask(
-    payload: TimelineTranscriptionCreateRequest,
-    signal?: AbortSignal,
-): Promise<GenerationTask> {
+export async function createTimelineTranscriptionTask(payload: TimelineTranscriptionCreateRequest, signal?: AbortSignal): Promise<GenerationTask> {
     return http.post<GenerationTask>("/timeline/transcriptions", payload, { signal });
 }
 
@@ -47,9 +47,6 @@ export type TimelineRenderResult = {
     subtitleSrt?: string;
 };
 
-export async function createTimelineRenderTask(
-    payload: TimelineRenderCreateRequest,
-    signal?: AbortSignal,
-): Promise<GenerationTask> {
+export async function createTimelineRenderTask(payload: TimelineRenderCreateRequest, signal?: AbortSignal): Promise<GenerationTask> {
     return http.post<GenerationTask>("/timeline/renders", payload, { signal });
 }

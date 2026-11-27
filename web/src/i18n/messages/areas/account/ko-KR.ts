@@ -655,6 +655,7 @@ export const koKR: DeepStringRecord<typeof zhCN> = {
             video: { title: "기본 동영상 모델", description: "텍스트-동영상, 이미지-동영상, 컷 확장", empty: "현재 채널에 사용 가능한 동영상 모델이 없습니다" },
             text: { title: "기본 텍스트 모델", description: "프롬프트 다듬기, 대본, 구조화 텍스트", empty: "현재 채널에 사용 가능한 텍스트 모델이 없습니다" },
             audio: { title: "기본 오디오 모델", description: "음성, 효과음, 음악 생성", empty: "현재 채널에 사용 가능한 오디오 모델이 없습니다" },
+            transcription: { title: "기본 전사 서비스", description: "타임라인 자막 및 음성 인식", empty: "현재 채널에 사용 가능한 전사 모델이 없습니다" },
             available: "{{count}}개 사용 가능",
             uncategorized: "미분류",
             systemModel: "시스템 모델",
@@ -663,6 +664,7 @@ export const koKR: DeepStringRecord<typeof zhCN> = {
             unitToken: "100만 Token",
             unitSecond: "초",
             unitCall: "회",
+            saveFailed: "기본 모델 저장에 실패했습니다",
         },
         profile: {
             avatarType: "PNG 또는 JPEG 이미지를 선택하세요",
@@ -773,8 +775,8 @@ export const koKR: DeepStringRecord<typeof zhCN> = {
             fetchAll: "모두 가져오기",
             add: "채널 추가",
             workflowTitle: "개인 워크플로 채널",
-            workflowDescription: "독립 워크플로 채널은 RunningHub 클라우드와 자체 호스팅 ComfyUI를 지원합니다.",
-            runningHubDescription: "RunningHub 클라우드 워크플로와 App, 자체 호스팅 ComfyUI",
+            workflowDescription: "독립 워크플로 채널은 RunningHub 클라우드를 지원합니다.",
+            runningHubDescription: "RunningHub 클라우드 워크플로와 App",
             workflowsConfigured: "워크플로 {{count}}개 설정됨",
             workflowPending: "연결 및 워크플로 설정 필요",
             disabled: "사용 안 함",
@@ -993,6 +995,9 @@ export const koKR: DeepStringRecord<typeof zhCN> = {
             notFilled: "아직 입력하지 않음",
             runtimeTitle: "실행 시 강제 추가",
             runtime: "현재 스토리, 프로젝트 화풍, 현재 캐릭터 버전, 캔버스 에셋, 보호된 출력 계약.",
+        },
+        comfyui: {
+            description: "백엔드가 자체 호스팅 ComfyUI에 직접 연결해 가져온 API 형식 워크플로를 실행합니다.",
         },
         runninghub: {
             webappIdRequired: "먼저 webappId를 입력하세요",

@@ -132,6 +132,90 @@ func TestBillingCreditCostUsesExactUsageAndIgnoresSalesMultiplier(t *testing.T) 
 	}
 }
 
+func TestZeroPricedTokenOrderKeepsCostSnapshot(t *testing.T) {
+	svc, db := newChannelModelTestService(t)
+	if err := db.AutoMigrate(&model.CreditAccount{}, &model.BillingOrder{}, &model.ApiCallLog{}, &model.CreditLedgerEntry{}); err != nil {
+		t.Fatal(err)
+	}
+	ensureTestUsers(t, db, "user")
+	admin := &model.User{ID: "admin", Role: model.UserRoleAdmin}
+	channel := model.ModelChannel{ID: "channel", Scope: model.ChannelScopeSystem, Name: "供应渠道", Enabled: true, ModelsJSON: `[]`}
+	if err := db.Create(&channel).Error; err != nil {
+		t.Fatal(err)
+	}
+	saved, err := svc.SaveAdminChannelModel(admin, channel.ID, "", ChannelModelRequest{
+		ModelKey: "free-text", DisplayName: "免费模型", ChannelLabel: "优惠渠道", Capability: "text", Protocol: string(model.ChannelInterfaceChatCompletion),
+		CapabilityConfig: DefaultModelCapabilityConfigForModel(string(model.ChannelInterfaceChatCompletion), "free-text"),
+		PriceTiers: []ChannelModelPriceTierRequest{{
+			BillingMode: "token", PriceConfigured: true, Enabled: boolPtr(true),
+			CostPricing: model.CreditCostPricing{Configured: true, InputTokenPriceMicrocredits: 1_000_000, OutputTokenPriceMicrocredits: 2_000_000},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	order, err := svc.newBillingOrder("user", "task", "request", channel.ID, saved.ModelKey, "text", "test", 1, tokenBillingEstimate{InputTokens: 100, OutputTokens: 50})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if order.AmountMicrocredits != 0 || order.CostPricing.InputTokenPriceMicrocredits != 1_000_000 {
+		t.Fatalf("zero price snapshot = %#v", order)
+	}
+	if err := db.Create(&model.CreditAccount{UserID: "user"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(order).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ApiCallLog{
+		ID: "zero-price-log", BillingOrderID: order.ID, UserID: "user", ChannelID: channel.ID, RequestKind: "create", Billable: true,
+		Status: model.ApiCallStatusSucceeded, UsageAvailable: true, InputTokens: 100, OutputTokens: 50,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.repo.SettleBillingOrder(order.ID, "provider-request"); err != nil {
+		t.Fatal(err)
+	}
+	var settled model.BillingOrder
+	if err := db.First(&settled, "id = ?", order.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	cost, err := billingCreditCost(settled)
+	if err != nil || cost == nil || *cost != 200 {
+		t.Fatalf("zero-priced cost = %v, %v", cost, err)
+	}
+}
+
+func TestBillingCreditCostKeepsZeroPricedOrdersInLedger(t *testing.T) {
+	zeroCost := model.CreditCostPricing{Configured: true}
+	costedZeroPrice := model.BillingOrder{
+		Status: model.BillingStatusSettled, Capability: "text", BillingMode: "token",
+		BillingCostSnapshot: model.BillingCostSnapshot{CostBillingMode: "token", CostPricing: zeroCost},
+	}
+	if cost, err := billingCreditCost(costedZeroPrice); err != nil || cost == nil || *cost != 0 {
+		t.Fatalf("zero cost without usage = %v, %v", cost, err)
+	}
+
+	costedZeroPrice.UsageAvailable = true
+	costedZeroPrice.InputTokens, costedZeroPrice.OutputTokens = 1_000_000, 500_000
+	costedZeroPrice.CostPricing = model.CreditCostPricing{Configured: true, OutputTokenPriceMicrocredits: 2_000_000}
+	if cost, err := billingCreditCost(costedZeroPrice); err != nil || cost == nil || *cost != 1_000_000 {
+		t.Fatalf("zero sale price cost = %v, %v", cost, err)
+	}
+
+	video := model.BillingOrder{
+		Status: model.BillingStatusSettled, Capability: "video", BillingMode: "token",
+		BillingCostSnapshot: model.BillingCostSnapshot{CostBillingMode: "token", CostPricing: model.CreditCostPricing{Configured: true}},
+	}
+	if cost, err := billingCreditCost(video); err != nil || cost == nil || *cost != 0 {
+		t.Fatalf("zero video cost = %v, %v", cost, err)
+	}
+	video.CostPricing.OutputTokenPriceMicrocredits = 1_000_000
+	if cost, err := billingCreditCost(video); err != nil || cost != nil {
+		t.Fatalf("video cost without usage fabricated: %v, %v", cost, err)
+	}
+}
+
 func TestCreditCostRejectsInvalidPrices(t *testing.T) {
 	for _, price := range []int64{-1, 1_000_000_000_001} {
 		if err := validateCreditCostPricing("text", "fixed_request", model.CreditCostPricing{Configured: true, UnitPriceMicrocredits: price}); err == nil {

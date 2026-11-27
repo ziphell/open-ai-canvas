@@ -86,11 +86,11 @@ export function ChannelModelBatchConfig({ items, selection, protocols, capabilit
                                 <Select
                                     ariaLabel={`${group.label}能力模板`}
                                     className="w-full"
-                                    placeholder={capability === "audio" ? "暂无模板" : "不修改"}
+                                    placeholder={capability === "audio" || capability === "transcription" ? "暂无模板" : "不修改"}
                                     value={value.capabilityId}
                                     allowClear
                                     showSearch={{ optionFilterProp: "label" }}
-                                    disabled={saving || !capability || capability === "audio" || Boolean(capabilityError)}
+                                    disabled={saving || !capability || capability === "audio" || capability === "transcription" || Boolean(capabilityError)}
                                     options={options}
                                     onChange={(capabilityId: string | undefined) => onChange(group.key, { ...value, capabilityId })}
                                 />

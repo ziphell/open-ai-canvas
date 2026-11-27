@@ -1,0 +1,145 @@
+{
+  "apiVersion": "yingce.plugin/v2",
+  "id": "openai-transcription",
+  "name": "OpenAI 兼容转写",
+  "version": "2.0.0",
+  "author": "OpenAI compatible / 影策",
+  "description": "OpenAI 兼容转写 独立请求协议插件。",
+  "documentation": "# OpenAI 兼容转写\n\n该目录是独立官方协议插件源码。\n\n后端从生成的 `openai-transcription.yingce-plugin` 包加载，不依赖系统内置 `host:` 适配器。\n\n完整接口见 [docs/interface.md](docs/interface.md)。\n\n---\n\n# OpenAI 兼容转写 接口字段\n\n## 协议身份\n\n- 插件 ID：`openai-transcription`。\n- Provider ID：`openai-transcription`。\n- 能力：`transcription`。\n- 默认 Base URL：`https://api.openai.com`。\n- 鉴权驱动：`bearer`。\n- 创建：`POST /v1/audio/transcriptions`。\n- 生命周期：同步响应。\n\n## 配置字段\n\n| 字段 | 类型 | 必填 | 含义 |\n| --- | --- | --- | --- |\n| `apiKey` | secret | 是 | API Key |\n\n## 统一字段映射\n\n| 统一字段 | 类型 | 必填 | 上游映射 | 说明 |\n| --- | --- | --- | --- | --- |\n| `model` | string | 否 | `model` | 转写模型 ID；本地 whisper.cpp 通常忽略。 |\n| `audios` | media[] | 是 | `file` | 待转写的音视频文件，作为 multipart file 上传。 |\n| `prompt` | string | 否 | `language` | 可选语言代码，例如 zh、en。 |\n| `providerOptions` | object | 否 | `provider-specific fields` | 插件命名空间内的厂商扩展字段。 |\n\n## 上游请求模板逐字段清单\n\n下表由插件请求模板生成，覆盖 body、query、headers 和 multipart 文件声明中的每个字段。\n\n| 上游位置 | 值或转换表达式 |\n| --- | --- |\n| `create.method` | `\"POST\"` |\n| `create.path` | `\"/v1/audio/transcriptions\"` |\n| `create.contentType` | `\"multipart/form-data\"` |\n| `create.body.model` | `{\"$ref\":\"request.model\"}` |\n| `create.body.response_format` | `\"verbose_json\"` |\n| `create.body.language` | `{\"$omitEmpty\":{\"$coalesce\":[{\"$ref\":\"request.extra.language\"},{\"$ref\":\"request.prompt\"}]}}` |\n| `create.files[0].name` | `\"file\"` |\n| `create.files[0].source` | `{\"$first\":{\"$ref\":\"request.audios\"}}` |\n| `create.files[0].filename` | `\"audio.wav\"` |\n| `create.files[0].mimeType` | `\"audio/wav\"` |\n\n## Provider 扩展键\n\n- 无额外扩展键。\n\n动态模型或工作流允许使用文档声明的完整 `parameters/input/extra_body` 对象；该对象是协议本身的开放 schema，不会被宿主裁剪。\n\n## 响应映射逐字段清单\n\n| 映射位置 | 上游路径或转换表达式 |\n| --- | --- |\n| `response.transcription.segments` | `{\"$ref\":\"response.segments\"}` |\n| `response.transcription.language` | `{\"$ref\":\"response.language\"}` |\n| `response.errorPaths[0]` | `\"error.code\"` |\n| `response.errorPaths[1]` | `\"error\"` |\n| `response.messagePaths[0]` | `\"error.message\"` |\n| `response.messagePaths[1]` | `\"message\"` |\n\n## 响应与错误\n\n插件把上游 task/status/text/media/usage 映射为统一结果。临时媒体 URL 标记为 ephemeral，由宿主立即下载持久化。HTTP 错误、业务 code 和 error object 保持失败语义，不包装成成功。\n\n## 兼容边界\n\nOpenAI 兼容 /v1/audio/transcriptions 协议。multipart 提交 file、model 和 response_format=verbose_json，可带 language；响应 segments[].start/end 为秒、text 为识别文本。适用于 OpenAI Whisper、Groq、本地 faster-whisper 等兼容网关。\n\n<!-- YINGCE_MANIFEST_CONTRACT_START -->\n## Manifest 完整接口定义\n\n以下 JSON 与插件包内实际 `manifest.json` 逐字段一致，覆盖插件身份、权限、配置、鉴权、参数、校验、创建、Agent、查询、取消、结果下载、响应和 Agent 响应映射。`documentation` 字段的值就是当前完整文档；为避免文档在自身内部无限递归，JSON 中仅用等义占位文本表示正文。\n\n```json\n{\n  \"apiVersion\": \"yingce.plugin/v2\",\n  \"id\": \"openai-transcription\",\n  \"name\": \"OpenAI 兼容转写\",\n  \"version\": \"2.0.0\",\n  \"author\": \"OpenAI compatible / 影策\",\n  \"description\": \"OpenAI 兼容转写 独立请求协议插件。\",\n  \"documentation\": \"<当前插件的完整 documentation，由 README.md 与 docs/interface.md 拼接而成；为避免 JSON 递归，此处不重复展开正文。>\",\n  \"permissions\": [\n    \"generation.run\",\n    \"media.read\"\n  ],\n  \"configuration\": {\n    \"fields\": [\n      {\n        \"name\": \"apiKey\",\n        \"type\": \"secret\",\n        \"label\": \"API Key\",\n        \"required\": true\n      }\n    ]\n  },\n  \"contributes\": {\n    \"providers\": [\n      {\n        \"id\": \"openai-transcription\",\n        \"label\": \"OpenAI 兼容转写\",\n        \"capabilities\": [\n          \"transcription\"\n        ],\n        \"scopes\": [\n          \"admin.system-channel\",\n          \"user.custom-channel\",\n          \"canvas\",\n          \"creation\",\n          \"agent\"\n        ],\n        \"baseUrl\": \"https://api.openai.com\",\n        \"requiresPublicMediaUrls\": false,\n        \"auth\": {\n          \"type\": \"bearer\",\n          \"field\": \"apiKey\"\n        },\n        \"parameters\": [\n          {\n            \"name\": \"model\",\n            \"type\": \"string\",\n            \"required\": false,\n            \"mapping\": \"model\",\n            \"description\": \"转写模型 ID；本地 whisper.cpp 通常忽略。\"\n          },\n          {\n            \"name\": \"audios\",\n            \"type\": \"media[]\",\n            \"required\": true,\n            \"mapping\": \"file\",\n            \"description\": \"待转写的音视频文件，作为 multipart file 上传。\"\n          },\n          {\n            \"name\": \"prompt\",\n            \"type\": \"string\",\n            \"required\": false,\n            \"mapping\": \"language\",\n            \"description\": \"可选语言代码，例如 zh、en。\"\n          },\n          {\n            \"name\": \"providerOptions\",\n            \"type\": \"object\",\n            \"required\": false,\n            \"mapping\": \"provider-specific fields\",\n            \"description\": \"插件命名空间内的厂商扩展字段。\"\n          }\n        ],\n        \"validations\": [\n          {\n            \"assert\": {\n              \"$gt\": [\n                {\n                  \"$len\": {\n                    \"$ref\": \"request.audios\"\n                  }\n                },\n                0\n              ]\n            },\n            \"message\": \"OpenAI 兼容转写需要连接音视频文件\"\n          }\n        ],\n        \"create\": {\n          \"method\": \"POST\",\n          \"path\": \"/v1/audio/transcriptions\",\n          \"contentType\": \"multipart/form-data\",\n          \"body\": {\n            \"model\": {\n              \"$ref\": \"request.model\"\n            },\n            \"response_format\": \"verbose_json\",\n            \"language\": {\n              \"$omitEmpty\": {\n                \"$coalesce\": [\n                  {\n                    \"$ref\": \"request.extra.language\"\n                  },\n                  {\n                    \"$ref\": \"request.prompt\"\n                  }\n                ]\n              }\n            }\n          },\n          \"files\": [\n            {\n              \"name\": \"file\",\n              \"source\": {\n                \"$first\": {\n                  \"$ref\": \"request.audios\"\n                }\n              },\n              \"filename\": \"audio.wav\",\n              \"mimeType\": \"audio/wav\"\n            }\n          ]\n        },\n        \"response\": {\n          \"transcription\": {\n            \"segments\": {\n              \"$ref\": \"response.segments\"\n            },\n            \"language\": {\n              \"$ref\": \"response.language\"\n            }\n          },\n          \"errorPaths\": [\n            \"error.code\",\n            \"error\"\n          ],\n          \"messagePaths\": [\n            \"error.message\",\n            \"message\"\n          ]\n        }\n      }\n    ]\n  }\n}\n```\n<!-- YINGCE_MANIFEST_CONTRACT_END -->\n",
+  "permissions": [
+    "generation.run",
+    "media.read"
+  ],
+  "configuration": {
+    "fields": [
+      {
+        "name": "apiKey",
+        "type": "secret",
+        "label": "API Key",
+        "required": true
+      }
+    ]
+  },
+  "contributes": {
+    "providers": [
+      {
+        "id": "openai-transcription",
+        "label": "OpenAI 兼容转写",
+        "capabilities": [
+          "transcription"
+        ],
+        "scopes": [
+          "admin.system-channel",
+          "user.custom-channel",
+          "canvas",
+          "creation",
+          "agent"
+        ],
+        "baseUrl": "https://api.openai.com",
+        "requiresPublicMediaUrls": false,
+        "auth": {
+          "type": "bearer",
+          "field": "apiKey"
+        },
+        "parameters": [
+          {
+            "name": "model",
+            "type": "string",
+            "required": false,
+            "mapping": "model",
+            "description": "转写模型 ID；本地 whisper.cpp 通常忽略。"
+          },
+          {
+            "name": "audios",
+            "type": "media[]",
+            "required": true,
+            "mapping": "file",
+            "description": "待转写的音视频文件，作为 multipart file 上传。"
+          },
+          {
+            "name": "prompt",
+            "type": "string",
+            "required": false,
+            "mapping": "language",
+            "description": "可选语言代码，例如 zh、en。"
+          },
+          {
+            "name": "providerOptions",
+            "type": "object",
+            "required": false,
+            "mapping": "provider-specific fields",
+            "description": "插件命名空间内的厂商扩展字段。"
+          }
+        ],
+        "validations": [
+          {
+            "assert": {
+              "$gt": [
+                {
+                  "$len": {
+                    "$ref": "request.audios"
+                  }
+                },
+                0
+              ]
+            },
+            "message": "OpenAI 兼容转写需要连接音视频文件"
+          }
+        ],
+        "create": {
+          "method": "POST",
+          "path": "/v1/audio/transcriptions",
+          "contentType": "multipart/form-data",
+          "body": {
+            "model": {
+              "$ref": "request.model"
+            },
+            "response_format": "verbose_json",
+            "language": {
+              "$omitEmpty": {
+                "$coalesce": [
+                  {
+                    "$ref": "request.extra.language"
+                  },
+                  {
+                    "$ref": "request.prompt"
+                  }
+                ]
+              }
+            }
+          },
+          "files": [
+            {
+              "name": "file",
+              "source": {
+                "$first": {
+                  "$ref": "request.audios"
+                }
+              },
+              "filename": "audio.wav",
+              "mimeType": "audio/wav"
+            }
+          ]
+        },
+        "response": {
+          "transcription": {
+            "segments": {
+              "$ref": "response.segments"
+            },
+            "language": {
+              "$ref": "response.language"
+            }
+          },
+          "errorPaths": [
+            "error.code",
+            "error"
+          ],
+          "messagePaths": [
+            "error.message",
+            "message"
+          ]
+        }
+      }
+    ]
+  }
+}

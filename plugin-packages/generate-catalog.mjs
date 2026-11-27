@@ -20,6 +20,7 @@ const gte = (left, right) => ({ $gte: [left, right] });
 const lt = (left, right) => ({ $lt: [left, right] });
 const lte = (left, right) => ({ $lte: [left, right] });
 const and = (...values) => ({ $and: values });
+const inArray = (value, values) => ({ $in: [value, values] });
 const len = (value) => ({ $len: value });
 const lower = (value) => ({ $lower: value });
 const trim = (value) => ({ $trim: value });
@@ -500,6 +501,173 @@ add({
         mimeType: conditional(eq(ref("request.extra.audioFormat"), "wav"), "audio/wav", conditional(eq(ref("request.extra.audioFormat"), "pcm"), "audio/pcm", conditional(eq(ref("request.extra.audioFormat"), "ogg_opus"), "audio/ogg", "audio/mpeg")))
       })
     )
+  }
+});
+
+add({
+  id: "doubao-voice-tts-3-0", providerId: "doubao-voice-tts-3-0", name: "豆包语音合成 3.0", vendor: "Volcengine", capability: "audio",
+  version: "2.0.0",
+  baseUrl: "https://voice.cn-beijing.volces.com", auth: { type: "header", field: "apiKey", header: "X-Api-Key" },
+  params: [
+    ["model", "string", true, "model_id", "语音合成 3.0 模型 ID，默认 doubao-seed-tts-3.0。"],
+    ["prompt", "string", true, "text", "待朗读文本，最长 10000 字符。"],
+    ["providerOptions", "object", false, "provider-specific fields", "插件命名空间内的厂商扩展字段。"]
+  ],
+  notes: "豆包语音合成大模型 3.0 单向流式 HTTP 接口。POST /api/v3/text-to-speech/{voice_id}/streaming，音色 ID 必须由用户填写；请求体提交完整文本，响应为 JSONL 事件流：ready、audio、alignment 和 final，audio 事件携带 Base64 音频片段，按接收顺序拼接。默认模型 doubao-seed-tts-3.0，输出格式支持 mp3、pcm、ogg_opus。该协议只做文本朗读，不接收参考音频或参考图片。",
+  validations: [{ assert: ref("request.extra.audioVoice"), message: "豆包语音合成 3.0 需要填写音色 ID" }],
+  create: {
+    method: "POST",
+    path: "/api/v3/text-to-speech/{voice_id}/streaming",
+    pathTemplate: { $concat: ["/api/v3/text-to-speech/", ref("request.extra.audioVoice"), "/streaming"] },
+    contentType: "application/json",
+    body: {
+      text: ref("request.prompt"),
+      model_id: ref("request.model"),
+      output_format: {
+        format: coalesce(ref("request.extra.audioFormat"), "mp3")
+      },
+      voice_settings: {
+        speed: coalesce(nonZeroFloat(ref("request.extra.audioSpeed")), 1),
+        instructions: omit(conditional(ref("request.extra.audioInstructions"), [ref("request.extra.audioInstructions")]))
+      },
+      enable_subtitle: false
+    },
+    headers: {
+      "X-Request-Id": ref("request.extra.idempotencyKey")
+    }
+  },
+  response: {
+    streamedJsonAudio: true,
+    resultKind: "audio"
+  }
+});
+
+const transcriptionParams = [
+  ["model", "string", false, "model", "转写模型 ID；本地 whisper.cpp 通常忽略。"],
+  ["audios", "media[]", true, "file", "待转写的音视频文件，作为 multipart file 上传。"],
+  ["prompt", "string", false, "language", "可选语言代码，例如 zh、en。"],
+  ["providerOptions", "object", false, "provider-specific fields", "插件命名空间内的厂商扩展字段。"]
+];
+
+const transcriptionResponse = {
+  transcription: {
+    segments: ref("response.segments"),
+    language: ref("response.language")
+  },
+  errorPaths: ["error.code", "error"],
+  messagePaths: ["error.message", "message"]
+};
+
+add({
+  id: "whisper-cpp-transcription", providerId: "whisper-cpp-transcription", name: "whisper.cpp 转写", vendor: "whisper.cpp", capability: "transcription",
+  version: "2.0.0",
+  baseUrl: "http://127.0.0.1:8080", auth: { type: "none", field: "apiKey" },
+  configuration: { fields: [] },
+  params: transcriptionParams,
+  notes: "本地 whisper.cpp HTTP 服务协议。POST /inference，multipart 提交 file，response_format=verbose_json；响应 segments[].start/end 为秒、text 为识别文本。服务地址由渠道 Base URL 配置，默认不鉴权；音视频不出本机。若服务部署在本机或私网，需要管理员在 CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS 中显式放行对应主机。",
+  validations: [{ assert: gt(len(ref("request.audios")), 0), message: "whisper.cpp 转写需要连接音视频文件" }],
+  create: {
+    method: "POST",
+    path: "/inference",
+    contentType: "multipart/form-data",
+    body: {
+      response_format: "verbose_json",
+      language: omit(coalesce(ref("request.extra.language"), ref("request.prompt")))
+    },
+    files: [{ name: "file", source: first(ref("request.audios")), filename: "audio.wav", mimeType: "audio/wav" }]
+  },
+  response: transcriptionResponse
+});
+
+add({
+  id: "openai-transcription", providerId: "openai-transcription", name: "OpenAI 兼容转写", vendor: "OpenAI compatible", capability: "transcription",
+  version: "2.0.0",
+  baseUrl: "https://api.openai.com", auth: bearer,
+  params: transcriptionParams,
+  notes: "OpenAI 兼容 /v1/audio/transcriptions 协议。multipart 提交 file、model 和 response_format=verbose_json，可带 language；响应 segments[].start/end 为秒、text 为识别文本。适用于 OpenAI Whisper、Groq、本地 faster-whisper 等兼容网关。",
+  validations: [{ assert: gt(len(ref("request.audios")), 0), message: "OpenAI 兼容转写需要连接音视频文件" }],
+  create: {
+    method: "POST",
+    path: "/v1/audio/transcriptions",
+    contentType: "multipart/form-data",
+    body: {
+      model: ref("request.model"),
+      response_format: "verbose_json",
+      language: omit(coalesce(ref("request.extra.language"), ref("request.prompt")))
+    },
+    files: [{ name: "file", source: first(ref("request.audios")), filename: "audio.wav", mimeType: "audio/wav" }]
+  },
+  response: transcriptionResponse
+});
+
+add({
+  id: "volcengine-transcription", providerId: "volcengine-transcription", name: "火山引擎录音文件识别", vendor: "Volcengine", capability: "transcription",
+  version: "2.0.0",
+  baseUrl: "https://openspeech.bytedance.com",
+  auth: { type: "header", field: "apiKey", header: "X-Api-Key" },
+  requiresPublicMediaUrls: true,
+  params: [
+    ["model", "string", false, "X-Api-Resource-Id", "转写模型 ID，默认 volc.seedasr.auc（豆包录音文件识别模型 2.0）。"],
+    ["audios", "media[]", true, "audio.url", "待转写音频的公网地址，支持 wav、mp3、ogg、aac、m4a 等格式。"],
+    ["prompt", "string", false, "language", "可选语言代码，例如 zh-CN、en-US。"],
+    ["providerOptions", "object", false, "provider-specific fields", "插件命名空间内的厂商扩展字段。"]
+  ],
+  notes: "火山引擎录音文件识别标准版 HTTP 异步协议。提交 POST /api/v3/auc/bigmodel/submit，音频必须是公网 URL；查询 POST /api/v3/auc/bigmodel/query，提交和查询共用 X-Api-Request-Id。业务状态码在响应头 X-Api-Status-Code：20000000 成功、20000001 处理中、20000002 排队中，其余失败；成功响应的 result.utterances[].start_time/end_time 为毫秒。",
+  validations: [{ assert: gt(len(ref("request.audios")), 0), message: "火山引擎转写需要连接音视频文件" }],
+  create: {
+    method: "POST",
+    path: "/api/v3/auc/bigmodel/submit",
+    contentType: "application/json",
+    headers: {
+      "X-Api-Resource-Id": coalesce(ref("request.model"), "volc.seedasr.auc"),
+      "X-Api-Request-Id": ref("request.extra.idempotencyKey"),
+      "X-Api-Sequence": "-1"
+    },
+    body: {
+      audio: {
+        url: ref("request.audios.0.url"),
+        format: coalesce(ref("request.extra.audioFormat"), "wav")
+      },
+      request: {
+        model_name: "bigmodel",
+        show_utterances: true,
+        language: omit(coalesce(ref("request.extra.language"), ref("request.prompt")))
+      }
+    }
+  },
+  poll: {
+    method: "POST",
+    path: "/api/v3/auc/bigmodel/query",
+    contentType: "application/json",
+    headers: {
+      "X-Api-Resource-Id": coalesce(ref("request.model"), "volc.seedasr.auc"),
+      "X-Api-Request-Id": ref("taskId")
+    },
+    body: {}
+  },
+  response: {
+    headers: { statusCode: "X-Api-Status-Code", message: "X-Api-Message" },
+    taskId: ref("request.extra.idempotencyKey"),
+    status: conditional(
+      eq(ref("headers.statusCode"), "20000000"),
+      "succeeded",
+      conditional(
+        inArray(ref("headers.statusCode"), ["20000001", "20000002"]),
+        "processing",
+        conditional(eq(ref("headers.statusCode"), ""), "pending", "failed")
+      )
+    ),
+    message: conditional(eq(ref("headers.statusCode"), "20000003"), "未检测到人声", ref("headers.message")),
+    transcription: {
+      segments: map(ref("response.result.utterances"), "u", {
+        startMs: ref("u.start_time"),
+        endMs: ref("u.end_time"),
+        text: ref("u.text")
+      }),
+      language: ref("request.extra.language")
+    },
+    errorPaths: ["error.code"],
+    messagePaths: ["message"]
   }
 });
 

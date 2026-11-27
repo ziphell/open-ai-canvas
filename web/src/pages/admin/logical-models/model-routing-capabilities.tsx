@@ -38,6 +38,7 @@ const inputDefinitions: Record<CapabilityKind, Array<{ name: string; label: stri
         { name: "audio", label: "参考音频", unit: "个" },
     ],
     audio: [],
+    transcription: [],
 };
 
 const optionDefinitions: Record<CapabilityKind, Array<{ name: string; label: string; unit?: string }>> = {
@@ -61,6 +62,7 @@ const optionDefinitions: Record<CapabilityKind, Array<{ name: string; label: str
         { name: "audioSpeed", label: "语速", unit: "倍" },
         { name: "audioInstructions", label: "朗读指令" },
     ],
+    transcription: [],
 };
 
 function definitionsFor(capability: CapabilityKind, specs: CapabilitySpec[] = []): Array<{ name: string; label: string; unit?: string }> {
@@ -69,7 +71,7 @@ function definitionsFor(capability: CapabilityKind, specs: CapabilitySpec[] = []
 }
 
 export function capabilityLabel(value: CapabilityKind) {
-    return { text: "文本", image: "图片", video: "视频", audio: "音频" }[value];
+    return { text: "文本", image: "图片", video: "视频", audio: "音频", transcription: "转写" }[value];
 }
 
 export function emptyCapabilitySpec(capability: CapabilityKind): CapabilitySpec {

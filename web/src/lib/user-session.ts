@@ -1,4 +1,4 @@
-import { getFeatureAvailability, type AuthSessionPayload } from "@/services/api/auth";
+import { getFeatureAvailability, getUserModelDefaults, type AuthSessionPayload, type UserModelDefaults } from "@/services/api/auth";
 import { projectImageParameters, imageParametersForSpec } from "./image-parameters";
 import { getModelCatalog, type CapabilitySpec, type ModelCatalogResponse, type OptionConstraint, type PublicChannelCatalog, type PublicLogicalModel } from "@/services/api/logical-models";
 import { localForageStorage } from "@/lib/localforage-storage";
@@ -7,7 +7,7 @@ import { assertCurrentUserSession, captureUserSession, isUserSessionInvalidated,
 import { CANVAS_STORE_KEY, flushCanvasStorePersistence, useCanvasStore, withCanvasStorePersistenceSuppressed } from "@/stores/canvas/use-canvas-store";
 import { CANVAS_HISTORY_STORE_KEY, useCanvasHistoryStore } from "@/stores/canvas/use-canvas-history-store";
 import { ASSET_STORE_KEY, flushAssetStorePersistence, useAssetStore, withAssetStorePersistenceSuppressed } from "@/stores/use-asset-store";
-import { CONFIG_STORE_KEY, defaultConfig, normalizeConfigSnapshot, useConfigStore, type ModelCapability, type ModelChannel } from "@/stores/use-config-store";
+import { CONFIG_STORE_KEY, defaultConfig, normalizeConfigSnapshot, selectableModelsByCapability, useConfigStore, type AiConfig, type ModelCapability, type ModelChannel } from "@/stores/use-config-store";
 import { CREATION_PREFERENCES_STORE_KEY, useCreationPreferencesStore } from "@/stores/use-creation-preferences-store";
 import { defaultModelCapabilityConfig, STANDARD_IMAGE_SIZE_VALUES, type ModelCapabilityConfig } from "@/lib/model-capabilities";
 import { isTextWire } from "@/lib/model-protocols";
@@ -127,9 +127,10 @@ async function hydrateUserSessionData(payload: AuthSessionPayload, generation: n
     }
 
     void (async () => {
-        try {
-            const catalog = await getModelCatalog();
-            if (!isCurrentSession(generation, userId)) return;
+        const [catalogResult, defaultsResult] = await Promise.allSettled([getModelCatalog(), userId ? getUserModelDefaults() : Promise.resolve(null)]);
+        if (!isCurrentSession(generation, userId)) return;
+        if (catalogResult.status === "fulfilled") {
+            const catalog = catalogResult.value;
             if (!persistedConfig) {
                 // 只有首次配置缺失时才生成能力推荐；已有配置中的空数组代表用户明确清空。
                 const initialSystemConfig = {
@@ -144,8 +145,13 @@ async function hydrateUserSessionData(payload: AuthSessionPayload, generation: n
             } else {
                 useConfigStore.getState().mergeSystemChannels(modelCatalogChannels(catalog));
             }
-        } catch (error) {
-            if (isCurrentSession(generation, userId)) console.warn("模型目录后台刷新失败，保留本地配置", error);
+        } else if (isCurrentSession(generation, userId)) {
+            console.warn("模型目录后台刷新失败，保留本地配置", catalogResult.reason);
+        }
+        if (defaultsResult.status === "fulfilled" && defaultsResult.value) {
+            applyUserModelDefaults(defaultsResult.value.defaults);
+        } else if (defaultsResult.status === "rejected" && isCurrentSession(generation, userId)) {
+            console.warn("账号默认模型读取失败，保留本地选择", defaultsResult.reason);
         }
     })();
     if (isCurrentSession(generation, userId)) {
@@ -157,6 +163,27 @@ async function hydrateUserSessionData(payload: AuthSessionPayload, generation: n
             durationMs: performance.now() - startedAt,
         });
     }
+}
+
+function applyUserModelDefaults(defaults: UserModelDefaults) {
+    const current = useConfigStore.getState().config;
+    const next = { ...current };
+    let changed = false;
+    const entries: Array<[keyof Pick<AiConfig, "imageModel" | "videoModel" | "textModel" | "audioModel" | "transcriptionModel">, ModelCapability]> = [
+        ["imageModel", "image"],
+        ["videoModel", "video"],
+        ["textModel", "text"],
+        ["audioModel", "audio"],
+        ["transcriptionModel", "transcription"],
+    ];
+    for (const [key, capability] of entries) {
+        const value = defaults[key];
+        // 服务端保存的是跨浏览器选择；模型已下架或渠道不在当前设备时保留本地选择。
+        if (!value || value === next[key] || !selectableModelsByCapability(next, capability).includes(value)) continue;
+        next[key] = value;
+        changed = true;
+    }
+    if (changed) useConfigStore.getState().replaceConfig(next);
 }
 
 function isCurrentSession(generation: number, userId: string) {

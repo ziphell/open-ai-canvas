@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Local whisper.cpp server for timeline subtitle transcription.
-# The Go backend calls {CANVAS_WHISPER_BASE_URL}/inference with a multipart
-# wav upload and expects standard whisper verbose_json back (native protocol).
+# In the admin console, add a system channel with Base URL pointing at this
+# server and select the "whisper.cpp 转写" protocol for the transcription model.
 #
 # Usage:
 #   scripts/start-whisper-local.sh            # base model, port 8082

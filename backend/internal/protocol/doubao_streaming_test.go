@@ -156,6 +156,98 @@ func TestDoubaoSeedAudioCreateSendsReferenceAudioAndImage(t *testing.T) {
 	}
 }
 
+func TestDoubaoVoiceTTS30PackageBuildsStreamingRequest(t *testing.T) {
+	manifest, err := os.ReadFile("../../../plugin-packages/doubao-voice-tts-3-0/manifest.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter, err := LoadManifest(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec, err := adapter.BuildCreate(context.Background(), RequestContext{Request: GenerationRequest{
+		Capability: CapabilityAudio,
+		Model:      "doubao-seed-tts-3.0",
+		Prompt:     "你好，欢迎使用语音合成。",
+		Extra:      map[string]any{"audioVoice": "multi_female_tuanzi_v3_uranus_bigtts", "audioFormat": "mp3", "audioSpeed": "1.2", "audioInstructions": "温柔自然", "idempotencyKey": "request-1"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.Path != "/api/v3/text-to-speech/multi_female_tuanzi_v3_uranus_bigtts/streaming" {
+		t.Fatalf("path = %s", spec.Path)
+	}
+	if spec.Headers["X-Request-Id"] != "request-1" {
+		t.Fatalf("headers = %#v", spec.Headers)
+	}
+	body := spec.Body.(map[string]any)
+	if body["text"] != "你好，欢迎使用语音合成。" || body["model_id"] != "doubao-seed-tts-3.0" || body["enable_subtitle"] != false {
+		t.Fatalf("body = %#v", body)
+	}
+	format := body["output_format"].(map[string]any)
+	if format["format"] != "mp3" {
+		t.Fatalf("output_format = %#v", format)
+	}
+	settings := body["voice_settings"].(map[string]any)
+	if settings["speed"] != 1.2 {
+		t.Fatalf("voice_settings = %#v", settings)
+	}
+	instructions, _ := settings["instructions"].([]any)
+	if len(instructions) != 1 || instructions[0] != "温柔自然" {
+		t.Fatalf("voice_settings = %#v", settings)
+	}
+}
+
+func TestDoubaoVoiceTTS30RequiresVoice(t *testing.T) {
+	manifest, err := os.ReadFile("../../../plugin-packages/doubao-voice-tts-3-0/manifest.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter, err := LoadManifest(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = adapter.BuildCreate(context.Background(), RequestContext{Request: GenerationRequest{
+		Capability: CapabilityAudio,
+		Model:      "doubao-seed-tts-3.0",
+		Prompt:     "你好",
+	}})
+	if err == nil || !strings.Contains(err.Error(), "音色 ID") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestStreamedJSONLTTSEventsConcatenateAudio(t *testing.T) {
+	first := base64.StdEncoding.EncodeToString([]byte("first"))
+	second := base64.StdEncoding.EncodeToString([]byte("second"))
+	body := []byte(`{"event":"ready","session_id":"s1"}
+{"event":"audio","audio":"` + first + `"}
+{"event":"audio","audio":"` + second + `"}
+{"event":"final","is_final":true,"reason":"TTS_STREAM_FINAL_REASON_CLOSED"}
+`)
+	adapter := manifestAdapter{manifest: Manifest{Response: ManifestResponse{StreamedJSONAudio: true, ResultKind: "audio"}}}
+	result, err := adapter.ParseCreate(context.Background(), body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != StatusSucceeded || result.Result == nil || len(result.Result.Audios) != 1 {
+		t.Fatalf("result = %#v", result)
+	}
+	encoded := strings.TrimPrefix(result.Result.Audios[0].DataURL, "data:audio/mpeg;base64,")
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil || string(decoded) != "firstsecond" {
+		t.Fatalf("audio bytes = %q, err = %v", decoded, err)
+	}
+}
+
+func TestStreamedJSONLTTSErrorEventFails(t *testing.T) {
+	adapter := manifestAdapter{manifest: Manifest{Response: ManifestResponse{StreamedJSONAudio: true, ResultKind: "audio"}}}
+	_, err := adapter.ParseCreate(context.Background(), []byte(`{"event":"error","error":{"type":"validation_error","code":"invalid_voice","message":"voice not found"}}`))
+	if err == nil || !strings.Contains(err.Error(), "voice not found") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestDoubaoSeedAudioMapsModeAndReferenceCount(t *testing.T) {
 	manifest, err := os.ReadFile("../../../plugin-packages/doubao-streaming-tts/manifest.json")
 	if err != nil {

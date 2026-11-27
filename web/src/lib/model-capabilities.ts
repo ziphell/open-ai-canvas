@@ -40,6 +40,21 @@ export type ModelCapabilityConfig = {
     text?: TextCapabilityConfig;
     image?: ImageCapabilityConfig;
     video?: VideoCapabilityConfig;
+    audio?: AudioCapabilityConfig;
+};
+
+/** 音频模型支持的提交方式：tts 为文本朗读，generation 为按提示词生成音频。 */
+export type AudioMode = "tts" | "generation";
+
+export type AudioCapabilityConfig = {
+    modes: AudioMode[];
+    references: {
+        maxAudios: number;
+        maxImages: number;
+    };
+    /** free 表示音色 ID 由用户自由填写；preset 表示使用渠道预置音色。 */
+    voice: "free" | "preset";
+    formats: string[];
 };
 
 export type TextCapabilityConfig = {
@@ -220,6 +235,17 @@ export function normalizeModelCapabilityConfig(config: ModelCapabilityConfig): M
                   operations: normalizeCapabilityStrings(config.video.operations),
                   defaultOperation: normalizeCapabilityString(config.video.defaultOperation),
               })
+            : undefined,
+        audio: config.audio
+            ? {
+                  ...config.audio,
+                  modes: Array.from(new Set(config.audio.modes || [])).filter((mode): mode is AudioMode => mode === "tts" || mode === "generation"),
+                  formats: normalizeCapabilityStrings(config.audio.formats || []),
+                  references: {
+                      maxAudios: Math.max(0, Math.floor(Number(config.audio.references?.maxAudios) || 0)),
+                      maxImages: Math.max(0, Math.floor(Number(config.audio.references?.maxImages) || 0)),
+                  },
+              }
             : undefined,
     };
 }
@@ -455,6 +481,12 @@ export function defaultImageCapabilityConfig(protocol?: ModelProtocol, model = "
 }
 
 export function defaultModelCapabilityConfig(protocol?: ModelProtocol, model = ""): ModelCapabilityConfig {
+    const audio: AudioCapabilityConfig =
+        protocol === "doubao-streaming-tts"
+            ? { modes: ["tts", "generation"], references: { maxAudios: 3, maxImages: 1 }, voice: "free", formats: ["mp3", "wav", "ogg_opus", "pcm"] }
+            : protocol === "doubao-voice-tts-3-0"
+              ? { modes: ["tts"], references: { maxAudios: 0, maxImages: 0 }, voice: "free", formats: ["mp3", "pcm", "ogg_opus"] }
+              : { modes: ["tts"], references: { maxAudios: 0, maxImages: 0 }, voice: "preset", formats: ["mp3", "wav", "opus", "aac", "flac", "pcm"] };
     const text: TextCapabilityConfig = {
         streaming: true,
         contextWindowTokens: 128_000,
@@ -592,7 +624,7 @@ export function defaultModelCapabilityConfig(protocol?: ModelProtocol, model = "
         video.defaultOperation = "depth";
         video.processing = { fpsPolicy: "keep_source", maxSourceSeconds: MEDIAKIT_DEPTH_MAX_SOURCE_SECONDS };
     }
-    return { version: 1, text, image: defaultImageCapabilityConfig(protocol, model), video };
+    return { version: 1, text, image: defaultImageCapabilityConfig(protocol, model), video, audio };
 }
 
 export function pluginWorkflowCapabilityConfig(protocol: ModelProtocol, workflow: ModelProtocolWorkflow): ModelCapabilityConfig | undefined {
@@ -611,13 +643,16 @@ export function pluginWorkflowCapabilityConfig(protocol: ModelProtocol, workflow
     return { ...fallback, video: workflowVideoCapabilityConfig(fields, fallback.video!) };
 }
 
-export function modelCapabilityConfigFor(config: { channels: Array<{ id: string; models: string[]; modelCosts?: Array<{ model: string; capabilityConfig?: ModelCapabilityConfig; protocol?: ModelProtocol }> }> }, model: string) {
+export function modelCapabilityConfigFor(
+    config: { channels: Array<{ id: string; models: string[]; interfaceType?: ModelProtocol; modelCosts?: Array<{ model: string; capabilityConfig?: ModelCapabilityConfig; protocol?: ModelProtocol }> }> },
+    model: string,
+) {
     const separator = model.indexOf("::");
     const channelId = separator >= 0 ? model.slice(0, separator) : "";
     const modelName = separator >= 0 ? model.slice(separator + 2) : model;
     const channel = config.channels.find((item) => item.id === channelId) || config.channels.find((item) => item.models.includes(modelName));
     const cost = channel?.modelCosts?.find((item) => item.model === modelName);
-    const fallback = defaultModelCapabilityConfig(cost?.protocol, modelName);
+    const fallback = defaultModelCapabilityConfig(cost?.protocol || channel?.interfaceType, modelName);
     if (!cost?.capabilityConfig) return fallback;
     const capabilityConfig = normalizeModelCapabilityConfig(cost.capabilityConfig);
     const text = capabilityConfig.text ? { ...fallback.text!, ...capabilityConfig.text, references: { ...fallback.text!.references, ...capabilityConfig.text.references } } : fallback.text;
@@ -652,7 +687,16 @@ export function modelCapabilityConfigFor(config: { channels: Array<{ id: string;
           })()
         : fallback.image;
     const image = configuredImageProfile ? normalizeLegacyImageResolutionConfig(cost?.protocol, configuredImageProfile) : fallback.image;
-    return { ...fallback, ...capabilityConfig, text, image, video };
+    const audio = capabilityConfig.audio
+        ? {
+              ...fallback.audio!,
+              ...capabilityConfig.audio,
+              modes: capabilityConfig.audio.modes?.length ? capabilityConfig.audio.modes : fallback.audio!.modes,
+              formats: capabilityConfig.audio.formats?.length ? capabilityConfig.audio.formats : fallback.audio!.formats,
+              references: { ...fallback.audio!.references, ...capabilityConfig.audio.references },
+          }
+        : fallback.audio;
+    return { ...fallback, ...capabilityConfig, text, image, video, audio };
 }
 
 // 工作流字段是供应商参数的唯一事实来源；不能用普通视频模型的固定清晰度列表覆盖它。

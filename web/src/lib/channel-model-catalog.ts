@@ -7,7 +7,7 @@ export type ChannelModelCatalogOption = { value: string; label?: string };
 export type ChannelModelCatalogItem = {
     id: string;
     displayName?: string;
-    modelType?: "text" | "image" | "video" | "audio";
+    modelType?: "text" | "image" | "video" | "audio" | "transcription";
     supportedEndpointTypes?: string[];
     defaultParameters?: {
         aspectRatio?: string;
@@ -51,7 +51,7 @@ export function sanitizeChannelModelCatalogItem(value: unknown): ChannelModelCat
     return compactCatalogItem({
         id,
         displayName: stringValue(record.displayName),
-        modelType: ["text", "image", "video", "audio"].includes(modelType) ? (modelType as ChannelModelCatalogItem["modelType"]) : undefined,
+        modelType: ["text", "image", "video", "audio", "transcription"].includes(modelType) ? (modelType as ChannelModelCatalogItem["modelType"]) : undefined,
         supportedEndpointTypes: stringArray(record.supportedEndpointTypes),
         defaultParameters: normalizedDefaults,
         options: normalizedOptions,
@@ -108,7 +108,7 @@ export function mergeFetchedChannelModelCosts(channel: ModelChannel, catalog: Ch
 function protocolTemplateForNewCatalogModel(capability: ChannelModelCost["capability"] | undefined, channelProtocol: ModelProtocol | undefined): ModelProtocol | undefined {
     if (!capability) return channelProtocol;
     if (modelProtocolCapability(channelProtocol) === capability) return channelProtocol;
-    const templates: Record<ChannelModelCost["capability"], ModelProtocol> = { text: "chat-completion", image: "openai-image", video: "newapi", audio: "openai-audio" };
+    const templates: Record<ChannelModelCost["capability"], ModelProtocol> = { text: "chat-completion", image: "openai-image", video: "newapi", audio: "openai-audio", transcription: "openai-transcription" };
     return templates[capability];
 }
 

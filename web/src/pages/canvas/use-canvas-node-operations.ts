@@ -19,7 +19,7 @@ import { cloneCanvasDrawing } from "@/lib/canvas/canvas-drawing-storage";
 import { isDrawingEngineAvailable, type CanvasDrawingEngine } from "@/lib/canvas/canvas-drawing-engine";
 import { useUserStore } from "@/stores/use-user-store";
 import { useEffectiveConfig } from "@/stores/use-config-store";
-import { workflowProviderPluginEnabled } from "@/lib/plugins/builtin/workflows";
+import { workflowProviderPluginEnabled, type WorkflowProvider } from "@/lib/plugins/builtin/workflows";
 import { usePluginStore } from "@/stores/use-plugin-store";
 
 type CanvasClipboard = {
@@ -133,20 +133,20 @@ export function useCanvasNodeOperations({
         setSelectedConnectionId(null);
     }, [selectedNodeIdsRef, setSelectedConnectionId, setSelectedNodeIds]);
 
-    const createNode = useCallback((type: CanvasNodeTypeId, position?: Position, workflowProvider?: "runninghub") => {
+    const createNode = useCallback((type: CanvasNodeTypeId, position?: Position, workflowProvider?: WorkflowProvider) => {
         if (type === CanvasNodeType.Drawing && !isDrawingEngineAvailable(defaultDrawingEngine, tldrawLicenseKey)) {
             message.error(translate("canvasPage.connection.tldrawLicenseMissing"));
             return;
         }
         const selectedWorkflowProvider = type === CanvasNodeType.Config
-            ? workflowProvider || (workflowProviderPluginEnabled(runtimeStatuses, "runninghub") ? "runninghub" : undefined)
+            ? workflowProvider || (workflowProviderPluginEnabled(runtimeStatuses, "runninghub") ? "runninghub" : workflowProviderPluginEnabled(runtimeStatuses, "comfyui") ? "comfyui" : undefined)
             : undefined;
         if (selectedWorkflowProvider && !workflowProviderPluginEnabled(runtimeStatuses, selectedWorkflowProvider)) {
             message.error(translate("canvasPage.connection.runningHubDisabled"));
             return;
         }
-        const workflowTitle = type === CanvasNodeType.Config && selectedWorkflowProvider === "runninghub"
-            ? translate(effectiveConfig.runningHub.connection === "comfyui" ? "canvasPage.connection.comfyUIWorkflow" : "canvasPage.connection.runningHubWorkflow")
+        const workflowTitle = type === CanvasNodeType.Config && selectedWorkflowProvider
+            ? translate(selectedWorkflowProvider === "comfyui" ? "canvasPage.connection.comfyUIWorkflow" : "canvasPage.connection.runningHubWorkflow")
             : undefined;
         const metadata: CanvasNodeMetadata | undefined = type === CanvasNodeType.Drawing
             ? { drawingEngine: defaultDrawingEngine }

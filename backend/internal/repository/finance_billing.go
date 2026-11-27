@@ -447,12 +447,24 @@ func (r *Repository) settleBillingOrder(id string, providerRequestID string, aud
 		quantity := order.Quantity
 		refund := int64(0)
 		supplement := int64(0)
+		// 零价 Token 订单不扣用户积分，但仍读取上游用量：成本台账和请求日志
+		// 需要真实用量核算成本，售价为 0 不代表成本为 0。
+		var freeTokenUsage *BillingUsage
+		var freeTokenUsageSource string
+		if order.BillingMode == "token" {
+			// 用量只用于成本核对；读取失败不能阻塞零价订单结算。
+			if usage, source, usageErr := tokenSettlementUsage(tx, order); usageErr == nil {
+				freeTokenUsage, freeTokenUsageSource = usage, source
+			}
+		}
 		// 音频始终按实测时长结算；视频处理任务（画质增强等）由调用方显式传入输出时长，
 		// 普通视频生成仍传 nil，保持按请求时长一次扣定。
-		if order.BillingMode == "per_second" && (order.Capability == "audio" || (order.Capability == "video" && audioDurationMs != nil)) {
+		if order.BillingMode == "per_second" && (order.Capability == "audio" || order.Capability == "transcription" || (order.Capability == "video" && audioDurationMs != nil)) {
 			mediaLabel := "音频"
 			if order.Capability == "video" {
 				mediaLabel = "视频"
+			} else if order.Capability == "transcription" {
+				mediaLabel = "转写"
 			}
 			if audioDurationMs == nil || *audioDurationMs <= 0 {
 				return errors.New(mediaLabel + "实际时长不可用，无法按秒结算")
@@ -546,6 +558,14 @@ func (r *Repository) settleBillingOrder(id string, providerRequestID string, aud
 		}
 		now := time.Now()
 		orderUpdates := map[string]any{"status": model.BillingStatusSettled, "actual_amount_microcredits": order.AmountMicrocredits, "settled_at": &now, "updated_at": now}
+		if freeTokenUsage != nil {
+			orderUpdates["input_tokens"] = freeTokenUsage.InputTokens
+			orderUpdates["output_tokens"] = freeTokenUsage.OutputTokens
+			orderUpdates["cached_tokens"] = freeTokenUsage.CachedTokens
+			orderUpdates["cache_write_tokens"] = freeTokenUsage.CacheWriteTokens
+			orderUpdates["usage_available"] = freeTokenUsageSource == billingUsageSourceProvider
+			orderUpdates["usage_source"] = freeTokenUsageSource
+		}
 		if providerRequestID != "" {
 			orderUpdates["provider_request_id"] = providerRequestID
 		}
@@ -646,7 +666,11 @@ func (r *Repository) RestoreRefundedBillingOrder(id string, providerRequestID st
 		priceRule := 0
 		if order.BillingMode == "token" {
 			if zeroPricedTokenOrder(order) {
+				// 零价订单只补记用量供成本核对，不向用户收费；用量读取失败不阻塞恢复。
 				actual = 0
+				if loaded, source, err := tokenSettlementUsage(tx, order); err == nil {
+					usage, usageSource = loaded, source
+				}
 			} else {
 				var err error
 				usage, usageSource, err = tokenSettlementUsage(tx, order)

@@ -106,7 +106,7 @@ export type ApiCallLog = {
     billingSettledMicrocredits?: number;
     billingAvailable: boolean;
     source: string;
-    capability: "text" | "image" | "video" | "audio" | "";
+    capability: "text" | "image" | "video" | "audio" | "transcription" | "";
     operation?: string;
     requestKind: "create" | "poll" | "download" | "upload" | "local_save" | "local_fallback" | "offload" | "register" | "repair" | "";
     billable: boolean;
@@ -270,7 +270,7 @@ export type ModelPricing = {
     id: string;
     channelId?: string;
     model: string;
-    capability: "text" | "image" | "video" | "audio";
+    capability: "text" | "image" | "video" | "audio" | "transcription";
     currency: string;
     inputPerMillionMicros: number;
     outputPerMillionMicros: number;
@@ -689,6 +689,22 @@ export function deleteAdminPromptTemplate(id: string) {
     return http.delete<{ ok: boolean }>(`/admin/prompt-templates/${encodeURIComponent(id)}`);
 }
 
+export type UserModelDefaults = {
+    imageModel: string;
+    videoModel: string;
+    textModel: string;
+    audioModel: string;
+    transcriptionModel: string;
+};
+
+export function getUserModelDefaults() {
+    return http.get<{ defaults: UserModelDefaults }>("/settings/model-defaults");
+}
+
+export function updateUserModelDefaults(input: UserModelDefaults) {
+    return http.patch<{ defaults: UserModelDefaults }>("/settings/model-defaults", input);
+}
+
 export function listUserPromptPreferences() {
     return http.get<{ preferences: UserPromptPreference[] }>("/settings/prompt-templates");
 }
@@ -745,7 +761,7 @@ export function updateAdminDrawingEngineSetting(input: Pick<CanvasDrawingEngineS
     return http.patch<{ setting: CanvasDrawingEngineSetting }>("/admin/settings/drawing-engine", input);
 }
 
-export type AdminApiLogParams = AdminListParams & Pick<AnalyticsFilters, "from" | "to" | "userId" | "model" | "channelId"> & { recordType?: "request" | "download" | "all"; capability?: "text" | "image" | "video" | "audio" };
+export type AdminApiLogParams = AdminListParams & Pick<AnalyticsFilters, "from" | "to" | "userId" | "model" | "channelId"> & { recordType?: "request" | "download" | "all"; capability?: "text" | "image" | "video" | "audio" | "transcription" };
 
 export function listAdminApiLogs(params: AdminApiLogParams = {}) {
     return http.get<{ logs: ApiCallLog[]; total: number; page: number; pageSize: number }>("/admin/api-logs", { params });

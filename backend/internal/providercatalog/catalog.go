@@ -248,9 +248,9 @@ func normalizeModel(m Model) (Model, error) {
 	}
 	m.Capability = strings.ToLower(strings.TrimSpace(m.Capability))
 	switch m.Capability {
-	case "text", "image", "video", "audio":
+	case "text", "image", "video", "audio", "transcription":
 	default:
-		return m, errors.New("capability 只能是 text、image、video、audio")
+		return m, errors.New("capability 只能是 text、image、video、audio、transcription")
 	}
 	m.Protocol = strings.TrimSpace(m.Protocol)
 	if m.Protocol == "" {

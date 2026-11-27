@@ -47,7 +47,7 @@ func parseAnalyticsTime(value string) (time.Time, bool) {
 
 func normalizeCapability(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "text", "image", "video", "audio":
+	case "text", "image", "video", "audio", "transcription":
 		return strings.ToLower(strings.TrimSpace(value))
 	default:
 		return ""
@@ -421,6 +421,9 @@ func percentile(values []int64, quantile float64) int64 {
 
 func capabilityFromTaskType(taskType string) string {
 	value := strings.ToLower(taskType)
+	if strings.Contains(value, "transcription") {
+		return "transcription"
+	}
 	for _, capability := range []string{"video", "image", "audio", "text"} {
 		if strings.Contains(value, capability) {
 			return capability

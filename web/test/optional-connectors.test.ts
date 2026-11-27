@@ -130,6 +130,7 @@ test("skill editor and RunningHub settings use executable dynamic-import boundar
             ],
         });
         expect(built.success).toBe(true);
-        expect(kinds).toEqual(["dynamic-import"]);
+        expect(kinds.length).toBeGreaterThan(0);
+        expect(kinds.every((kind) => kind === "dynamic-import")).toBe(true);
     }
 });

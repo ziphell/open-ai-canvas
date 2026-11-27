@@ -442,6 +442,7 @@ export default function LogsPage() {
                                 { label: "图片", value: "image" },
                                 { label: "视频", value: "video" },
                                 { label: "音频", value: "audio" },
+                                { label: "转写", value: "transcription" },
                             ]}
                         />
                         <Select
@@ -562,7 +563,7 @@ function formatCompactTime(value: string) {
     return date.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 }
 function capabilityText(value: string) {
-    return ({ text: "文本", image: "图片", video: "视频", audio: "音频" } as Record<string, string>)[value] || "未知";
+    return ({ text: "文本", image: "图片", video: "视频", audio: "音频", transcription: "转写" } as Record<string, string>)[value] || "未知";
 }
 function formatDuration(value: number) {
     if (value < 1_000) return `${value} ms`;

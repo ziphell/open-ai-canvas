@@ -5744,10 +5744,8 @@ URL 使用归属校验后的资源访问地址，本地存储也可签发厂商�
 - [ ] 短剧续接在 `minimax-video` 下会因首帧与参考图混用被拒绝；需业务确认改用 `metaso-h3` 或调整参考策略。目录已切换到 `metaso-h3`，不受该限制。
 - [ ] 前端能力配置仅影响新建/重新保存的模型；已有渠道模型若仍保存 4–30 秒或 2K，需要管理员重新保存能力后才能与协议校验一致。
 
-## 待验证：自建 ComfyUI 工作流
+## 待验证：ComfyUI 独立工作流插件
 
-- 已实现：工作流应用新增「自建 ComfyUI」接入方式，与 RunningHub 共用同一个插件、字段映射和画布执行链路。设置页粘贴或导入 ComfyUI「Save (API Format)」导出的 JSON，后端解析节点和字段并保存为条目；生成时调用 `/upload/image`、`/prompt`、`/history/{prompt_id}` 和 `/view`，不需要积分 API Key。
-- 已实现：ComfyUI 字段按原始 JSON 类型写入（数值、布尔、枚举和媒体文件名），不会复用 RunningHub 的字符串 `nodeInfoList`；鉴权口令可选，仅用于带 Bearer 鉴权的反向代理；结果下载与 `/view` 同源复用同一口令。
-- 自动回归：后端假 ComfyUI 服务覆盖素材上传、提交、轮询和输出下载，另有字段类型、链接输入、输出过滤与错误信息专项；前端覆盖 ComfyUI 接口类型生成、无需 Key 和旧 App 选择清理；前端类型检查通过。
-- [ ] 真实自建 ComfyUI 验收：部署者先通过 `CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS` 放行地址，再在设置导入文生图、图生视频和多图工作流；验证输出节点、蒙版、随机种子、视频节点产物和带鉴权反代的下载。
-- [ ] 核对未放行内网地址时的错误提示、ComfyUI 400 `node_errors` 的可读信息、任务重试与进程重启后的 `prompt_id` 恢复。
+- 已实现：ComfyUI 作为独立插件 `comfyui-workflow-provider`，与 RunningHub 分开启用、分别配置；设置页新增「ComfyUI 工作流」，填写 Base URL（默认 `http://127.0.0.1:8188`）、可选 API Key，导入 ComfyUI「Save (API Format)」JSON 并编辑字段映射。
+- 已实现：画布工作流节点可在 RunningHub / ComfyUI 之间切换，任务按所选提供方直连对应服务；后端直连 ComfyUI 的 `/upload/image`、`/prompt`、`/history/{prompt_id}`、`/view`。
+- [ ] 真实自建 ComfyUI 验收：启用插件后导入文生图、图生视频工作流，验证素材上传、提交、轮询、产物下载、字段类型和错误提示；私网地址需通过 `CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS` 放行。

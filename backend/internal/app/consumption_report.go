@@ -168,7 +168,7 @@ func (s *Service) sendConsumptionReport(user model.User, dayStart time.Time) err
 		Mail: auth.OutgoingMail{Subject: rendered.Subject, Text: rendered.Text, HTML: rendered.HTML}})
 }
 
-var capabilityLabels = map[string]string{"image": "图片生成", "video": "视频生成", "text": "文本与对话", "audio": "音频生成", "ark_asset": "素材组"}
+var capabilityLabels = map[string]string{"image": "图片生成", "video": "视频生成", "text": "文本与对话", "audio": "音频生成", "transcription": "语音转写", "ark_asset": "素材组"}
 
 var weekdayLabels = []string{"星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"}
 

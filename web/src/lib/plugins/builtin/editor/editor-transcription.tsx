@@ -7,12 +7,9 @@ import { AudioLines, Loader2 } from "lucide-react";
 import { useEditorHostContext, useEditorStoreContext } from "@/components/editor/editor-context";
 import { getSubtitleTracks } from "@/lib/timeline/timeline-tracks";
 import { waitForGenerationTask } from "@/services/api/task-center";
-import {
-    createTimelineTranscriptionTask,
-    type TimelineTranscriptionResult,
-    type TimelineTranscriptionSegment,
-} from "@/services/api/timeline-tasks";
+import { createTimelineTranscriptionTask, type TimelineTranscriptionResult, type TimelineTranscriptionSegment } from "@/services/api/timeline-tasks";
 import type { ProjectAsset } from "@/services/api/projects";
+import { decodeChannelModel, useEffectiveConfig } from "@/stores/use-config-store";
 import type { SrtEntry } from "@/types/timeline";
 
 const WHISPER_WAIT_TIMEOUT_MS = 25 * 60 * 1000;
@@ -27,11 +24,9 @@ function resourceIdOfAsset(asset: ProjectAsset): string | null {
 export function EditorTranscription() {
     const { assets } = useEditorHostContext();
     const { project, dispatch } = useEditorStoreContext();
+    const config = useEffectiveConfig();
     // 音频与视频素材均可转写（视频静音会由后端明确报错）。
-    const transcribableAssets = useMemo(
-        () => assets.filter((a) => a.mediaType === "audio" || a.mediaType === "video"),
-        [assets],
-    );
+    const transcribableAssets = useMemo(() => assets.filter((a) => a.mediaType === "audio" || a.mediaType === "video"), [assets]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [running, setRunning] = useState(false);
     const [progressLabel, setProgressLabel] = useState<string | null>(null);
@@ -72,8 +67,11 @@ export function EditorTranscription() {
         setMessage(null);
         setProgressLabel("排队中…");
         try {
+            const transcriptionModel = decodeChannelModel(config.transcriptionModel);
             const created = await createTimelineTranscriptionTask({
                 resourceId,
+                channelId: transcriptionModel?.channelId,
+                model: transcriptionModel?.model,
             });
             const done = await waitForGenerationTask(created.id, {
                 timeoutMs: WHISPER_WAIT_TIMEOUT_MS,
@@ -144,17 +142,9 @@ export function EditorTranscription() {
                             {running ? "转写中…" : "转写自动字幕"}
                         </button>
 
-                        {running && progressLabel && (
-                            <p className="mt-2 text-[var(--fs-label)] text-[var(--previs-dock-fg)]/60">{progressLabel}</p>
-                        )}
-                        {message && (
-                            <p className={`mt-2 text-[var(--fs-label)] ${failed ? "text-[var(--previs-danger)]" : "text-[var(--previs-dock-fg)]/70"}`}>
-                                {message}
-                            </p>
-                        )}
-                        <p className="mt-2 text-[var(--fs-label)] leading-relaxed text-[var(--previs-dock-fg)]/45">
-                            由本地 whisper.cpp 识别，音视频不出本机；识别结果写入字幕轨道，可再编辑。
-                        </p>
+                        {running && progressLabel && <p className="mt-2 text-[var(--fs-label)] text-[var(--previs-dock-fg)]/60">{progressLabel}</p>}
+                        {message && <p className={`mt-2 text-[var(--fs-label)] ${failed ? "text-[var(--previs-danger)]" : "text-[var(--previs-dock-fg)]/70"}`}>{message}</p>}
+                        <p className="mt-2 text-[var(--fs-label)] leading-relaxed text-[var(--previs-dock-fg)]/45">由管理员配置的转写协议识别（whisper.cpp 或 OpenAI 兼容转写）；识别结果写入字幕轨道，可再编辑。</p>
                     </>
                 )}
             </div>

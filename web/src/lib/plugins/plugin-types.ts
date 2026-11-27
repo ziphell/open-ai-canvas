@@ -3,15 +3,7 @@ import type { Asset } from "@/stores/use-asset-store";
 export const PLUGIN_API_VERSION = "yingce.plugin/v1" as const;
 export const PLUGIN_API_VERSION_V2 = "yingce.plugin/v2" as const;
 
-export type EditorSlotKind =
-    | "timeline-panel"
-    | "preview-renderer"
-    | "inspector"
-    | "asset-ingest"
-    | "subtitle-tool"
-    | "transcription-provider"
-    | "export-renderer"
-    | "ai-assistant";
+export type EditorSlotKind = "timeline-panel" | "preview-renderer" | "inspector" | "asset-ingest" | "subtitle-tool" | "transcription-provider" | "export-renderer" | "ai-assistant";
 
 export type EditorSlotContribution = {
     slot: EditorSlotKind;
@@ -33,7 +25,7 @@ export type PluginManifestV2 = Omit<PluginManifest, "apiVersion" | "contributes"
 
 export type PluginContributionKind = "provider" | "payment-provider" | "workflow" | "canvas-node" | "transform" | "command" | "asset-source" | "usage-observer" | "ai-capability" | "agent" | "import-export";
 export type PluginSurface = "node" | "fullscreen" | "hybrid" | "asset-source" | "settings" | "wallet";
-export type ProtocolCapability = "text" | "image" | "video" | "audio";
+export type ProtocolCapability = "text" | "image" | "video" | "audio" | "transcription";
 export type ProtocolScope = "admin.system-channel" | "user.custom-channel" | "canvas" | "creation" | "agent" | string;
 export type PluginRuntime = "declarative" | "sandbox" | "worker" | "trusted-backend";
 export type PluginField = {

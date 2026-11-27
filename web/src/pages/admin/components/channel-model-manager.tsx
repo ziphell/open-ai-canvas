@@ -495,7 +495,7 @@ export function ChannelModelManager({
                         ) : null}
                         {capability !== "all" ? (
                             <AdminFilterChip
-                                label={`能力：${capability}`}
+                                label={`能力：${capabilityLabel(capability)}`}
                                 onRemove={() => {
                                     setCapability("all");
                                     setPage(1);
@@ -529,6 +529,7 @@ export function ChannelModelManager({
                                 { label: "图片", value: "image" },
                                 { label: "视频", value: "video" },
                                 { label: "音频", value: "audio" },
+                                { label: "转写", value: "transcription" },
                             ]}
                         />
                         <Select
@@ -731,5 +732,5 @@ export function ChannelModelManager({
 }
 
 function capabilityLabel(value: ChannelModel["capability"]) {
-    return { text: "文本", image: "图片", video: "视频", audio: "音频", "": "待配置" }[value];
+    return { text: "文本", image: "图片", video: "视频", audio: "音频", transcription: "转写", "": "待配置" }[value];
 }

@@ -1379,6 +1379,7 @@
           "audioMode": {
             "enum": [
               "tts",
+              "generation",
               "unified_edit"
             ],
             "type": "string"
@@ -2152,9 +2153,10 @@
         ],
         "properties": {
           "audioMode": {
-            "description": "tts禁音频引用；unified_edit必需音频；省略自动判定。",
+            "description": "tts为文本朗读且禁音频引用；generation为按提示词生成音频且参考音频可选；unified_edit为参考配音且必需音频；省略自动判定。",
             "enum": [
               "tts",
+              "generation",
               "unified_edit"
             ],
             "type": "string"

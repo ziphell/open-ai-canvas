@@ -5,54 +5,6 @@ import (
 	"testing"
 )
 
-func TestDecodeWhisperVerboseJSON(t *testing.T) {
-	payload := []byte(`{
-		"task": "transcribe",
-		"language": "zh",
-		"duration": 6.12,
-		"text": " 大家好  ",
-		"segments": [
-			{"id": 0, "start": 0.0, "end": 2.015, "text": " 大家好 "},
-			{"id": 1, "start": 2.5, "end": 6.12, "text": "   "},
-			{"id": 2, "start": 4.12, "end": 6.121, "text": "今天天气不错"}
-		]
-	}`)
-	segments, language, err := decodeWhisperVerboseJSON(payload)
-	if err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if language != "zh" {
-		t.Fatalf("language = %q, want zh", language)
-	}
-	// 空文本段被过滤，毫秒取整（0.0→0，2.5→2500）。
-	if len(segments) != 2 {
-		t.Fatalf("segments = %d, want 2 (blank segment filtered)", len(segments))
-	}
-	if segments[0].StartMs != 0 || segments[0].EndMs != 2015 {
-		t.Fatalf("seg0 = %d-%d, want 0-2015", segments[0].StartMs, segments[0].EndMs)
-	}
-	if segments[0].Text != "大家好" {
-		t.Fatalf("seg0 text = %q, want 大家好 (trimmed)", segments[0].Text)
-	}
-	if segments[1].StartMs != 4120 || segments[1].EndMs != 6121 {
-		t.Fatalf("seg1 = %d-%d, want 4120-6121", segments[1].StartMs, segments[1].EndMs)
-	}
-}
-
-func TestDecodeWhisperVerboseJSONInvalid(t *testing.T) {
-	if _, _, err := decodeWhisperVerboseJSON([]byte(`{not json`)); err == nil {
-		t.Fatal("decode invalid payload: want error")
-	}
-	// 空段落由 decode 正常返回空切片，守卫在 transcribe 层（避免写出空字幕）。
-	segments, _, err := decodeWhisperVerboseJSON([]byte(`{"text":"","segments":[]}`))
-	if err != nil {
-		t.Fatalf("decode empty segments: unexpected error %v", err)
-	}
-	if len(segments) != 0 {
-		t.Fatalf("decode empty segments: got %d, want 0", len(segments))
-	}
-}
-
 func TestFormatSRTTimestamp(t *testing.T) {
 	cases := []struct {
 		ms   int64

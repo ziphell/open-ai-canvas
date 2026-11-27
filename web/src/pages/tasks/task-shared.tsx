@@ -104,7 +104,7 @@ export function formatModelName(config: AiConfig, task: GenerationTask) {
     const model = raw.includes("::") ? raw.split("::").pop()?.trim() || raw : raw;
 
     // 工作流名称是任务快照，不属于模型渠道，不能交给模型展示名解析器再次映射成“系统模型”。
-    if (task.provider === "runninghub") return raw || translate("library.tasks.model.workflow");
+    if (task.provider === "runninghub" || task.provider === "comfyui") return raw || translate("library.tasks.model.workflow");
     if (!model) return translate("library.tasks.model.workflow");
     if (model === "version-router") return translate("library.tasks.model.versionRouter");
     if (model === "workflow-router") return translate("library.tasks.model.workflowRouter");

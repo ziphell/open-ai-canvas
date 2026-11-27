@@ -1,0 +1,163 @@
+{
+  "apiVersion": "yingce.plugin/v2",
+  "id": "doubao-voice-tts-3-0",
+  "name": "豆包语音合成 3.0",
+  "version": "2.0.0",
+  "author": "Volcengine / 影策",
+  "description": "豆包语音合成 3.0 独立请求协议插件。",
+  "documentation": "# 豆包语音合成 3.0\n\n该目录是独立官方协议插件源码。\n\n后端从生成的 `doubao-voice-tts-3-0.yingce-plugin` 包加载，不依赖系统内置 `host:` 适配器。\n\n完整接口见 [docs/interface.md](docs/interface.md)。\n\n---\n\n# 豆包语音合成 3.0 接口字段\n\n## 协议身份\n\n- 插件 ID：`doubao-voice-tts-3-0`。\n- Provider ID：`doubao-voice-tts-3-0`。\n- 能力：`audio`。\n- 默认 Base URL：`https://voice.cn-beijing.volces.com`。\n- 鉴权驱动：`header`。\n- 创建：`POST /api/v3/text-to-speech/{voice_id}/streaming`。\n- 生命周期：同步响应。\n\n## 配置字段\n\n| 字段 | 类型 | 必填 | 含义 |\n| --- | --- | --- | --- |\n| `apiKey` | secret | 是 | API Key |\n\n## 统一字段映射\n\n| 统一字段 | 类型 | 必填 | 上游映射 | 说明 |\n| --- | --- | --- | --- | --- |\n| `model` | string | 是 | `model_id` | 语音合成 3.0 模型 ID，默认 doubao-seed-tts-3.0。 |\n| `prompt` | string | 是 | `text` | 待朗读文本，最长 10000 字符。 |\n| `providerOptions` | object | 否 | `provider-specific fields` | 插件命名空间内的厂商扩展字段。 |\n\n## 上游请求模板逐字段清单\n\n下表由插件请求模板生成，覆盖 body、query、headers 和 multipart 文件声明中的每个字段。\n\n| 上游位置 | 值或转换表达式 |\n| --- | --- |\n| `create.method` | `\"POST\"` |\n| `create.path` | `\"/api/v3/text-to-speech/{voice_id}/streaming\"` |\n| `create.pathTemplate` | `{\"$concat\":[\"/api/v3/text-to-speech/\",{\"$ref\":\"request.extra.audioVoice\"},\"/streaming\"]}` |\n| `create.contentType` | `\"application/json\"` |\n| `create.body.text` | `{\"$ref\":\"request.prompt\"}` |\n| `create.body.model_id` | `{\"$ref\":\"request.model\"}` |\n| `create.body.output_format.format` | `{\"$coalesce\":[{\"$ref\":\"request.extra.audioFormat\"},\"mp3\"]}` |\n| `create.body.voice_settings.speed` | `{\"$coalesce\":[{\"$if\":{\"condition\":{\"$ne\":[{\"$toFloat\":{\"$ref\":\"request.extra.audioSpeed\"}},0]},\"then\":{\"$toFloat\":{\"$ref\":\"request.extra.audioSpeed\"}},\"else\":null}},1]}` |\n| `create.body.voice_settings.instructions` | `{\"$omitEmpty\":{\"$if\":{\"condition\":{\"$ref\":\"request.extra.audioInstructions\"},\"then\":[{\"$ref\":\"request.extra.audioInstructions\"}],\"else\":null}}}` |\n| `create.body.enable_subtitle` | `false` |\n| `create.headers.X-Request-Id` | `{\"$ref\":\"request.extra.idempotencyKey\"}` |\n\n## Provider 扩展键\n\n- 无额外扩展键。\n\n动态模型或工作流允许使用文档声明的完整 `parameters/input/extra_body` 对象；该对象是协议本身的开放 schema，不会被宿主裁剪。\n\n## 响应映射逐字段清单\n\n| 映射位置 | 上游路径或转换表达式 |\n| --- | --- |\n| `response.streamedJsonAudio` | `true` |\n| `response.resultKind` | `\"audio\"` |\n\n## 响应与错误\n\n插件把上游 task/status/text/media/usage 映射为统一结果。临时媒体 URL 标记为 ephemeral，由宿主立即下载持久化。HTTP 错误、业务 code 和 error object 保持失败语义，不包装成成功。\n\n## 兼容边界\n\n豆包语音合成大模型 3.0 单向流式 HTTP 接口。POST /api/v3/text-to-speech/{voice_id}/streaming，音色 ID 必须由用户填写；请求体提交完整文本，响应为 JSONL 事件流：ready、audio、alignment 和 final，audio 事件携带 Base64 音频片段，按接收顺序拼接。默认模型 doubao-seed-tts-3.0，输出格式支持 mp3、pcm、ogg_opus。该协议只做文本朗读，不接收参考音频或参考图片。\n\n<!-- YINGCE_MANIFEST_CONTRACT_START -->\n## Manifest 完整接口定义\n\n以下 JSON 与插件包内实际 `manifest.json` 逐字段一致，覆盖插件身份、权限、配置、鉴权、参数、校验、创建、Agent、查询、取消、结果下载、响应和 Agent 响应映射。`documentation` 字段的值就是当前完整文档；为避免文档在自身内部无限递归，JSON 中仅用等义占位文本表示正文。\n\n```json\n{\n  \"apiVersion\": \"yingce.plugin/v2\",\n  \"id\": \"doubao-voice-tts-3-0\",\n  \"name\": \"豆包语音合成 3.0\",\n  \"version\": \"2.0.0\",\n  \"author\": \"Volcengine / 影策\",\n  \"description\": \"豆包语音合成 3.0 独立请求协议插件。\",\n  \"documentation\": \"<当前插件的完整 documentation，由 README.md 与 docs/interface.md 拼接而成；为避免 JSON 递归，此处不重复展开正文。>\",\n  \"permissions\": [\n    \"generation.run\",\n    \"media.read\"\n  ],\n  \"configuration\": {\n    \"fields\": [\n      {\n        \"name\": \"apiKey\",\n        \"type\": \"secret\",\n        \"label\": \"API Key\",\n        \"required\": true\n      }\n    ]\n  },\n  \"contributes\": {\n    \"providers\": [\n      {\n        \"id\": \"doubao-voice-tts-3-0\",\n        \"label\": \"豆包语音合成 3.0\",\n        \"capabilities\": [\n          \"audio\"\n        ],\n        \"scopes\": [\n          \"admin.system-channel\",\n          \"user.custom-channel\",\n          \"canvas\",\n          \"creation\",\n          \"agent\"\n        ],\n        \"baseUrl\": \"https://voice.cn-beijing.volces.com\",\n        \"requiresPublicMediaUrls\": false,\n        \"auth\": {\n          \"type\": \"header\",\n          \"field\": \"apiKey\",\n          \"header\": \"X-Api-Key\"\n        },\n        \"parameters\": [\n          {\n            \"name\": \"model\",\n            \"type\": \"string\",\n            \"required\": true,\n            \"mapping\": \"model_id\",\n            \"description\": \"语音合成 3.0 模型 ID，默认 doubao-seed-tts-3.0。\"\n          },\n          {\n            \"name\": \"prompt\",\n            \"type\": \"string\",\n            \"required\": true,\n            \"mapping\": \"text\",\n            \"description\": \"待朗读文本，最长 10000 字符。\"\n          },\n          {\n            \"name\": \"providerOptions\",\n            \"type\": \"object\",\n            \"required\": false,\n            \"mapping\": \"provider-specific fields\",\n            \"description\": \"插件命名空间内的厂商扩展字段。\"\n          }\n        ],\n        \"validations\": [\n          {\n            \"assert\": {\n              \"$ref\": \"request.extra.audioVoice\"\n            },\n            \"message\": \"豆包语音合成 3.0 需要填写音色 ID\"\n          }\n        ],\n        \"create\": {\n          \"method\": \"POST\",\n          \"path\": \"/api/v3/text-to-speech/{voice_id}/streaming\",\n          \"pathTemplate\": {\n            \"$concat\": [\n              \"/api/v3/text-to-speech/\",\n              {\n                \"$ref\": \"request.extra.audioVoice\"\n              },\n              \"/streaming\"\n            ]\n          },\n          \"contentType\": \"application/json\",\n          \"body\": {\n            \"text\": {\n              \"$ref\": \"request.prompt\"\n            },\n            \"model_id\": {\n              \"$ref\": \"request.model\"\n            },\n            \"output_format\": {\n              \"format\": {\n                \"$coalesce\": [\n                  {\n                    \"$ref\": \"request.extra.audioFormat\"\n                  },\n                  \"mp3\"\n                ]\n              }\n            },\n            \"voice_settings\": {\n              \"speed\": {\n                \"$coalesce\": [\n                  {\n                    \"$if\": {\n                      \"condition\": {\n                        \"$ne\": [\n                          {\n                            \"$toFloat\": {\n                              \"$ref\": \"request.extra.audioSpeed\"\n                            }\n                          },\n                          0\n                        ]\n                      },\n                      \"then\": {\n                        \"$toFloat\": {\n                          \"$ref\": \"request.extra.audioSpeed\"\n                        }\n                      },\n                      \"else\": null\n                    }\n                  },\n                  1\n                ]\n              },\n              \"instructions\": {\n                \"$omitEmpty\": {\n                  \"$if\": {\n                    \"condition\": {\n                      \"$ref\": \"request.extra.audioInstructions\"\n                    },\n                    \"then\": [\n                      {\n                        \"$ref\": \"request.extra.audioInstructions\"\n                      }\n                    ],\n                    \"else\": null\n                  }\n                }\n              }\n            },\n            \"enable_subtitle\": false\n          },\n          \"headers\": {\n            \"X-Request-Id\": {\n              \"$ref\": \"request.extra.idempotencyKey\"\n            }\n          }\n        },\n        \"response\": {\n          \"streamedJsonAudio\": true,\n          \"resultKind\": \"audio\"\n        }\n      }\n    ]\n  }\n}\n```\n<!-- YINGCE_MANIFEST_CONTRACT_END -->\n",
+  "permissions": [
+    "generation.run",
+    "media.read"
+  ],
+  "configuration": {
+    "fields": [
+      {
+        "name": "apiKey",
+        "type": "secret",
+        "label": "API Key",
+        "required": true
+      }
+    ]
+  },
+  "contributes": {
+    "providers": [
+      {
+        "id": "doubao-voice-tts-3-0",
+        "label": "豆包语音合成 3.0",
+        "capabilities": [
+          "audio"
+        ],
+        "scopes": [
+          "admin.system-channel",
+          "user.custom-channel",
+          "canvas",
+          "creation",
+          "agent"
+        ],
+        "baseUrl": "https://voice.cn-beijing.volces.com",
+        "requiresPublicMediaUrls": false,
+        "auth": {
+          "type": "header",
+          "field": "apiKey",
+          "header": "X-Api-Key"
+        },
+        "parameters": [
+          {
+            "name": "model",
+            "type": "string",
+            "required": true,
+            "mapping": "model_id",
+            "description": "语音合成 3.0 模型 ID，默认 doubao-seed-tts-3.0。"
+          },
+          {
+            "name": "prompt",
+            "type": "string",
+            "required": true,
+            "mapping": "text",
+            "description": "待朗读文本，最长 10000 字符。"
+          },
+          {
+            "name": "providerOptions",
+            "type": "object",
+            "required": false,
+            "mapping": "provider-specific fields",
+            "description": "插件命名空间内的厂商扩展字段。"
+          }
+        ],
+        "validations": [
+          {
+            "assert": {
+              "$ref": "request.extra.audioVoice"
+            },
+            "message": "豆包语音合成 3.0 需要填写音色 ID"
+          }
+        ],
+        "create": {
+          "method": "POST",
+          "path": "/api/v3/text-to-speech/{voice_id}/streaming",
+          "pathTemplate": {
+            "$concat": [
+              "/api/v3/text-to-speech/",
+              {
+                "$ref": "request.extra.audioVoice"
+              },
+              "/streaming"
+            ]
+          },
+          "contentType": "application/json",
+          "body": {
+            "text": {
+              "$ref": "request.prompt"
+            },
+            "model_id": {
+              "$ref": "request.model"
+            },
+            "output_format": {
+              "format": {
+                "$coalesce": [
+                  {
+                    "$ref": "request.extra.audioFormat"
+                  },
+                  "mp3"
+                ]
+              }
+            },
+            "voice_settings": {
+              "speed": {
+                "$coalesce": [
+                  {
+                    "$if": {
+                      "condition": {
+                        "$ne": [
+                          {
+                            "$toFloat": {
+                              "$ref": "request.extra.audioSpeed"
+                            }
+                          },
+                          0
+                        ]
+                      },
+                      "then": {
+                        "$toFloat": {
+                          "$ref": "request.extra.audioSpeed"
+                        }
+                      },
+                      "else": null
+                    }
+                  },
+                  1
+                ]
+              },
+              "instructions": {
+                "$omitEmpty": {
+                  "$if": {
+                    "condition": {
+                      "$ref": "request.extra.audioInstructions"
+                    },
+                    "then": [
+                      {
+                        "$ref": "request.extra.audioInstructions"
+                      }
+                    ],
+                    "else": null
+                  }
+                }
+              }
+            },
+            "enable_subtitle": false
+          },
+          "headers": {
+            "X-Request-Id": {
+              "$ref": "request.extra.idempotencyKey"
+            }
+          }
+        },
+        "response": {
+          "streamedJsonAudio": true,
+          "resultKind": "audio"
+        }
+      }
+    ]
+  }
+}

@@ -47,12 +47,11 @@ func seedRunningTimelineTask(t *testing.T, db *gorm.DB, inputJSON string) *model
 	return task
 }
 
-func TestTimelineTranscriptionFailsFastWhenWhisperUnconfigured(t *testing.T) {
+func TestTimelineTranscriptionFailsFastWithoutConfiguredModel(t *testing.T) {
 	svc, db := newTimelineTaskTestService(t)
 	task := seedRunningTimelineTask(t, db, `{"resourceId":"res-1","language":""}`)
 	w := newTaskWorkerCoordinator(svc)
 
-	t.Setenv(whisperLangEnv, "")
 	err := w.processTimelineTranscription(task, context.Background())
 	if err != nil {
 		t.Fatalf("process: want nil (task terminal handled internally), got %v", err)
@@ -64,8 +63,8 @@ func TestTimelineTranscriptionFailsFastWhenWhisperUnconfigured(t *testing.T) {
 	if stored.Status != model.TaskStatusFailed {
 		t.Fatalf("status = %q, want failed", stored.Status)
 	}
-	if !strings.Contains(stored.Error, "CANVAS_WHISPER_BASE_URL") {
-		t.Fatalf("error = %q, want mention of CANVAS_WHISPER_BASE_URL", stored.Error)
+	if !strings.Contains(stored.Error, "未配置转写模型") {
+		t.Fatalf("error = %q, want mention of 未配置转写模型", stored.Error)
 	}
 }
 
@@ -74,7 +73,6 @@ func TestTimelineTranscriptionRejectsMissingResourceRef(t *testing.T) {
 	task := seedRunningTimelineTask(t, db, `{"resourceId":"  "}`)
 	w := newTaskWorkerCoordinator(svc)
 
-	t.Setenv(whisperLangEnv, "http://127.0.0.1:9999")
 	err := w.processTimelineTranscription(task, context.Background())
 	if err != nil {
 		t.Fatalf("process: want nil (task terminal handled internally), got %v", err)

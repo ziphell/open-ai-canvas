@@ -32,9 +32,9 @@ describe("profile input and security expiry", () => {
         expect(profileSecondsRemaining(timestamp, timestamp - 1001)).toBe(2);
         expect(profileSecondsRemaining(timestamp, timestamp + 1)).toBe(0);
     });
-    test("account settings default to profile and creation continues to channels", () => {
+    test("account settings default to profile and creation continues to models", () => {
         expect(settingsPath()).toBe("/settings?section=profile");
-        expect(settingsPath(undefined, true)).toBe("/settings?section=channels&continue=1");
+        expect(settingsPath(undefined, true)).toBe("/settings?section=models&continue=1");
         expect(settingsPath("models", true)).toBe("/settings?section=models&continue=1");
         expect(settingsPath("profile")).toBe("/settings?section=profile");
     });

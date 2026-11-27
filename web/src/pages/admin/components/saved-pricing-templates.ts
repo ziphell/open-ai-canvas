@@ -89,7 +89,7 @@ export function readPricingTemplates(scope: string): SavedPricingTemplate[] {
                 typeof item.name !== "string" ||
                 !item.name.trim() ||
                 item.name.length > 48 ||
-                !["text", "image", "video", "audio"].includes(String(item.capability))
+                !["text", "image", "video", "audio", "transcription"].includes(String(item.capability))
             )
                 throw new Error();
             const nameKey = `${item.capability}:${item.name.trim().toLowerCase()}`;

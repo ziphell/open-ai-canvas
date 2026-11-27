@@ -322,7 +322,7 @@ func (s *Service) prepareBatchModelContract(channel *model.ModelChannel, before 
 	var config *ModelCapabilityConfig
 	if changes.CapabilityTemplate != nil {
 		config = changes.CapabilityTemplate.CapabilityConfig
-	} else if before.Capability == "" && capability != "audio" {
+	} else if before.Capability == "" && capability != "audio" && capability != "transcription" {
 		config = DefaultModelCapabilityConfigForModel(string(protocol), upstream)
 	} else if before.Capability != "" {
 		config, err = DecodeModelCapabilityConfig(before.CapabilityConfigJSON)

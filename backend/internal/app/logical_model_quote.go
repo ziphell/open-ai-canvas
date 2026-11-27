@@ -63,7 +63,7 @@ func (s *Service) QuoteChannelModel(userID string, req ChannelModelQuoteRequest)
 }
 
 func validateQuoteIntent(intent ModelRequestIntent) error {
-	if intent.Capability != "text" && intent.Capability != "image" && intent.Capability != "video" && intent.Capability != "audio" {
+	if intent.Capability != "text" && intent.Capability != "image" && intent.Capability != "video" && intent.Capability != "audio" && intent.Capability != "transcription" {
 		return BadAuthRequest("报价请求缺少有效的模型能力类型")
 	}
 	for _, count := range intent.Inputs {
@@ -172,7 +172,7 @@ func (s *Service) QuoteLogicalModel(userID string, logicalModelID string, intent
 	input["config"].(map[string]any)["providerModelKey"] = providerModelKey
 	config, _ := input["config"].(map[string]any)
 	quantity := requestedBillingQuantity(capability, config)
-	if capability != "video" && capability != "audio" {
+	if capability != "video" && capability != "audio" && capability != "transcription" {
 		quantity = 1
 	}
 	tokenEstimate := estimateTaskBillingTokens(input, capability)
@@ -210,7 +210,7 @@ func (s *Service) QuoteLogicalModel(userID string, logicalModelID string, intent
 		quantity = 1
 		amount, err = creditAmount(routed.LogicalModel.UnitPriceMicrocredits, 1, groupBPS)
 	case "per_second":
-		if (capability != "video" && capability != "audio") || quantity <= 0 {
+		if (capability != "video" && capability != "audio" && capability != "transcription") || quantity <= 0 {
 			return nil, BadAuthRequest("当前模型按时长计费，但请求未提供有效时长")
 		}
 		amount, err = creditAmount(routed.LogicalModel.UnitPriceMicrocredits, quantity, groupBPS)

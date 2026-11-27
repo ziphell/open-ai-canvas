@@ -9,7 +9,10 @@ import (
 
 const (
 	WorkflowPluginRunningHub = "runninghub-workflow-provider"
+	WorkflowPluginComfyUI    = "comfyui-workflow-provider"
 )
+
+var bundledWorkflowPluginIDs = []string{WorkflowPluginRunningHub, WorkflowPluginComfyUI}
 
 // bundledWorkflowPluginManifests keeps workflow capabilities in the same
 // runtime registry as protocol plugins. The execution implementation remains
@@ -17,7 +20,8 @@ const (
 // governed by the plugin runtime rather than by individual UI consumers.
 func bundledWorkflowPluginManifests() []protocol.Manifest {
 	return []protocol.Manifest{
-		workflowPluginManifest(WorkflowPluginRunningHub, "RunningHub / ComfyUI 工作流", "在画布中执行 RunningHub Workflow、AI App，或用户自建 ComfyUI 的导入工作流。"),
+		workflowPluginManifest(WorkflowPluginRunningHub, "RunningHub 工作流", "在画布中执行 RunningHub Workflow 与 AI App。"),
+		workflowPluginManifest(WorkflowPluginComfyUI, "ComfyUI 工作流", "在后端直连自建 ComfyUI，执行导入的 API 格式工作流。"),
 	}
 }
 
@@ -53,20 +57,19 @@ func workflowPluginManifest(id, name, description string) protocol.Manifest {
 }
 
 func workflowPluginIDForInterface(value string) (string, bool) {
-	// RunningHub 与自建 ComfyUI 共用同一个工作流应用插件：用户只启用一次，
-	// 具体连接方式由渠道配置决定。
 	switch value {
-	case "runninghub-workflow-image", "runninghub-workflow-video", "runninghub-workflow-audio",
-		"comfyui-workflow-image", "comfyui-workflow-video", "comfyui-workflow-audio":
+	case "runninghub-workflow-image", "runninghub-workflow-video", "runninghub-workflow-audio":
 		return WorkflowPluginRunningHub, true
+	case "comfyui-workflow-image", "comfyui-workflow-video", "comfyui-workflow-audio":
+		return WorkflowPluginComfyUI, true
 	default:
 		return "", false
 	}
 }
 
 func (s *Service) WorkflowPluginStatuses() map[string]string {
-	statuses := make(map[string]string, 1)
-	for _, pluginID := range []string{WorkflowPluginRunningHub} {
+	statuses := make(map[string]string, len(bundledWorkflowPluginIDs))
+	for _, pluginID := range bundledWorkflowPluginIDs {
 		state, err := s.pluginStateForUser(nil, pluginID, s.Plugins())
 		if err == nil && state.PlatformAvailable {
 			statuses[pluginID] = "enabled"
@@ -78,9 +81,9 @@ func (s *Service) WorkflowPluginStatuses() map[string]string {
 }
 
 func (s *Service) WorkflowPluginStatusesForUser(userID string) (map[string]string, error) {
-	statuses := make(map[string]string, 1)
+	statuses := make(map[string]string, len(bundledWorkflowPluginIDs))
 	actor := &model.User{ID: strings.TrimSpace(userID)}
-	for _, pluginID := range []string{WorkflowPluginRunningHub} {
+	for _, pluginID := range bundledWorkflowPluginIDs {
 		state, err := s.pluginStateForUser(actor, pluginID, s.Plugins())
 		if err != nil {
 			return nil, err

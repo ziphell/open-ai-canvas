@@ -353,9 +353,10 @@ export type CanvasNodeMetadata = {
     producedModel?: string;
     /** 本次生成已提交、尚未成功落盘的模型身份。失败或改下拉都不改产出模型。 */
     producedModelCandidate?: string;
-    workflowProvider?: "model" | "runninghub";
+    workflowProvider?: "model" | "runninghub" | "comfyui";
     runningHubWorkflowId?: string;
     runningHubWorkflowKind?: "workflow" | "app";
+    comfyUIWorkflowId?: string;
     /** 当前画布节点覆盖的工作流动态字段，键为 source:* 或 field:nodeId:fieldName。 */
     workflowParameters?: Record<string, unknown>;
     size?: string;

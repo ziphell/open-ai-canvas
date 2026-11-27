@@ -380,7 +380,7 @@ function requestKindText(value: ApiCallLog["requestKind"]) {
 }
 
 function capabilityText(value: string) {
-    return ({ text: "文本", image: "图片", video: "视频", audio: "音频" } as Record<string, string>)[value] || "未知";
+    return ({ text: "文本", image: "图片", video: "视频", audio: "音频", transcription: "转写" } as Record<string, string>)[value] || "未知";
 }
 
 function formatTime(value?: string) {
